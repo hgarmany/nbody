@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <vector>
 
 #include <iostream>
 
@@ -21,4 +22,6 @@ public:
 	}
 
 	Surface(const char* path, glm::vec4 material, glm::vec3 color);
+
+	static Surface CubeMap(std::vector<std::string> faces);
 };

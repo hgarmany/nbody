@@ -25,22 +25,34 @@ glm::dmat4 Entity::updateMatrix() {
 	return modelMatrix;
 }
 
-void Entity::draw(Shader shader) {
-	glUniform3fv(shader.objectColor, 1, &surface.color[0]);
-	glUniform4fv(shader.objectMat, 1, &surface.material[0]);
+void Entity::draw(Shader shader, uint8_t mode) {
+	glBindVertexArray(Model::modelLibrary[modelIndex].VAO);
+
+	if (shader.objectColor)
+		glUniform3fv(shader.objectColor, 1, &surface.color[0]);
+	if (shader.objectMat)
+		glUniform4fv(shader.objectMat, 1, &surface.material[0]);
 
 	if (surface.texture != -1) {
-		glBindTexture(GL_TEXTURE_2D, surface.texture);
-		glUniform1i(shader.texBool, 1);
+		if (mode == MODE_TEX) {
+			glBindTexture(GL_TEXTURE_2D, surface.texture);
+			if (shader.texBool)
+				glUniform1i(shader.texBool, 1);
+		}
+		else if (mode == MODE_CUBEMAP) {
+			glBindTexture(GL_TEXTURE_CUBE_MAP, surface.texture);
+		}
 	}
 	else {
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glUniform1i(shader.texBool, 0);
 	}
 
-	glm::mat4 M = updateMatrix();
-	glUniformMatrix4fv(shader.M, 1, GL_FALSE, &M[0][0]);
-	glBindVertexArray(model->VAO);
-	glDrawElements(GL_TRIANGLES, (GLsizei)model->indices.size(), GL_UNSIGNED_INT, 0);
+	if (mode != MODE_CUBEMAP) {
+		glm::mat4 M = updateMatrix();
+		glUniformMatrix4fv(shader.M, 1, GL_FALSE, &M[0][0]);
+	}
+
+	glDrawElements(GL_TRIANGLES, (GLsizei)Model::modelLibrary[modelIndex].indexLength, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }

@@ -8,8 +8,7 @@
 
 class Entity {
 public:
-	std::shared_ptr<Model> model;
-
+	Surface surface;
 	glm::dmat4 modelMatrix;
 	glm::dvec3 position;
 	glm::dvec3 prevPosition;
@@ -17,7 +16,7 @@ public:
 	glm::dvec3 acceleration;
 	glm::dvec3 orientation;
 	glm::dvec3 scale;
-	Surface surface;
+	size_t modelIndex;
 
 	Entity() {
 		modelMatrix = glm::dmat4(1.0f);
@@ -32,11 +31,13 @@ public:
 		surface.material = glm::vec4(0.1f, 1.0f, 1.0f, 0.0f);
 		surface.color = glm::vec3(1.0f);
 		surface.texture = -1;
+
+		modelIndex = -1;
 	}
 
 	glm::dquat getRotationQuat();
 	glm::dmat4 updateMatrix();
-	void draw(Shader shader);
+	void draw(Shader shader, uint8_t mode);
 
 	virtual ~Entity() {}
 };
@@ -52,8 +53,12 @@ public:
 		entity = std::make_shared<Entity>();
 	}
 
-	void setModel(std::shared_ptr<Model> model) {
-		entity->model = model;
+	/*void setModel(int modelIndex) {
+		entity->modelIndex = modelIndex;
+	}*/
+
+	void setModel(size_t modelIndex) {
+		entity->modelIndex = modelIndex;
 	}
 
 	void setMotion(glm::dvec3 position, glm::dvec3 velocity = glm::dvec3(0.0f)) {

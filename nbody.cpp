@@ -12,12 +12,13 @@ Shader shader, skyboxShader;
 glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / HEIGHT, 1e2f, 1e9f);
 GLFWwindow* window;
 Entity skybox;
-Surface earth, sun, moon;
 
 // Camera and lighting
 glm::vec3 lightPos;
 glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
 glm::vec3 objectColor(1.0f, 0.5f, 0.31f);
+
+size_t cube_m, sphere_m;
 
 // Function to update the projection matrix based on window size
 void static updateProjectionMatrix(GLFWwindow* window) {
@@ -73,59 +74,6 @@ void static initWindow() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor initially
 }
 
-// Load a cubemap texture from 6 individual texture faces
-unsigned int static loadCubemap() {
-	// Load the cubemap textures
-	std::vector<std::string> faces = {
-		"assets/right.jpg",
-		"assets/left.jpg",
-		"assets/top.jpg",
-		"assets/bottom.jpg",
-		"assets/front.jpg",
-		"assets/back.jpg"
-	};
-
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-	int width, height, nrChannels;
-	for (unsigned int i = 0; i < faces.size(); i++) {
-		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
-		if (data) {
-			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-			stbi_image_free(data);
-		}
-		else {
-			std::cerr << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
-			stbi_image_free(data);
-		}
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	return textureID;
-}
-
-void static renderSkybox(unsigned int skyboxVAO, unsigned int cubemapTexture) {
-	glDepthFunc(GL_LEQUAL);
-	glUseProgram(skyboxShader.index);
-
-	glm::mat4 view = glm::mat4(glm::mat3(camera.viewMatrix()));
-	glUniformMatrix4fv(skyboxShader.P, 1, GL_FALSE, &projection[0][0]);
-	glUniformMatrix4fv(skyboxShader.V, 1, GL_FALSE, &view[0][0]);
-
-	glBindVertexArray(skyboxVAO);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-
-	glDepthFunc(GL_LESS);
-}
-
 void static render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -140,7 +88,19 @@ void static render() {
 	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &view[0][0]);
 
 	for (Entity body : bodies)
-		body.draw(shader);
+		body.draw(shader, MODE_TEX);
+
+
+	glDepthFunc(GL_LEQUAL);
+	glUseProgram(skyboxShader.index);
+
+	view = glm::mat4(glm::mat3(camera.viewMatrix()));
+	glUniformMatrix4fv(skyboxShader.P, 1, GL_FALSE, &projection[0][0]);
+	glUniformMatrix4fv(skyboxShader.V, 1, GL_FALSE, &view[0][0]);
+
+	skybox.draw(skyboxShader, MODE_CUBEMAP);
+
+	glDepthFunc(GL_LESS);
 }
 
 void static MessageCallback(GLenum source,
@@ -156,15 +116,25 @@ void static MessageCallback(GLenum source,
 		type, severity, message);
 }
 
-void buildObjects(std::shared_ptr<Model> sphere, std::shared_ptr<Model> cube) {
-	earth = Surface("assets/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
-	moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
-	sun = Surface("assets/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
+void buildObjects() {
+	std::vector<std::string> faces = {
+		"assets/right.jpg",
+		"assets/left.jpg",
+		"assets/top.jpg",
+		"assets/bottom.jpg",
+		"assets/front.jpg",
+		"assets/back.jpg"
+	};
+
+	Surface earth = Surface("assets/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
+	Surface moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
+	Surface sun = Surface("assets/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
+	Surface stars = Surface::CubeMap(faces);
 
 	// sun
 	GravityBodyBuilder builder;
 	builder.init(1.9891e30f);
-	builder.setModel(sphere);
+	builder.setModel(cube_m);
 	builder.setRadius(500.0f);
 	builder.setMotion(glm::vec3(0.0), glm::vec3(0.0));
 	builder.setSurface(sun);
@@ -172,7 +142,7 @@ void buildObjects(std::shared_ptr<Model> sphere, std::shared_ptr<Model> cube) {
 
 	// earth
 	builder.init(5.9722e24f);
-	builder.setModel(sphere);
+	builder.setModel(sphere_m);
 	builder.setRadius(250.0f);
 	builder.setMotion(glm::vec3(149598.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.029786));
 	builder.setSurface(earth);
@@ -180,7 +150,7 @@ void buildObjects(std::shared_ptr<Model> sphere, std::shared_ptr<Model> cube) {
 
 	//moon
 	builder.init(7.3477e22f);
-	builder.setModel(sphere);
+	builder.setModel(sphere_m);
 	builder.setRadius(100.0f);
 	builder.setMotion(glm::vec3(149982.7, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.030808));
 	builder.setSurface(moon);
@@ -188,12 +158,19 @@ void buildObjects(std::shared_ptr<Model> sphere, std::shared_ptr<Model> cube) {
 
 	// !earth
 	builder.init(5.9722e24f);
-	builder.setModel(sphere);
+	builder.setModel(sphere_m);
 	builder.setRadius(250.0f);
 	//builder.setMotion(glm::vec3(0.0, 0.0, 149488.0), glm::vec3(-0.029797, 0.0, 0.0));
 	builder.setMotion(glm::vec3(147216.9, 0.0, 25958.3), glm::vec3(-0.0051742, 0.0, 0.029344));
 	builder.setSurface(earth);
 	bodies.push_back(builder.get());
+
+	// stars
+	EntityBuilder skyBuilder;
+	skyBuilder.init();
+	skyBuilder.setModel(cube_m);
+	skyBuilder.setSurface(stars);
+	skybox = skyBuilder.get();
 }
 
 int main() {
@@ -207,15 +184,10 @@ int main() {
 	skyboxShader = initSkyboxShader();
 
 	// Generate the sphere's vertices and indices
-	Model c_model = Model::Cube();
-	Model s_model = Model::Icosphere(3);
-	std::shared_ptr<Model> cube = std::make_shared<Model>(c_model);
-	std::shared_ptr<Model> sphere = std::make_shared<Model>(s_model);
+	cube_m = Model::Cube();
+	sphere_m = Model::Icosphere(3);
 
-	unsigned int cubemapTexture = loadCubemap();
-
-	skybox.model = cube;
-	buildObjects(sphere, cube);
+	buildObjects();
 
 	// setup starting camera
 	camera.position = bodies[1].position;
@@ -257,7 +229,6 @@ int main() {
 		if (currentTime - lastFrameTime > MAX_FRAME_TIME) {
 			//std::cout << currentTime - lastFrameTime << "\n";
 			render();
-			renderSkybox(skybox.model->VAO, cubemapTexture);
 			lastFrameTime = currentTime;
 
 			glfwSwapBuffers(window);

@@ -171,6 +171,8 @@ Shader initSkyboxShader() {
 	shader.index = shaderProgram;
 	shader.V = glGetUniformLocation(shaderProgram, "view");
 	shader.P = glGetUniformLocation(shaderProgram, "projection");
+	shader.objectColor = 0;
+	shader.objectMat = 0;
 
 	return shader;
 }

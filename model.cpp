@@ -2,11 +2,33 @@
 #include <unordered_map>
 #include <string>
 
-void Model::generateNormals() {
-	size_t numFaces = indices.size() / 3;  // Each vertex has 3 components (x, y, z)
-	size_t numVerts = vertices.size();
+std::vector<Model> Model::modelLibrary;
+std::vector<GLfloat> Model::vertexLibrary;
+std::vector<GLuint> Model::indexLibrary;
+std::vector<GLfloat> Model::normalLibrary;
+std::vector<GLfloat> Model::texLibrary;
+
+size_t Model::ModelFromImportedVectors(std::vector<GLfloat>& verts, std::vector<GLuint>& indices, std::vector<GLfloat>& normals, std::vector<GLfloat>& tex) {
+	size_t vertStart = vertexLibrary.size();
+	size_t indexStart = indexLibrary.size();
+	size_t normalStart = normalLibrary.size();
+	size_t texStart = texLibrary.size();
+
+	vertexLibrary.insert(vertexLibrary.end(), verts.begin(), verts.end());
+	indexLibrary.insert(indexLibrary.end(), indices.begin(), indices.end());
+	normalLibrary.insert(normalLibrary.end(), normals.begin(), normals.end());
+	texLibrary.insert(texLibrary.end(), tex.begin(), tex.end());
+
+	modelLibrary.emplace_back(vertStart, verts.size(), indexStart, indices.size(), normalStart, normals.size(), texStart, tex.size());
+	return modelLibrary.size() - 1;
+}
+
+size_t Model::generateNormals() {
+	size_t numFaces = indexLength / 3;  // Each vertex has 3 components (x, y, z)
+	size_t numVerts = vertsLength;
 
 	// Initialize normals to zero
+	std::vector<GLfloat> normals;
 	normals.reserve(numVerts);  // Same size as vertices
 	for (int i = 0; i < numVerts; i++) {
 		normals.push_back(0.0f);
@@ -15,12 +37,12 @@ void Model::generateNormals() {
 	// Iterate through each triangle (each group of 3 vertices)
 	for (int i = 0; i < numFaces; i++) {
 		// Extract the 3 vertices for the current triangle
-		GLint a = indices[3 * i];
-		GLint b = indices[3 * i + 1];
-		GLint c = indices[3 * i + 2];
-		glm::vec3 v0(vertices[3 * a], vertices[3 * a + 1], vertices[3 * a + 2]);
-		glm::vec3 v1(vertices[3 * b], vertices[3 * b + 1], vertices[3 * b + 2]);
-		glm::vec3 v2(vertices[3 * c], vertices[3 * c + 1], vertices[3 * c + 2]);
+		GLint a = indexLibrary[indexStart + 3 * i];
+		GLint b = indexLibrary[indexStart + 3 * i + 1];
+		GLint c = indexLibrary[indexStart + 3 * i + 2];
+		glm::vec3 v0(vertexLibrary[vertsStart + 3 * a], vertexLibrary[vertsStart + 3 * a + 1], vertexLibrary[vertsStart + 3 * a + 2]);
+		glm::vec3 v1(vertexLibrary[vertsStart + 3 * b], vertexLibrary[vertsStart + 3 * b + 1], vertexLibrary[vertsStart + 3 * b + 2]);
+		glm::vec3 v2(vertexLibrary[vertsStart + 3 * c], vertexLibrary[vertsStart + 3 * c + 1], vertexLibrary[vertsStart + 3 * c + 2]);
 
 		// Calculate two edge vectors of the triangle
 		glm::vec3 edge1 = v1 - v0;
@@ -51,9 +73,13 @@ void Model::generateNormals() {
 		normals[i + 1] = normal.y;
 		normals[i + 2] = normal.z;
 	}
+
+	size_t normalStart = normalLibrary.size();
+	normalLibrary.insert(normalLibrary.end(), normals.begin(), normals.end());
+	return normalStart;
 }
 
-Model Model::Cube() {
+size_t Model::Cube() {
 	std::vector<GLfloat> tempVer = {
 		-1.0f, -1.0f, -1.0f,
 		1.0f, -1.0f, -1.0f,
@@ -159,10 +185,10 @@ Model Model::Cube() {
 		20, 23, 22, 20, 22, 21
 	};
 
-	return Model(tempVer, tempInd, tempNor, tempTex);
+	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
 }
 
-Model Model::Sphere() {
+size_t Model::Sphere() {
 	// Define sphere properties
 	const int SPHERE_LATITUDE = 50; // Number of latitude lines
 	const int SPHERE_LONGITUDE = 50; // Number of longitude lines
@@ -216,10 +242,10 @@ Model Model::Sphere() {
 		}
 	}
 
-	return Model(tempVer, tempInd, tempNor, tempTex);
+	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
 }
 
-Model Model::Icosphere(int subdivisions) {
+size_t Model::Icosphere(int subdivisions) {
 	// Define the 12 vertices of the icosahedron
 	std::vector<GLfloat> vertices = {
 		-.525731f, .0f, .850650f,
@@ -336,8 +362,8 @@ Model Model::Icosphere(int subdivisions) {
 		tempNor.push_back(nz);
 
 		// Calculate spherical coordinates (longitude and latitude)
-		GLfloat u = 0.5 - (atan2(nz, nx) / (2.0f * pi));
-		GLfloat v = 0.5 - (asin(ny) / pi);
+		GLfloat u = 0.5f - (atan2(nz, nx) / (2.0f * pi));
+		GLfloat v = 0.5f - (asin(ny) / pi);
 
 		// Add the texture coordinates to the list
 		tempTex.push_back(u);
@@ -361,7 +387,7 @@ Model Model::Icosphere(int subdivisions) {
 		}
 
 		if (dupIndex != -1) {
-			int newIndex = tempVer.size() / 3;
+			size_t newIndex = tempVer.size() / 3;
 			tempVer.push_back(tempVer[face[dupIndex] * 3] );
 			tempVer.push_back(tempVer[face[dupIndex] * 3 + 1]);
 			tempVer.push_back(tempVer[face[dupIndex] * 3 + 2]);
@@ -372,11 +398,11 @@ Model Model::Icosphere(int subdivisions) {
 
 			GLfloat oldU = tempTex[face[dupIndex] * 2];
 			bool dupIsLeft = oldU < tempTex[face[(dupIndex + 1) % 3]];
-			GLfloat newU = dupIsLeft ? oldU + 1.0 : oldU - 1.0;
+			GLfloat newU = dupIsLeft ? oldU + 1.0f : oldU - 1.0f;
 			tempTex.push_back(newU);
 			tempTex.push_back(tempTex[face[dupIndex] * 2 + 1]);
 
-			face[dupIndex] = newIndex;
+			face[dupIndex] = (GLuint)newIndex;
 		}
 
 		tempInd.push_back(face[0]);
@@ -384,6 +410,5 @@ Model Model::Icosphere(int subdivisions) {
 		tempInd.push_back(face[2]);
 	}
 
-	// Return the model with vertices, indices, normals, and texture coordinates
-	return Model(tempVer, tempInd, tempNor, tempTex);
+	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
 }
