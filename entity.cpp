@@ -28,16 +28,29 @@ glm::dmat4 Entity::updateMatrix() {
 void Entity::draw(Shader shader, uint8_t mode) {
 	glBindVertexArray(Model::modelLibrary[modelIndex].VAO);
 
-	if (shader.objectColor)
-		glUniform3fv(shader.objectColor, 1, &surface.color[0]);
-	if (shader.objectMat)
-		glUniform4fv(shader.objectMat, 1, &surface.material[0]);
+	if (shader.uniforms.contains(OBJ_COLOR))
+		glUniform3fv(shader.uniforms[OBJ_COLOR], 1, &surface.color[0]);
+	if (shader.uniforms.contains(OBJ_MAT))
+		glUniform4fv(shader.uniforms[OBJ_MAT], 1, &surface.material[0]);
+
+
+	// Handle displacement map for the vertex shader
+	if (surface.normal != -1) {
+		glActiveTexture(GL_TEXTURE1); // Use a different texture unit
+		glBindTexture(GL_TEXTURE_2D, surface.normal);
+		glUniform1i(shader.uniforms[NORMAL_MAP], 1); // Tell shader to use texture unit 1
+		glUniform1i(shader.uniforms[NORM_BOOL], 1);
+	}
+	else if (mode == MODE_TEX) {
+		glUniform1i(shader.uniforms[NORM_BOOL], 0);
+	}
 
 	if (surface.texture != -1) {
+		glActiveTexture(GL_TEXTURE0);
 		if (mode == MODE_TEX) {
 			glBindTexture(GL_TEXTURE_2D, surface.texture);
-			if (shader.texBool)
-				glUniform1i(shader.texBool, 1);
+			glUniform1i(shader.uniforms[TEX_MAP], 0);
+			glUniform1i(shader.uniforms[TEX_BOOL], 1);
 		}
 		else if (mode == MODE_CUBEMAP) {
 			glBindTexture(GL_TEXTURE_CUBE_MAP, surface.texture);
@@ -45,7 +58,7 @@ void Entity::draw(Shader shader, uint8_t mode) {
 	}
 	else {
 		glBindTexture(GL_TEXTURE_2D, 0);
-		glUniform1i(shader.texBool, 0);
+		glUniform1i(shader.uniforms[TEX_BOOL], 0);
 	}
 
 	if (mode != MODE_CUBEMAP) {

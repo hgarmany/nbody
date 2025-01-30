@@ -28,13 +28,13 @@ std::map<keyMapName, int> keyMap = {
 keyMapName mousePXAction = YAW_LEFT, mouseNXAction = YAW_RIGHT, mousePYAction = PITCH_UP, mouseNYAction = PITCH_DOWN;
 
 // Camera movement speed
-double cameraSpeed = 100.0f;
+double cameraSpeed = 2e4;
 
 void setXY(GLFWwindow* window) {
 	glfwGetCursorPos(window, &lastX, &lastY);
 }
 
-// Function to update the camera direction based on mouse input
+// update the camera orientation based on mouse input
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	if (cursorDisabled) {
 		float xOffset = (float)(lastX - xpos);
@@ -75,7 +75,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 
 
 
-// Function to move the camera based on keyboard input
+// process key presses and releases
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
@@ -84,12 +84,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		}
 	}
 
-	if (action == GLFW_RELEASE) {
-		/*switch (key) {
+	/*if (action == GLFW_RELEASE) {
+		switch (key) {
 		default:
 			break;
-		}*/
-	}
+		}
+	}*/
 }
 
 // Function to move the camera based on keyboard input
@@ -105,38 +105,38 @@ void flyCam(GLFWwindow* window, double deltaTime) {
 	if (glfwGetKey(window, keyMap[STRAFE_RIGHT]) == GLFW_PRESS)
 		camera.position += camera.right * velocity;
 	if (glfwGetKey(window, keyMap[PITCH_UP]) == GLFW_PRESS)
-		camera.setOrientation(2.0f * deltaTime, 0.0f, 0.0f);
+		camera.setOrientation(deltaTime, 0.0f, 0.0f);
 	if (glfwGetKey(window, keyMap[PITCH_DOWN]) == GLFW_PRESS)
-		camera.setOrientation(-2.0f * deltaTime, 0.0f, 0.0f);
+		camera.setOrientation(-deltaTime, 0.0f, 0.0f);
 	if (glfwGetKey(window, keyMap[YAW_LEFT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, 2.0f * deltaTime, 0.0f);
+		camera.setOrientation(0.0f, deltaTime, 0.0f);
 	if (glfwGetKey(window, keyMap[YAW_RIGHT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, -2.0f * deltaTime, 0.0f);
+		camera.setOrientation(0.0f, -deltaTime, 0.0f);
 
 	if (glfwGetKey(window, keyMap[ROLL_LEFT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, 0.0f, -2.0f * deltaTime);
+		camera.setOrientation(0.0f, 0.0f, -deltaTime / SENSITIVITY);
 	if (glfwGetKey(window, keyMap[ROLL_RIGHT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, 0.0f, 2.0f * deltaTime);
+		camera.setOrientation(0.0f, 0.0f, deltaTime / SENSITIVITY);
 }
 
-// Function to toggle cursor visibility
+// toggle between usable cursor and mouse-controlled camera
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 		cursorDisabled = !cursorDisabled;
 
 		if (cursorDisabled)
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // hide and capture cursor
 		else
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); // Enable cursor
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); // enable cursor
 	}
 }
 
-// Scroll callback function
+// mouse scroll processing
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	if (yoffset > 0) {
-		cameraSpeed *= 0.8f; // Decrease speed when scrolling up
+		cameraSpeed *= 0.8f; // decrease speed when scrolling up
 	}
 	else {
-		cameraSpeed *= 1.2f; // Increase speed when scrolling down
+		cameraSpeed *= 1.2f; // increase speed when scrolling down
 	}
 }

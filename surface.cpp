@@ -1,7 +1,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "surface.h"
 
-Surface::Surface(const char* path, glm::vec4 material, glm::vec3 color) {
+GLuint Surface::getTexture(const char* path) {
+	GLuint texture;
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
@@ -10,12 +11,26 @@ Surface::Surface(const char* path, glm::vec4 material, glm::vec3 color) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	int width, height, nrChannels;
-	unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+	int width, height, numChannels;
+	unsigned char* data = stbi_load(path, &width, &height, &numChannels, 0);
 
 	if (data) {
-		GLuint colorType = nrChannels == 4 ? GL_RGBA : GL_RGB;
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		GLint internalFormat = GL_RGB, format = GL_RGB;
+
+		switch (numChannels) {
+		case 1:
+			internalFormat = GL_R8;
+			format = GL_RED;
+			break;
+		case 3:
+			break;
+		case 4:
+			internalFormat = format = GL_RGBA;
+			break;
+		default:
+			std::cerr << "Unsupported image format: " << numChannels << " channels.\n";
+		}
+		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 	}
 	else {
 		std::cerr << "Texture failed to load at path: " << path << "\n";
@@ -23,8 +38,14 @@ Surface::Surface(const char* path, glm::vec4 material, glm::vec3 color) {
 
 	stbi_image_free(data);
 
+	return texture;
+}
+
+Surface::Surface(const char* path, glm::vec4 material, glm::vec3 color) {
 	this->material = material;
 	this->color = color;
+	texture = getTexture(path);
+	normal = -1;
 }
 
 Surface Surface::CubeMap(std::vector<std::string> faces) {

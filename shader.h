@@ -1,19 +1,17 @@
 #pragma once
 
 #include <GL/glew.h>
+#include <map>
 
-typedef struct shaderInfo {
-    GLuint index;
-    GLuint M;
-    GLuint V;
-    GLuint P;
-    GLuint lightPos;
-    GLuint lightColor;
-    GLuint objectColor;
-    GLuint objectMat;
-    GLuint viewPos;
-    GLuint texBool;
-    GLuint misc;
+enum shaderUniform : uint8_t
+{
+    LIGHT_POS, LIGHT_COLOR, OBJ_COLOR, OBJ_MAT, VIEW_POS, TEX_BOOL, NORM_BOOL, TEX_MAP, NORMAL_MAP
+};
+
+typedef struct shader {
+    GLuint index, M, V, P;
+    std::map<uint8_t, GLuint> uniforms;
+
 } Shader;
 
 Shader initStandardShader();

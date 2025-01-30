@@ -9,16 +9,15 @@
 #include "stb_image.h"
 
 Shader shader, skyboxShader;
-glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / HEIGHT, 1e2f, 1e9f);
+glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / HEIGHT, 1e0f, 1e9f);
 GLFWwindow* window;
 Entity skybox;
 
 // Camera and lighting
-glm::vec3 lightPos;
-glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
+size_t starBody;
 glm::vec3 objectColor(1.0f, 0.5f, 0.31f);
 
-size_t cube_m, sphere_m;
+size_t cube, sphere;
 
 // Function to update the projection matrix based on window size
 void static updateProjectionMatrix(GLFWwindow* window) {
@@ -31,7 +30,7 @@ void static updateProjectionMatrix(GLFWwindow* window) {
 	float aspect = (float)width / (float)height;
 
 	// Define the projection matrix (FOV, aspect ratio, near, far)
-	projection = glm::perspective(glm::radians(30.0f), aspect, 1e2f, 1e9f);
+	projection = glm::perspective(glm::radians(30.0f), aspect, 1e0f, 1e9f);
 }
 
 // Set this function as a callback to update projection matrix during window resizing
@@ -50,7 +49,13 @@ void static initWindow() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+	glfwWindowHint(GLFW_DEPTH_BITS, 32);
+
+	// multisample buffer for antialiasing
+	glfwWindowHint(GLFW_SAMPLES, 4);
+
 	window = glfwCreateWindow(WIDTH, HEIGHT, "N-Body Simulator", nullptr, nullptr);
+
 	if (!window) {
 		std::cerr << "Window creation failed!" << std::endl;
 		glfwTerminate();
@@ -61,7 +66,6 @@ void static initWindow() {
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
 		glViewport(0, 0, width, height);
 		});
-	glfwWindowHint(GLFW_DEPTH_BITS, 32);
 
 	glewInit();
 
@@ -74,18 +78,24 @@ void static initWindow() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor initially
 }
 
+void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
+	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
+	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
+}
+
 void static render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Activate the shader program
 	glUseProgram(shader.index);
-	glUniform3fv(shader.lightPos, 1, &lightPos[0]);
-	glUniform3fv(shader.lightColor, 1, &lightColor[0]);
-	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &projection[0][0]);
+	glm::vec3 lightPos = bodies[starBody].position;
+	glm::vec3 lightColor = glm::vec3(1.0f);
+	glUniform3fv(shader.uniforms[LIGHT_POS], 1, &lightPos[0]);
+	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
 
-	// Set the camera and light properties
+	// set camera
 	glm::mat4 view = camera.viewMatrix();
-	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &view[0][0]);
+	setPV(shader, projection, view);
 
 	for (Entity body : bodies)
 		body.draw(shader, MODE_TEX);
@@ -94,9 +104,9 @@ void static render() {
 	glDepthFunc(GL_LEQUAL);
 	glUseProgram(skyboxShader.index);
 
-	view = glm::mat4(glm::mat3(camera.viewMatrix()));
-	glUniformMatrix4fv(skyboxShader.P, 1, GL_FALSE, &projection[0][0]);
-	glUniformMatrix4fv(skyboxShader.V, 1, GL_FALSE, &view[0][0]);
+	// set camera
+	view = glm::mat4(glm::mat3(view));
+	setPV(skyboxShader, projection, view);
 
 	skybox.draw(skyboxShader, MODE_CUBEMAP);
 
@@ -127,22 +137,26 @@ void buildObjects() {
 	};
 
 	Surface earth = Surface("assets/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
-	Surface moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
-	Surface sun = Surface("assets/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
+	Surface moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
+	moon.normal = Surface::getTexture("assets/moon_normal.jpg");
+	//moon.displacement = earth.displacement;
+	//Surface sun = Surface("assets/spectrum.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
+	Surface sun = Surface("assets/earth.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
 	Surface stars = Surface::CubeMap(faces);
 
 	// sun
 	GravityBodyBuilder builder;
 	builder.init(1.9891e30f);
-	builder.setModel(cube_m);
+	builder.setModel(sphere);
 	builder.setRadius(500.0f);
 	builder.setMotion(glm::vec3(0.0), glm::vec3(0.0));
 	builder.setSurface(sun);
 	bodies.push_back(builder.get());
+	starBody = 0;
 
 	// earth
 	builder.init(5.9722e24f);
-	builder.setModel(sphere_m);
+	builder.setModel(sphere);
 	builder.setRadius(250.0f);
 	builder.setMotion(glm::vec3(149598.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.029786));
 	builder.setSurface(earth);
@@ -150,7 +164,7 @@ void buildObjects() {
 
 	//moon
 	builder.init(7.3477e22f);
-	builder.setModel(sphere_m);
+	builder.setModel(sphere);
 	builder.setRadius(100.0f);
 	builder.setMotion(glm::vec3(149982.7, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.030808));
 	builder.setSurface(moon);
@@ -158,7 +172,7 @@ void buildObjects() {
 
 	// !earth
 	builder.init(5.9722e24f);
-	builder.setModel(sphere_m);
+	builder.setModel(sphere);
 	builder.setRadius(250.0f);
 	//builder.setMotion(glm::vec3(0.0, 0.0, 149488.0), glm::vec3(-0.029797, 0.0, 0.0));
 	builder.setMotion(glm::vec3(147216.9, 0.0, 25958.3), glm::vec3(-0.0051742, 0.0, 0.029344));
@@ -168,7 +182,7 @@ void buildObjects() {
 	// stars
 	EntityBuilder skyBuilder;
 	skyBuilder.init();
-	skyBuilder.setModel(cube_m);
+	skyBuilder.setModel(cube);
 	skyBuilder.setSurface(stars);
 	skybox = skyBuilder.get();
 }
@@ -176,16 +190,18 @@ void buildObjects() {
 int main() {
 	initWindow();
 
-	// During init, enable debug output
+#ifdef _DEBUG
+	// enable OpenGL debug messages
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(MessageCallback, 0);
+#endif
 
 	shader = initStandardShader();
 	skyboxShader = initSkyboxShader();
 
-	// Generate the sphere's vertices and indices
-	cube_m = Model::Cube();
-	sphere_m = Model::Icosphere(3);
+	// initialize models
+	cube = Model::Cube();
+	sphere = Model::Icosphere(3);
 
 	buildObjects();
 
@@ -199,6 +215,7 @@ int main() {
 	setXY(window);
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_MULTISAMPLE);
 
 	double lastLoopTime = glfwGetTime();
 	double lastFrameTime = lastLoopTime;
@@ -222,9 +239,6 @@ int main() {
 			bodies[0].orientation.x += deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 			bodies[0].orientation.x -= deltaTime;
-
-		lightPos = bodies[0].position;
-		lightPos.y += 10000;
 
 		if (currentTime - lastFrameTime > MAX_FRAME_TIME) {
 			//std::cout << currentTime - lastFrameTime << "\n";

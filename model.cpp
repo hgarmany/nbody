@@ -8,6 +8,146 @@ std::vector<GLuint> Model::indexLibrary;
 std::vector<GLfloat> Model::normalLibrary;
 std::vector<GLfloat> Model::texLibrary;
 
+Model::Model(
+	size_t vertsStart, size_t vertsLength,
+	size_t indexStart, size_t indexLength,
+	size_t normalStart, size_t normalLength,
+	size_t texStart, size_t texLength,
+	std::vector<GLfloat>& tan, std::vector<GLfloat>& bitan
+) {
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &NorBuf);
+	glGenBuffers(1, &TexBuf);
+	glGenBuffers(1, &EBO);
+
+	glBindVertexArray(VAO);
+
+	this->vertsStart = vertsStart;
+	this->vertsLength = vertsLength;
+	this->indexStart = indexStart;
+	this->indexLength = indexLength;
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, vertsLength * sizeof(GLfloat), &vertexLibrary[vertsStart], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0); // Position
+
+	if (normalLength == 0) {
+		normalStart = generateNormals();
+		normalLength = vertsLength;
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, NorBuf);
+	glBufferData(GL_ARRAY_BUFFER, normalLength * sizeof(GLfloat), &normalLibrary[normalStart], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
+
+	glBindBuffer(GL_ARRAY_BUFFER, TexBuf);
+	glBufferData(GL_ARRAY_BUFFER, texLength * sizeof(GLfloat), &texLibrary[texStart], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); // Texture coordinates
+
+
+	if (tan.size() > 0)
+	{
+		glGenBuffers(1, &TanBuf);
+		glBindBuffer(GL_ARRAY_BUFFER, TanBuf);
+		glBufferData(GL_ARRAY_BUFFER, tan.size() * sizeof(GLfloat), &tan[0], GL_STATIC_DRAW);
+		glEnableVertexAttribArray(3);
+		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
+	}
+
+	if (bitan.size() > 0)
+	{
+		glGenBuffers(1, &BitanBuf);
+		glBindBuffer(GL_ARRAY_BUFFER, BitanBuf);
+		glBufferData(GL_ARRAY_BUFFER, bitan.size() * sizeof(GLfloat), &bitan[0], GL_STATIC_DRAW);
+		glEnableVertexAttribArray(4);
+		glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
+	}
+
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLength * sizeof(GLuint), &indexLibrary[indexStart], GL_STATIC_DRAW);
+
+	glBindVertexArray(0);
+}
+
+Model::Model(
+	size_t vertsStart, size_t vertsLength,
+	size_t indexStart, size_t indexLength,
+	size_t normalStart, size_t normalLength,
+	size_t texStart, size_t texLength
+) {
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &NorBuf);
+	glGenBuffers(1, &TexBuf);
+	glGenBuffers(1, &EBO);
+
+	glBindVertexArray(VAO);
+
+	this->vertsStart = vertsStart;
+	this->vertsLength = vertsLength;
+	this->indexStart = indexStart;
+	this->indexLength = indexLength;
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, vertsLength * sizeof(GLfloat), &vertexLibrary[vertsStart], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0); // Position
+
+	if (normalLength == 0) {
+		normalStart = generateNormals();
+		normalLength = vertsLength;
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, NorBuf);
+	glBufferData(GL_ARRAY_BUFFER, normalLength * sizeof(GLfloat), &normalLibrary[normalStart], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
+
+	glBindBuffer(GL_ARRAY_BUFFER, TexBuf);
+	glBufferData(GL_ARRAY_BUFFER, texLength * sizeof(GLfloat), &texLibrary[texStart], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); // Texture coordinates
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLength * sizeof(GLuint), &indexLibrary[indexStart], GL_STATIC_DRAW);
+
+	glBindVertexArray(0);
+}
+
+size_t Model::ModelFromImportedVectors(
+	std::vector<GLfloat>& verts, 
+	std::vector<GLuint>& indices, 
+	std::vector<GLfloat>& normals, 
+	std::vector<GLfloat>& tex,
+	std::vector<GLfloat>& tan,
+	std::vector<GLfloat>& bitan) {
+
+	size_t vertStart = vertexLibrary.size();
+	size_t indexStart = indexLibrary.size();
+	size_t normalStart = normalLibrary.size();
+	size_t texStart = texLibrary.size();
+
+	vertexLibrary.insert(vertexLibrary.end(), verts.begin(), verts.end());
+	indexLibrary.insert(indexLibrary.end(), indices.begin(), indices.end());
+	normalLibrary.insert(normalLibrary.end(), normals.begin(), normals.end());
+	texLibrary.insert(texLibrary.end(), tex.begin(), tex.end());
+
+	modelLibrary.emplace_back(
+		vertStart, verts.size(), 
+		indexStart, indices.size(), 
+		normalStart, normals.size(), 
+		texStart, tex.size(),
+		tan, bitan);
+	return modelLibrary.size() - 1;
+}
+
 size_t Model::ModelFromImportedVectors(std::vector<GLfloat>& verts, std::vector<GLuint>& indices, std::vector<GLfloat>& normals, std::vector<GLfloat>& tex) {
 	size_t vertStart = vertexLibrary.size();
 	size_t indexStart = indexLibrary.size();
@@ -77,6 +217,23 @@ size_t Model::generateNormals() {
 	size_t normalStart = normalLibrary.size();
 	normalLibrary.insert(normalLibrary.end(), normals.begin(), normals.end());
 	return normalStart;
+}
+
+size_t duplicatePoint(std::vector<GLfloat>& vertices, std::vector<GLfloat>& normals, std::vector<GLfloat>& tex, size_t index) {
+	size_t newIndex = vertices.size() / 3;
+
+	vertices.push_back(vertices[index * 3]);
+	vertices.push_back(vertices[index * 3 + 1]);
+	vertices.push_back(vertices[index * 3 + 2]);
+
+	normals.push_back(normals[index * 3]);
+	normals.push_back(normals[index * 3 + 1]);
+	normals.push_back(normals[index * 3 + 2]);
+
+	tex.push_back(tex[index * 2]);
+	tex.push_back(tex[index * 2 + 1]);
+
+	return newIndex;
 }
 
 size_t Model::Cube() {
@@ -372,43 +529,233 @@ size_t Model::Icosphere(int subdivisions) {
 
 	// Add the indices for the faces
 	for (auto& face : faces) {
-		GLfloat u0 = tempTex[2 * face[0]];
-		GLfloat u1 = tempTex[2 * face[1]];
-		GLfloat u2 = tempTex[2 * face[2]];
+		GLfloat u0 = tempTex[face[0] * 2];
+		GLfloat u1 = tempTex[face[1] * 2];
+		GLfloat u2 = tempTex[face[2] * 2];
+
+
+		// fix polar stitching
 		int dupIndex = -1;
-		if (abs(u0 - u1) > 0.5f && abs(u0 - u2) > 0.5f) {
+		if (abs(tempVer[face[0] * 3 + 1]) > 0.999f)
 			dupIndex = 0;
-		}
-		else if (abs(u1 - u0) > 0.5f && abs(u1 - u2) > 0.5f) {
+		else if (abs(tempVer[face[1] * 3 + 1]) > 0.999f)
 			dupIndex = 1;
-		}
-		else if (abs(u2 - u0) > 0.5f && abs(u2 - u1) > 0.5f) {
+		else if (abs(tempVer[face[2] * 3 + 1]) > 0.999f)
 			dupIndex = 2;
-		}
 
 		if (dupIndex != -1) {
-			size_t newIndex = tempVer.size() / 3;
-			tempVer.push_back(tempVer[face[dupIndex] * 3] );
-			tempVer.push_back(tempVer[face[dupIndex] * 3 + 1]);
-			tempVer.push_back(tempVer[face[dupIndex] * 3 + 2]);
+			GLuint v0 = face[dupIndex];
+			GLuint v1 = face[(dupIndex + 1) % 3];
+			GLuint v2 = face[(dupIndex + 2) % 3];
 
-			tempNor.push_back(tempNor[face[dupIndex] * 3]);
-			tempNor.push_back(tempNor[face[dupIndex] * 3 + 1]);
-			tempNor.push_back(tempNor[face[dupIndex] * 3 + 2]);
+			size_t poleVert = duplicatePoint(tempVer, tempNor, tempTex, v0);
+			tempTex[poleVert * 2] = (tempTex[v1 * 2] + tempTex[v2 * 2]) * 0.5f;
+			v0 = face[dupIndex] = poleVert;
+			printf("%.3f\t%.3f\t%.3f\n", tempTex[v0 * 2], tempTex[v1 * 2], tempTex[v2 * 2]);
+
+			if (abs(tempTex[v1 * 2] - tempTex[v2 * 2]) > 0.5f) {
+				printf("split\n");
+				size_t middleVert = tempVer.size() / 3;
+				tempVer.push_back((tempVer[v1 * 3] + tempVer[v2 * 3]) * 0.5f);
+				tempVer.push_back((tempVer[v1 * 3 + 1] + tempVer[v2 * 3 + 1]) * 0.5f);
+				tempVer.push_back((tempVer[v2 * 3 + 2] + tempVer[v2 * 3 + 2]) * 0.5f);
+
+				tempNor.push_back(tempVer[middleVert * 3]);
+				tempNor.push_back(tempVer[middleVert * 3 + 1]);
+				tempNor.push_back(tempVer[middleVert * 3 + 2]);
+
+				tempTex.push_back(0.0f);
+				tempTex.push_back(tempTex[v1 * 2 + 1]);
+
+				tempTex[poleVert * 2] = 0.0f;
+				size_t poleVertCopy = duplicatePoint(tempVer, tempNor, tempTex, poleVert);
+				size_t middleVertCopy = duplicatePoint(tempVer, tempNor, tempTex, middleVert);
+				tempTex[poleVertCopy * 2] = 1.0f;
+				tempTex[middleVertCopy * 2] = 1.0f;
+
+				if (tempTex[v1 * 2] > 0.5f) {
+					tempInd.push_back(poleVertCopy);
+					tempInd.push_back(v1);
+					tempInd.push_back(middleVertCopy);
+					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVertCopy * 2], tempTex[v1 * 2], tempTex[middleVertCopy * 2]);
+
+					face[0] = poleVert;
+					face[1] = middleVert;
+					face[2] = v2;
+					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVert * 2], tempTex[middleVert * 2], tempTex[v2 * 2]);
+				}
+				else {
+					tempInd.push_back(poleVertCopy);
+					tempInd.push_back(middleVertCopy);
+					tempInd.push_back(v2);
+					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVertCopy * 2], tempTex[middleVertCopy * 2], tempTex[v2 * 2]);
+
+					face[0] = poleVert;
+					face[1] = v1;
+					face[2] = middleVert;
+					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVert * 2], tempTex[v1 * 2], tempTex[middleVert * 2]);
+				}
+			}
+		}
+
+		// fix longitudinal seam
+		dupIndex = -1;
+		if (abs(u0 - u1) > 0.5f && abs(u0 - u2) > 0.5f)
+			dupIndex = 0;
+		else if (abs(u1 - u0) > 0.5f && abs(u1 - u2) > 0.5f)
+			dupIndex = 1;
+		else if (abs(u2 - u0) > 0.5f && abs(u2 - u1) > 0.5f)
+			dupIndex = 2;
+
+		if (dupIndex != -1) {
+			size_t newIndex = duplicatePoint(tempVer, tempNor, tempTex, face[dupIndex]);
 
 			GLfloat oldU = tempTex[face[dupIndex] * 2];
 			bool dupIsLeft = oldU < tempTex[face[(dupIndex + 1) % 3]];
 			GLfloat newU = dupIsLeft ? oldU + 1.0f : oldU - 1.0f;
-			tempTex.push_back(newU);
-			tempTex.push_back(tempTex[face[dupIndex] * 2 + 1]);
+			tempTex[newIndex * 2] = newU;
+			tempTex[newIndex * 2 + 1] = tempTex[face[dupIndex] * 2 + 1];
 
 			face[dupIndex] = (GLuint)newIndex;
 		}
 
+		/*
+		if (tempVer[face[0] * 3] == 0.0f && tempVer[face[0] * 3 + 2] == 0.0f) {
+			printf("0 %u: %.2f\n", face[0], tempTex[face[0]]);
+		}
+		if (tempVer[face[1] * 3] == 0.0f && tempVer[face[1] * 3 + 2] == 0.0f) {
+			printf("1 %u: %.2f\n", face[1], tempTex[face[1]]);
+		}
+		if (tempVer[face[2] * 3] == 0.0f && tempVer[face[2] * 3 + 2] == 0.0f) {
+			printf("2 %u: %.2f\n", face[2], tempTex[face[2]]);
+		}
+		*/
+
+		/*
+		GLuint V0start = face[0] * 3;
+		if (tempVer[V0start] == 0.0f && tempVer[V0start + 2] == 0.0f) {
+			size_t newVert = duplicatePoint(tempVer, tempNor, tempTex, face[0]);
+			tempTex[newVert * 2] = (tempTex[face[1] * 2] + tempTex[face[2] * 2]) * 0.5f;
+			tempTex[newVert * 2 + 1] = tempVer[newVert * 2 + 1] > 0 ? 0.0f : 1.0f;
+			face[0] = newVert;
+		}
+		*/
+		/*
+		if (tempVer[V0start] == 0.0f && tempVer[V0start + 2] == 0.0f &&
+			abs(tempTex[face[1] * 2] - tempTex[face[2] * 2]) > 0.5)
+		{
+			printf("%u\n", face[0]);
+			size_t copyV0 = duplicatePoint(tempVer, tempNor, tempTex, face[0]);
+
+			// make vertex halfway between either non-pole vertex
+			size_t middleVert = tempVer.size() / 3;
+
+			tempVer.push_back((tempVer[face[1] * 3] + tempVer[face[2] * 3]) * 0.5f);
+			tempVer.push_back((tempVer[face[1] * 3 + 1] + tempVer[face[2] * 3 + 1]) * 0.5f);
+			tempVer.push_back((tempVer[face[1] * 3 + 2] + tempVer[face[2] * 3 + 2]) * 0.5f);
+
+			tempNor.push_back((tempNor[face[1] * 3] + tempNor[face[2] * 3]) * 0.5f);
+			tempNor.push_back((tempNor[face[1] * 3 + 1] + tempNor[face[2] * 3 + 1]) * 0.5f);
+			tempNor.push_back((tempNor[face[1] * 3 + 2] + tempNor[face[2] * 3 + 2]) * 0.5f);
+
+			tempTex.push_back(1.0f);
+			tempTex.push_back(tempTex[face[1] * 2 + 1]);
+
+			size_t dupMiddleVert = duplicatePoint(tempVer, tempNor, tempTex, middleVert);
+
+			tempTex[face[0] * 2] = 1.0f;
+			tempTex[copyV0 * 2] = 0.0f;
+			tempTex[dupMiddleVert * 2] = 0.0f;
+
+			if (tempTex[face[1] * 2] > 0.5) {
+				tempInd.push_back(copyV0);
+				tempInd.push_back(dupMiddleVert);
+				tempInd.push_back(face[2]);
+
+				face[2] = middleVert;
+			}
+			else {
+				tempInd.push_back(copyV0);
+				tempInd.push_back(face[1]);
+				tempInd.push_back(dupMiddleVert);
+
+				face[1] = middleVert;
+			}
+		}
+		*/
 		tempInd.push_back(face[0]);
 		tempInd.push_back(face[1]);
 		tempInd.push_back(face[2]);
 	}
 
-	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
+	// Add tangent and bitangent storage
+	std::vector<GLfloat> tempTan(tempVer.size(), 0.0f);
+	std::vector<GLfloat> tempBitan(tempVer.size(), 0.0f);
+
+	// Compute tangents and bitangents
+	for (size_t i = 0; i < tempInd.size(); i += 3) {
+		GLuint i0 = tempInd[i];
+		GLuint i1 = tempInd[i + 1];
+		GLuint i2 = tempInd[i + 2];
+
+		// Get vertex positions
+		glm::vec3 v0(tempVer[i0 * 3], tempVer[i0 * 3 + 1], tempVer[i0 * 3 + 2]);
+		glm::vec3 v1(tempVer[i1 * 3], tempVer[i1 * 3 + 1], tempVer[i1 * 3 + 2]);
+		glm::vec3 v2(tempVer[i2 * 3], tempVer[i2 * 3 + 1], tempVer[i2 * 3 + 2]);
+
+		// Get texture coordinates
+		glm::vec2 uv0(tempTex[i0 * 2], tempTex[i0 * 2 + 1]);
+		glm::vec2 uv1(tempTex[i1 * 2], tempTex[i1 * 2 + 1]);
+		glm::vec2 uv2(tempTex[i2 * 2], tempTex[i2 * 2 + 1]);
+
+		// Calculate edges and delta UVs
+		glm::vec3 edge1 = v1 - v0;
+		glm::vec3 edge2 = v2 - v0;
+		glm::vec2 deltaUV1 = uv1 - uv0;
+		glm::vec2 deltaUV2 = uv2 - uv0;
+
+		// Calculate the tangent and bitangent
+		float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+		glm::vec3 tangent = f * (deltaUV2.y * edge1 - deltaUV1.y * edge2);
+		glm::vec3 bitangent = f * (-deltaUV2.x * edge1 + deltaUV1.x * edge2);
+
+		// Accumulate tangents and bitangents for each vertex
+		for (GLuint idx : {i0, i1, i2}) {
+			tempTan[idx * 3] += tangent.x;
+			tempTan[idx * 3 + 1] += tangent.y;
+			tempTan[idx * 3 + 2] += tangent.z;
+
+			tempBitan[idx * 3] += bitangent.x;
+			tempBitan[idx * 3 + 1] += bitangent.y;
+			tempBitan[idx * 3 + 2] += bitangent.z;
+		}
+	}
+
+	// Normalize tangents and orthogonalize
+	for (size_t i = 0; i < tempVer.size(); i += 3) {
+		glm::vec3 normal(tempNor[i], tempNor[i + 1], tempNor[i + 2]);
+		glm::vec3 tangent(tempTan[i], tempTan[i + 1], tempTan[i + 2]);
+
+		// Orthogonalize tangent
+		tangent = glm::normalize(tangent - normal * glm::dot(normal, tangent));
+
+		// Recompute bitangent to ensure consistency
+		glm::vec3 bitangent = glm::cross(normal, tangent);
+
+		// Store the results back
+		tempTan[i] = tangent.x;
+		tempTan[i + 1] = tangent.y;
+		tempTan[i + 2] = tangent.z;
+
+		tempBitan[i] = bitangent.x;
+		tempBitan[i + 1] = bitangent.y;
+		tempBitan[i + 2] = bitangent.z;
+	}
+
+	// Pass tangent and bitangent data to your model creation
+	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex, tempTan, tempBitan);
+
+
+	//return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
 }

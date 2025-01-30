@@ -50,9 +50,13 @@ Shader initStandardShader() {
 		layout (location = 0) in vec3 aPos;
 		layout (location = 1) in vec3 aNormal;
 		layout (location = 2) in vec2 aTex;
+		layout (location = 3) in vec3 aTan;
+		layout (location = 4) in vec3 aBitan;
 
 		out vec3 FragPos;
 		out vec3 Normal;
+		out vec3 Tangent;
+		out vec3 Bitangent;
 		out vec2 TexCoords;
 
 		uniform mat4 model;
@@ -62,6 +66,8 @@ Shader initStandardShader() {
 		void main() {
 			FragPos = vec3(model * vec4(aPos, 1.0));
 			Normal = mat3(transpose(inverse(model))) * aNormal;
+			Tangent = mat3(transpose(inverse(model))) * aTan;
+			Bitangent = mat3(transpose(inverse(model))) * aBitan;
 			TexCoords = aTex;
 			gl_Position = projection * view * vec4(FragPos, 1.0);
 		}
@@ -73,6 +79,8 @@ Shader initStandardShader() {
 
 		in vec3 FragPos;
 		in vec3 Normal;
+		in vec3 Tangent;
+		in vec3 Bitangent;
 		in vec2 TexCoords;
 
 		uniform vec3 objectColor;
@@ -81,7 +89,9 @@ Shader initStandardShader() {
 		uniform vec3 lightPos;
 		uniform vec3 viewPos;
 		uniform sampler2D textureMap;
+		uniform sampler2D normalMap;
 		uniform int usesTexture;
+		uniform int usesNormalMap;
 
 		void main() {
 			vec4 texColor = texture(textureMap, TexCoords);
@@ -90,7 +100,17 @@ Shader initStandardShader() {
 			float amb = material.x;
 
 			// Diffuse
-			vec3 norm = normalize(Normal);
+			vec3 norm;
+			if (usesNormalMap == 1) {
+				norm = texture(normalMap, TexCoords).rgb;
+				norm = norm * 2.0 - 1.0;
+				mat3 TBN = mat3(Tangent, Bitangent, Normal);
+				norm = normalize(TBN * norm);
+			}
+			else {
+				norm = normalize(Normal);
+			}
+
 			vec3 lightDir = normalize(lightPos - FragPos);
 			float diff = material.y * max(dot(norm, lightDir), 0.0);
 
@@ -121,12 +141,16 @@ Shader initStandardShader() {
 	shader.M = glGetUniformLocation(shaderProgram, "model");
 	shader.V = glGetUniformLocation(shaderProgram, "view");
 	shader.P = glGetUniformLocation(shaderProgram, "projection");
-	shader.lightPos = glGetUniformLocation(shaderProgram, "lightPos");
-	shader.lightColor = glGetUniformLocation(shaderProgram, "lightColor");
-	shader.objectColor = glGetUniformLocation(shaderProgram, "objectColor");
-	shader.objectMat = glGetUniformLocation(shaderProgram, "material");
-	shader.viewPos = glGetUniformLocation(shaderProgram, "viewPos");
-	shader.texBool = glGetUniformLocation(shaderProgram, "usesTexture");
+
+	shader.uniforms[LIGHT_POS] = glGetUniformLocation(shaderProgram, "lightPos");
+	shader.uniforms[LIGHT_COLOR] = glGetUniformLocation(shaderProgram, "lightColor");
+	shader.uniforms[OBJ_COLOR] = glGetUniformLocation(shaderProgram, "objectColor");
+	shader.uniforms[OBJ_MAT] = glGetUniformLocation(shaderProgram, "material");
+	shader.uniforms[VIEW_POS] = glGetUniformLocation(shaderProgram, "viewPos");
+	shader.uniforms[TEX_BOOL] = glGetUniformLocation(shaderProgram, "usesTexture");
+	shader.uniforms[NORM_BOOL] = glGetUniformLocation(shaderProgram, "usesNormalMap");
+	shader.uniforms[TEX_MAP] = glGetUniformLocation(shaderProgram, "textureMap");
+	shader.uniforms[NORMAL_MAP] = glGetUniformLocation(shaderProgram, "normalMap");
 
 	return shader;
 }
@@ -171,8 +195,8 @@ Shader initSkyboxShader() {
 	shader.index = shaderProgram;
 	shader.V = glGetUniformLocation(shaderProgram, "view");
 	shader.P = glGetUniformLocation(shaderProgram, "projection");
-	shader.objectColor = 0;
-	shader.objectMat = 0;
+
+	shader.uniforms[TEX_MAP] = glGetUniformLocation(shaderProgram, "skybox");
 
 	return shader;
 }
