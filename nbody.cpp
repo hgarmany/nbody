@@ -13,10 +13,7 @@ glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / HEIG
 GLFWwindow* window;
 Entity skybox;
 
-// Camera and lighting
 size_t starBody;
-glm::vec3 objectColor(1.0f, 0.5f, 0.31f);
-
 size_t cube, sphere;
 
 // Function to update the projection matrix based on window size
@@ -128,20 +125,18 @@ void static MessageCallback(GLenum source,
 
 void buildObjects() {
 	std::vector<std::string> faces = {
-		"assets/right.jpg",
-		"assets/left.jpg",
-		"assets/top.jpg",
-		"assets/bottom.jpg",
-		"assets/front.jpg",
-		"assets/back.jpg"
+		"assets/sky/right.jpg",
+		"assets/sky/left.jpg",
+		"assets/sky/top.jpg",
+		"assets/sky/bottom.jpg",
+		"assets/sky/front.jpg",
+		"assets/sky/back.jpg"
 	};
 
 	Surface earth = Surface("assets/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
 	Surface moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
 	moon.normal = Surface::getTexture("assets/moon_normal.jpg");
-	//moon.displacement = earth.displacement;
-	//Surface sun = Surface("assets/spectrum.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
-	Surface sun = Surface("assets/earth.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
+	Surface sun = Surface("assets/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
 	Surface stars = Surface::CubeMap(faces);
 
 	// sun
@@ -196,9 +191,6 @@ int main() {
 	glDebugMessageCallback(MessageCallback, 0);
 #endif
 
-	shader = initStandardShader();
-	skyboxShader = initSkyboxShader();
-
 	// initialize models
 	cube = Model::Cube();
 	sphere = Model::Icosphere(3);
@@ -216,6 +208,9 @@ int main() {
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
+
+	shader = initStandardShader();
+	skyboxShader = initSkyboxShader();
 
 	double lastLoopTime = glfwGetTime();
 	double lastFrameTime = lastLoopTime;

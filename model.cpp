@@ -72,7 +72,7 @@ Model::Model(
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLength * sizeof(GLuint), &indexLibrary[indexStart], GL_STATIC_DRAW);
 
-	glBindVertexArray(0);
+	//glBindVertexArray(0);
 }
 
 Model::Model(
@@ -118,7 +118,7 @@ Model::Model(
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLength * sizeof(GLuint), &indexLibrary[indexStart], GL_STATIC_DRAW);
 
-	glBindVertexArray(0);
+	//glBindVertexArray(0);
 }
 
 size_t Model::ModelFromImportedVectors(
@@ -402,295 +402,244 @@ size_t Model::Sphere() {
 	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
 }
 
+void normalize(GLfloat& x, GLfloat& y, GLfloat& z) {
+	float length = std::sqrt(x * x + y * y + z * z);
+	x /= length;
+	y /= length;
+	z /= length;
+}
+
+// Relaxation algorithm for vertices
+void relax_vertices(std::vector<GLfloat>& vertices, std::vector<GLuint>& faces, int iterations = 10) {
+	for (int iter = 0; iter < iterations; ++iter) {
+		std::vector<GLfloat> new_positions(vertices.size(), 0.0f);
+		std::vector<int> counts(vertices.size() / 3, 0);
+
+		// Average neighbor positions
+		for (int j = 0; j < faces.size(); j += 3) {
+			for (int i = 0; i < 3; ++i) {
+				GLuint v = faces[j + i];
+				const GLfloat* neighbor1 = &vertices[faces[j + (i + 1) % 3] * 3];
+				const GLfloat* neighbor2 = &vertices[faces[j + (i + 2) % 3] * 3];
+
+				new_positions[v * 3] += neighbor1[0] + neighbor2[0];
+				new_positions[v * 3 + 1] += neighbor1[1] + neighbor2[1];
+				new_positions[v * 3 + 2] += neighbor1[2] + neighbor2[2];
+				counts[v] += 2;
+			}
+		}
+
+		// Update vertex positions
+		for (size_t i = 0; i < vertices.size() / 3; ++i) {
+			new_positions[i * 3] /= counts[i];
+			new_positions[i * 3 + 1] /= counts[i];
+			new_positions[i * 3 + 2] /= counts[i];
+			normalize(new_positions[i * 3], new_positions[i * 3 + 1], new_positions[i * 3 + 2]);
+		}
+
+		vertices = new_positions;
+	}
+}
+
 size_t Model::Icosphere(int subdivisions) {
-	// Define the 12 vertices of the icosahedron
-	std::vector<GLfloat> vertices = {
-		-.525731f, .0f, .850650f,
-		.525731f, .0f, .850650f,
-		-.525731f, .0f, -.850650f,
-		.525731f, .0f, -.850650f,
-		.0f, .850650f, .525731f,
-		.0f, .850650f, -.525731f,
-		.0f, -.850650f, .525731f,
-		.0f, -.850650f, -.525731f,
-		.850650f, .525731f, .0f,
-		-.850650f, .525731f, .0f,
-		.850650f, -.525731f, .0f,
-		-.850650f, -.525731f, .0f
+	float epsilon = 1e-6f;
+
+	// vertex information for base icosahedron
+	float phi = (1 + sqrtf(5)) / 2;
+	std::vector<GLfloat> tempVer = {
+		phi, 1.0f, 0.0f,
+		phi, -1.0f, 0.0f,
+		-phi, 1.0f, 0.0f,
+		-phi, -1.0f, 0.0f,
+		0.0f, phi, 1.0f,
+		0.0f, phi, -1.0f,
+		0.0f, -phi, 1.0f,
+		0.0f, -phi, -1.0f,
+		1.0f, 0.0f, phi,
+		-1.0f, 0.0f, phi,
+		1.0f, 0.0f, -phi,
+		-1.0f, 0.0f, -phi
 	};
 
-	// Initial faces (20 triangles)
-	std::vector<std::vector<GLuint>> faces = {
-		{0,4,1},{0,9,4},{9,5,4},{4,5,8},{4,8,1},
-		{8,10,1},{8,3,10},{5,3,8},{5,2,3},{2,7,3},
-		{7,10,3},{7,6,10},{7,11,6},{11,0,6},{0,1,6},
-		{6,1,10},{9,0,11},{9,11,2},{9,2,5},{7,2,11}
+	// rotate the icosahedron s.t. it can be neatly halved on its vertices on the plane x = 0
+	float rotAngle = atan(phi);
+	for (int i = 0; i < tempVer.size(); i += 3) {
+		tempVer[i] = cosf(rotAngle) * tempVer[i] + sinf(rotAngle) * tempVer[i + 2];
+		tempVer[i + 2] = -sin(rotAngle) * tempVer[i] + cosf(rotAngle) * tempVer[i + 2];
+	}
+
+	// initial face set as vertex indices
+	std::vector<GLuint> tempInd = {
+		2, 4, 5, 0, 5, 4, 4, 8, 0, 1, 0, 8, 10, 5, 0,
+		2, 9, 4, 9, 2, 3, 11, 2, 5, 8, 9, 6, 4, 9, 8,
+		11, 10, 7, 5, 10, 11, 3, 11, 7, 3, 2, 11, 6, 9, 3,
+		1, 8, 6, 10, 0, 1, 7, 10, 1, 7, 6, 3, 6, 7, 1
 	};
 
-	// Temporary vectors for the vertex, index, normal, and texture data
-	std::vector<GLfloat> tempVer;
-	std::vector<GLuint> tempInd;
-	std::vector<GLfloat> tempNor;
+	std::unordered_map<uint64_t, GLuint> midpointCache;
+
+	// Helper to compute a unique edge ID
+	auto getEdgeID = [](GLuint a, GLuint b) -> uint64_t {
+		return (static_cast<uint64_t>(std::min(a, b)) << 32) | std::max(a, b);
+	};
+
+	// Subdivide the faces
+	for (int i = 0; i < subdivisions; ++i) {
+		std::vector<GLuint> newFaces;
+
+		for (int j = 0; j < tempInd.size(); j += 3) {
+			GLuint v1 = tempInd[j];
+			GLuint v2 = tempInd[j + 1];
+			GLuint v3 = tempInd[j + 2];
+
+			// Find or create midpoints
+			uint64_t id1 = getEdgeID(v1, v2);
+			uint64_t id2 = getEdgeID(v2, v3);
+			uint64_t id3 = getEdgeID(v3, v1);
+
+			GLfloat midX, midY, midZ;
+
+			if (midpointCache.find(id1) == midpointCache.end()) {
+				midpointCache[id1] = (GLuint)(tempVer.size() / 3);
+
+				midX = tempVer[v1 * 3] + tempVer[v2 * 3];
+				midY = tempVer[v1 * 3 + 1] + tempVer[v2 * 3 + 1];
+				midZ = tempVer[v1 * 3 + 2] + tempVer[v2 * 3 + 2];
+				normalize(midX, midY, midZ);
+
+				tempVer.push_back(midX);
+				tempVer.push_back(midY);
+				tempVer.push_back(midZ);
+			}
+
+			if (midpointCache.find(id2) == midpointCache.end()) {
+				midpointCache[id2] = (GLuint)(tempVer.size() / 3);
+
+				midX = tempVer[v2 * 3] + tempVer[v3 * 3];
+				midY = tempVer[v2 * 3 + 1] + tempVer[v3 * 3 + 1];
+				midZ = tempVer[v2 * 3 + 2] + tempVer[v3 * 3 + 2];
+				normalize(midX, midY, midZ);
+
+				tempVer.push_back(midX);
+				tempVer.push_back(midY);
+				tempVer.push_back(midZ);
+			}
+
+			if (midpointCache.find(id3) == midpointCache.end()) {
+				midpointCache[id3] = (GLuint)(tempVer.size() / 3);
+
+				midX = tempVer[v3 * 3] + tempVer[v1 * 3];
+				midY = tempVer[v3 * 3 + 1] + tempVer[v1 * 3 + 1];
+				midZ = tempVer[v3 * 3 + 2] + tempVer[v1 * 3 + 2];
+				normalize(midX, midY, midZ);
+
+				tempVer.push_back(midX);
+				tempVer.push_back(midY);
+				tempVer.push_back(midZ);
+			}
+
+			// New vertices
+			GLuint m1 = midpointCache[id1];
+			GLuint m2 = midpointCache[id2];
+			GLuint m3 = midpointCache[id3];
+
+			std::vector<GLuint> indexSet = { v1, m1, m3, v2, m2, m1, v3, m3, m2, m1, m2, m3 };
+
+			// Create new faces
+			newFaces.insert(newFaces.end(), indexSet.begin(), indexSet.end());
+		}
+
+		tempInd = std::move(newFaces);
+	}
+
+	std::vector<GLuint> meridian;
+	GLuint northPole, southPole;
+	for (GLuint i = 0; i < tempVer.size(); i += 3) {
+		if (abs(tempVer[i]) < epsilon && tempVer[i + 2] >= 0.0f) {
+			meridian.push_back(i / 3);
+			if (tempVer[i + 1] == 1.0f)
+				northPole = i / 3;
+			else if (tempVer[i + 1] == -1.0f)
+				southPole = i / 3;
+		}
+	}
+
+	relax_vertices(tempVer, tempInd);
+
 	std::vector<GLfloat> tempTex;
 
-	// A map to cache the midpoints to avoid duplicating vertices
-	std::unordered_map<std::string, GLuint> middleCache;
-
-	// Function to get or create the midpoint between two vertices
-	auto getMiddle = [&](GLuint i, GLuint j) -> GLuint {
-		if (i > j) std::swap(i, j); // Make sure the smaller index comes first
-		std::string key = std::to_string(i) + "-" + std::to_string(j);
-
-		// If the midpoint is already created, return it
-		if (middleCache.find(key) != middleCache.end()) {
-			return middleCache[key];
-		}
-
-		// Calculate the midpoint
-		GLfloat x = (vertices[3 * i] + vertices[3 * j]) / 2.0f;
-		GLfloat y = (vertices[3 * i + 1] + vertices[3 * j + 1]) / 2.0f;
-		GLfloat z = (vertices[3 * i + 2] + vertices[3 * j + 2]) / 2.0f;
-
-		// Normalize the midpoint to the unit sphere
-		GLfloat length = sqrt(x * x + y * y + z * z);
-		x /= length;
-		y /= length;
-		z /= length;
-
-		// Add the midpoint as a new vertex
-		GLuint newVertex = (GLuint)(vertices.size() / 3);
-		vertices.push_back(x);
-		vertices.push_back(y);
-		vertices.push_back(z);
-
-		// Cache the midpoint index
-		middleCache[key] = newVertex;
-		return newVertex;
-		};
-
-	// Subdivide the faces for the specified number of subdivisions
-	for (int sub = 0; sub < subdivisions; ++sub) {
-		std::vector<std::vector<GLuint>> newFaces;
-
-		// Loop over the existing faces and subdivide each one
-		for (auto& face : faces) {
-			GLuint v0 = face[0], v1 = face[1], v2 = face[2];
-
-			// Get the midpoints for the edges of the triangle
-			GLuint a = getMiddle(v0, v1);
-			GLuint b = getMiddle(v1, v2);
-			GLuint c = getMiddle(v2, v0);
-
-			// Create 4 new triangles from the subdivided face
-			// Triangle 1: (v0, a, c)
-			newFaces.push_back({ v0, a, c });
-			// Triangle 2: (v1, b, a)
-			newFaces.push_back({ v1, b, a });
-			// Triangle 3: (v2, c, b)
-			newFaces.push_back({ v2, c, b });
-			// Triangle 4: (a, b, c)
-			newFaces.push_back({ a, b, c });
-		}
-
-		// Update the faces with the new subdivided faces
-		faces = std::move(newFaces);
-	}
-
 	// Add the vertices, normals, and texture coordinates
-	for (size_t i = 0; i < vertices.size(); i += 3) {
-		GLfloat x = vertices[i];
-		GLfloat y = vertices[i + 1];
-		GLfloat z = vertices[i + 2];
+	for (size_t i = 0; i < tempVer.size(); i += 3) {
+		// map the vertex position to the unit sphere
+		normalize(tempVer[i], tempVer[i + 1], tempVer[i + 2]);
 
-		// Normalize the vertex position
-		GLfloat length = sqrt(x * x + y * y + z * z);
-		GLfloat nx = x / length;
-		GLfloat ny = y / length;
-		GLfloat nz = z / length;
-
-		// Add the normalized vertex position to the vertex list
-		tempVer.push_back(nx);
-		tempVer.push_back(ny);
-		tempVer.push_back(nz);
-
-		// Normals are the same as the vertex positions for a unit sphere
-		tempNor.push_back(nx);
-		tempNor.push_back(ny);
-		tempNor.push_back(nz);
-
-		// Calculate spherical coordinates (longitude and latitude)
-		GLfloat u = 0.5f - (atan2(nz, nx) / (2.0f * pi));
-		GLfloat v = 0.5f - (asin(ny) / pi);
-
-		// Add the texture coordinates to the list
-		tempTex.push_back(u);
-		tempTex.push_back(v);
+		// assign longitude and latitude for texture mapping
+		tempTex.push_back(0.5f - atan2(tempVer[i], -tempVer[i + 2]) / (2.0f * pi));
+		tempTex.push_back(0.5f - asin(tempVer[i + 1]) / pi);
 	}
 
-	// Add the indices for the faces
-	for (auto& face : faces) {
-		GLfloat u0 = tempTex[face[0] * 2];
-		GLfloat u1 = tempTex[face[1] * 2];
-		GLfloat u2 = tempTex[face[2] * 2];
+	// normals all point directly away from the origin, and so are identical to the vertex information
+	std::vector<GLfloat> tempNor = tempVer;
+	
+	for (GLuint meridianPoint : meridian) {
+		// clone the meridian point, original for faces right of the seam
+		size_t newPoint = duplicatePoint(tempVer, tempNor, tempTex, meridianPoint);
+		if (tempTex[meridianPoint * 2] > 0.5f)
+			tempTex[meridianPoint * 2] -= 1.0f;
+		else
+			tempTex[newPoint * 2] += 1.0f;
 
+		for (int i = 0; i < tempInd.size(); i += 3) {
+			int meridianInFace = -1;
+			if (tempInd[i] == meridianPoint)
+				meridianInFace = 0;
+			else if (tempInd[i + 1] == meridianPoint)
+				meridianInFace = 1;
+			else if (tempInd[i + 2] == meridianPoint)
+				meridianInFace = 2;
 
-		// fix polar stitching
-		int dupIndex = -1;
-		if (abs(tempVer[face[0] * 3 + 1]) > 0.999f)
-			dupIndex = 0;
-		else if (abs(tempVer[face[1] * 3 + 1]) > 0.999f)
-			dupIndex = 1;
-		else if (abs(tempVer[face[2] * 3 + 1]) > 0.999f)
-			dupIndex = 2;
+			if (meridianInFace != -1) {
+				GLuint i1 = (meridianInFace + 1) % 3;
+				GLuint i2 = (meridianInFace + 2) % 3;
+				GLfloat u0 = tempTex[meridianPoint * 2];
+				GLfloat u1 = tempTex[tempInd[i + i1] * 2];
+				GLfloat u2 = tempTex[tempInd[i + i2] * 2];
+				GLfloat avgU = (u0 + u1 + u2) / 3.0f;
 
-		if (dupIndex != -1) {
-			GLuint v0 = face[dupIndex];
-			GLuint v1 = face[(dupIndex + 1) % 3];
-			GLuint v2 = face[(dupIndex + 2) % 3];
+				bool isLeft = std::find(meridian.begin(), meridian.end(), tempInd[i + i1]) == meridian.end() && u1 > 0.5f ||
+					std::find(meridian.begin(), meridian.end(), tempInd[i + i2]) == meridian.end() && u2 > 0.5f;
 
-			size_t poleVert = duplicatePoint(tempVer, tempNor, tempTex, v0);
-			tempTex[poleVert * 2] = (tempTex[v1 * 2] + tempTex[v2 * 2]) * 0.5f;
-			v0 = face[dupIndex] = poleVert;
-			printf("%.3f\t%.3f\t%.3f\n", tempTex[v0 * 2], tempTex[v1 * 2], tempTex[v2 * 2]);
-
-			if (abs(tempTex[v1 * 2] - tempTex[v2 * 2]) > 0.5f) {
-				printf("split\n");
-				size_t middleVert = tempVer.size() / 3;
-				tempVer.push_back((tempVer[v1 * 3] + tempVer[v2 * 3]) * 0.5f);
-				tempVer.push_back((tempVer[v1 * 3 + 1] + tempVer[v2 * 3 + 1]) * 0.5f);
-				tempVer.push_back((tempVer[v2 * 3 + 2] + tempVer[v2 * 3 + 2]) * 0.5f);
-
-				tempNor.push_back(tempVer[middleVert * 3]);
-				tempNor.push_back(tempVer[middleVert * 3 + 1]);
-				tempNor.push_back(tempVer[middleVert * 3 + 2]);
-
-				tempTex.push_back(0.0f);
-				tempTex.push_back(tempTex[v1 * 2 + 1]);
-
-				tempTex[poleVert * 2] = 0.0f;
-				size_t poleVertCopy = duplicatePoint(tempVer, tempNor, tempTex, poleVert);
-				size_t middleVertCopy = duplicatePoint(tempVer, tempNor, tempTex, middleVert);
-				tempTex[poleVertCopy * 2] = 1.0f;
-				tempTex[middleVertCopy * 2] = 1.0f;
-
-				if (tempTex[v1 * 2] > 0.5f) {
-					tempInd.push_back(poleVertCopy);
-					tempInd.push_back(v1);
-					tempInd.push_back(middleVertCopy);
-					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVertCopy * 2], tempTex[v1 * 2], tempTex[middleVertCopy * 2]);
-
-					face[0] = poleVert;
-					face[1] = middleVert;
-					face[2] = v2;
-					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVert * 2], tempTex[middleVert * 2], tempTex[v2 * 2]);
-				}
-				else {
-					tempInd.push_back(poleVertCopy);
-					tempInd.push_back(middleVertCopy);
-					tempInd.push_back(v2);
-					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVertCopy * 2], tempTex[middleVertCopy * 2], tempTex[v2 * 2]);
-
-					face[0] = poleVert;
-					face[1] = v1;
-					face[2] = middleVert;
-					printf("%.3f\t%.3f\t%.3f\n", tempTex[poleVert * 2], tempTex[v1 * 2], tempTex[middleVert * 2]);
+				// triangle on left side of seam is assigned cloned point
+				if (isLeft && meridianPoint != northPole && meridianPoint != southPole) {
+					tempInd[i + meridianInFace] = (GLuint)newPoint;
 				}
 			}
 		}
+	}
 
-		// fix longitudinal seam
-		dupIndex = -1;
-		if (abs(u0 - u1) > 0.5f && abs(u0 - u2) > 0.5f)
-			dupIndex = 0;
-		else if (abs(u1 - u0) > 0.5f && abs(u1 - u2) > 0.5f)
-			dupIndex = 1;
-		else if (abs(u2 - u0) > 0.5f && abs(u2 - u1) > 0.5f)
-			dupIndex = 2;
+	for (int i = 0; i < tempInd.size(); i += 3) {
+		int poleInFace = -1;
+		if (tempInd[i] == northPole || tempInd[i] == southPole)
+			poleInFace = 0;
+		else if (tempInd[i + 1] == northPole || tempInd[i + 1] == southPole)
+			poleInFace = 1;
+		else if (tempInd[i + 2] == northPole || tempInd[i + 2] == southPole)
+			poleInFace = 2;
 
-		if (dupIndex != -1) {
-			size_t newIndex = duplicatePoint(tempVer, tempNor, tempTex, face[dupIndex]);
+		if (poleInFace != -1) {
+			GLuint i1 = (poleInFace + 1) % 3;
+			GLuint i2 = (poleInFace + 2) % 3;
 
-			GLfloat oldU = tempTex[face[dupIndex] * 2];
-			bool dupIsLeft = oldU < tempTex[face[(dupIndex + 1) % 3]];
-			GLfloat newU = dupIsLeft ? oldU + 1.0f : oldU - 1.0f;
-			tempTex[newIndex * 2] = newU;
-			tempTex[newIndex * 2 + 1] = tempTex[face[dupIndex] * 2 + 1];
+			GLuint newPoint = (GLuint)duplicatePoint(tempVer, tempNor, tempTex, tempInd[i + poleInFace]);
 
-			face[dupIndex] = (GLuint)newIndex;
+			tempTex[newPoint * 2] = (tempTex[tempInd[i + i1] * 2] + tempTex[tempInd[i + i2] * 2]) / 2;
+			tempInd[i + poleInFace] = newPoint;
 		}
-
-		/*
-		if (tempVer[face[0] * 3] == 0.0f && tempVer[face[0] * 3 + 2] == 0.0f) {
-			printf("0 %u: %.2f\n", face[0], tempTex[face[0]]);
-		}
-		if (tempVer[face[1] * 3] == 0.0f && tempVer[face[1] * 3 + 2] == 0.0f) {
-			printf("1 %u: %.2f\n", face[1], tempTex[face[1]]);
-		}
-		if (tempVer[face[2] * 3] == 0.0f && tempVer[face[2] * 3 + 2] == 0.0f) {
-			printf("2 %u: %.2f\n", face[2], tempTex[face[2]]);
-		}
-		*/
-
-		/*
-		GLuint V0start = face[0] * 3;
-		if (tempVer[V0start] == 0.0f && tempVer[V0start + 2] == 0.0f) {
-			size_t newVert = duplicatePoint(tempVer, tempNor, tempTex, face[0]);
-			tempTex[newVert * 2] = (tempTex[face[1] * 2] + tempTex[face[2] * 2]) * 0.5f;
-			tempTex[newVert * 2 + 1] = tempVer[newVert * 2 + 1] > 0 ? 0.0f : 1.0f;
-			face[0] = newVert;
-		}
-		*/
-		/*
-		if (tempVer[V0start] == 0.0f && tempVer[V0start + 2] == 0.0f &&
-			abs(tempTex[face[1] * 2] - tempTex[face[2] * 2]) > 0.5)
-		{
-			printf("%u\n", face[0]);
-			size_t copyV0 = duplicatePoint(tempVer, tempNor, tempTex, face[0]);
-
-			// make vertex halfway between either non-pole vertex
-			size_t middleVert = tempVer.size() / 3;
-
-			tempVer.push_back((tempVer[face[1] * 3] + tempVer[face[2] * 3]) * 0.5f);
-			tempVer.push_back((tempVer[face[1] * 3 + 1] + tempVer[face[2] * 3 + 1]) * 0.5f);
-			tempVer.push_back((tempVer[face[1] * 3 + 2] + tempVer[face[2] * 3 + 2]) * 0.5f);
-
-			tempNor.push_back((tempNor[face[1] * 3] + tempNor[face[2] * 3]) * 0.5f);
-			tempNor.push_back((tempNor[face[1] * 3 + 1] + tempNor[face[2] * 3 + 1]) * 0.5f);
-			tempNor.push_back((tempNor[face[1] * 3 + 2] + tempNor[face[2] * 3 + 2]) * 0.5f);
-
-			tempTex.push_back(1.0f);
-			tempTex.push_back(tempTex[face[1] * 2 + 1]);
-
-			size_t dupMiddleVert = duplicatePoint(tempVer, tempNor, tempTex, middleVert);
-
-			tempTex[face[0] * 2] = 1.0f;
-			tempTex[copyV0 * 2] = 0.0f;
-			tempTex[dupMiddleVert * 2] = 0.0f;
-
-			if (tempTex[face[1] * 2] > 0.5) {
-				tempInd.push_back(copyV0);
-				tempInd.push_back(dupMiddleVert);
-				tempInd.push_back(face[2]);
-
-				face[2] = middleVert;
-			}
-			else {
-				tempInd.push_back(copyV0);
-				tempInd.push_back(face[1]);
-				tempInd.push_back(dupMiddleVert);
-
-				face[1] = middleVert;
-			}
-		}
-		*/
-		tempInd.push_back(face[0]);
-		tempInd.push_back(face[1]);
-		tempInd.push_back(face[2]);
 	}
 
 	// Add tangent and bitangent storage
-	std::vector<GLfloat> tempTan(tempVer.size(), 0.0f);
-	std::vector<GLfloat> tempBitan(tempVer.size(), 0.0f);
+	std::vector<GLfloat> tempTan(tempVer.size());
+	std::vector<GLfloat> tempBitan(tempVer.size());
 
 	// Compute tangents and bitangents
 	for (size_t i = 0; i < tempInd.size(); i += 3) {
@@ -755,7 +704,4 @@ size_t Model::Icosphere(int subdivisions) {
 
 	// Pass tangent and bitangent data to your model creation
 	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex, tempTan, tempBitan);
-
-
-	//return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
 }
