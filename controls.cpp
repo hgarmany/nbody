@@ -114,9 +114,9 @@ void flyCam(GLFWwindow* window, double deltaTime) {
 		camera.setOrientation(0.0f, -deltaTime, 0.0f);
 
 	if (glfwGetKey(window, keyMap[ROLL_LEFT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, 0.0f, -deltaTime / SENSITIVITY);
+		camera.setOrientation(0.0f, 0.0f, -deltaTime * 1e3);
 	if (glfwGetKey(window, keyMap[ROLL_RIGHT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, 0.0f, deltaTime / SENSITIVITY);
+		camera.setOrientation(0.0f, 0.0f, deltaTime * 1e3);
 }
 
 // toggle between usable cursor and mouse-controlled camera

@@ -9,12 +9,13 @@
 #include "stb_image.h"
 
 Shader shader, skyboxShader;
-glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / HEIGHT, 1e0f, 1e9f);
+glm::mat4 projection;
 GLFWwindow* window;
 Entity skybox;
 
 size_t starBody;
 size_t cube, sphere;
+int screenSize = WIDTH;
 
 // Function to update the projection matrix based on window size
 void static updateProjectionMatrix(GLFWwindow* window) {
@@ -27,7 +28,7 @@ void static updateProjectionMatrix(GLFWwindow* window) {
 	float aspect = (float)width / (float)height;
 
 	// Define the projection matrix (FOV, aspect ratio, near, far)
-	projection = glm::perspective(glm::radians(30.0f), aspect, 1e0f, 1e9f);
+	projection = glm::perspective(FOV * height / screenSize, aspect, 1e0f, 1e9f);
 }
 
 // Set this function as a callback to update projection matrix during window resizing
@@ -134,6 +135,7 @@ void buildObjects() {
 	};
 
 	Surface earth = Surface("assets/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
+	earth.normal = Surface::getTexture("assets/earth_normal.jpg");
 	Surface moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
 	moon.normal = Surface::getTexture("assets/moon_normal.jpg");
 	Surface sun = Surface("assets/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
@@ -144,7 +146,9 @@ void buildObjects() {
 	builder.init(1.9891e30f);
 	builder.setModel(sphere);
 	builder.setRadius(500.0f);
-	builder.setMotion(glm::vec3(0.0), glm::vec3(0.0));
+	double spin = 2 * pi / 86400 / 27;
+	builder.setMotion(glm::dvec3(0.0), glm::dvec3(0.0));
+	builder.setOrientation(glm::dvec3(0.126, 0, 0));
 	builder.setSurface(sun);
 	bodies.push_back(builder.get());
 	starBody = 0;
@@ -153,7 +157,13 @@ void buildObjects() {
 	builder.init(5.9722e24f);
 	builder.setModel(sphere);
 	builder.setRadius(250.0f);
-	builder.setMotion(glm::vec3(149598.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.029786));
+	spin = 2 * pi / 86400;
+	builder.setMotion(
+		glm::dvec3(149598.0, 0.0, 0.0), 
+		glm::dvec3(0.0, 0.0, 0.029786), 
+		glm::dvec3(0.0, spin, 0.0)
+	);
+	builder.setOrientation(glm::dvec3(0.40910518, 0, 0));
 	builder.setSurface(earth);
 	bodies.push_back(builder.get());
 
@@ -161,7 +171,13 @@ void buildObjects() {
 	builder.init(7.3477e22f);
 	builder.setModel(sphere);
 	builder.setRadius(100.0f);
-	builder.setMotion(glm::vec3(149982.7, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.030808));
+	spin = 2 * pi / 86400 / 27.3;
+	builder.setMotion(
+		glm::dvec3(149982.7, 0.0, 0.0), 
+		glm::dvec3(0.0, 0.0, 0.028764), 
+		glm::dvec3(0.0, spin, 0.0)
+	);
+	builder.setOrientation(glm::dvec3(0.116588, 0, 0));
 	builder.setSurface(moon);
 	bodies.push_back(builder.get());
 
@@ -169,10 +185,23 @@ void buildObjects() {
 	builder.init(5.9722e24f);
 	builder.setModel(sphere);
 	builder.setRadius(250.0f);
-	//builder.setMotion(glm::vec3(0.0, 0.0, 149488.0), glm::vec3(-0.029797, 0.0, 0.0));
-	builder.setMotion(glm::vec3(147216.9, 0.0, 25958.3), glm::vec3(-0.0051742, 0.0, 0.029344));
+	spin = 2 * pi / 86400;
+	builder.setMotion(
+		glm::dvec3(147216.9, 0.0, 25958.3), 
+		glm::dvec3(-0.0051742, 0.0, 0.029344), 
+		glm::dvec3(0.0, spin, 0.0)
+	);
+	builder.setOrientation(glm::dvec3(0.40910518, 0, 0));
 	builder.setSurface(earth);
 	bodies.push_back(builder.get());
+
+	// second sun
+	/*builder.init(1.9891e30f);
+	builder.setModel(sphere);
+	builder.setRadius(500.0f);
+	builder.setMotion(glm::vec3(0.0, 2500.0f, 0.0f), glm::vec3(0.25f, 0.0f, 0.0f));
+	builder.setSurface(sun);
+	bodies.push_back(builder.get());*/
 
 	// stars
 	EntityBuilder skyBuilder;
@@ -193,7 +222,7 @@ int main() {
 
 	// initialize models
 	cube = Model::Cube();
-	sphere = Model::Icosphere(3);
+	sphere = Model::Icosphere(4);
 
 	buildObjects();
 
@@ -205,6 +234,11 @@ int main() {
 	camera.up = glm::cross(camera.right, camera.direction);
 
 	setXY(window);
+
+	GLFWmonitor* screen = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(screen);
+	screenSize = mode->height;
+	projection = glm::perspective(FOV * HEIGHT / screenSize, (float)WIDTH / HEIGHT, 1e0f, 1e9f);
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
@@ -227,16 +261,18 @@ int main() {
 
 		// flip around sun-cube
 		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-			bodies[0].orientation.z += deltaTime;
+			bodies[1].orientation.y += deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-			bodies[0].orientation.z -= deltaTime;
+			bodies[1].orientation.y -= deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-			bodies[0].orientation.x += deltaTime;
+			bodies[1].orientation.x += deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-			bodies[0].orientation.x -= deltaTime;
+			bodies[1].orientation.x -= deltaTime;
 
 		if (currentTime - lastFrameTime > MAX_FRAME_TIME) {
 			//std::cout << currentTime - lastFrameTime << "\n";
+			camera.position = bodies[1].position + glm::dvec3(0.0, 3.0, 0.0) * bodies[1].scale;
+
 			render();
 			lastFrameTime = currentTime;
 

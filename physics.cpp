@@ -34,5 +34,6 @@ void updateBodies(glm::float64 deltaTime) {
     // Update velocities to full-step using the new accelerations
     for (GravityBody& body : bodies) {
         body.velocity += body.acceleration * halfDt;
+        body.orientation += body.rotVelocity * TIME_STEP * deltaTime;
     }
 }

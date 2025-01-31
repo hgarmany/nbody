@@ -1,20 +1,21 @@
 ﻿#include "entity.h"
 #include <glm/gtc/quaternion.hpp>
 
+// rotates on local axes in pitch, yaw, roll order
 glm::dquat Entity::getRotationQuat() {
-	glm::float64 sinYaw2 = sin(orientation.y * 0.5f);
-	glm::float64 sinPitch2 = sin(orientation.x * 0.5f);
-	glm::float64 sinRoll2 = sin(orientation.z * 0.5f);
-	glm::float64 cosYaw2 = cos(orientation.y * 0.5f);
-	glm::float64 cosPitch2 = cos(orientation.x * 0.5f);
-	glm::float64 cosRoll2 = cos(orientation.z * 0.5f);
+	glm::dquat pitchQuat = glm::angleAxis(orientation.x, glm::dvec3(1.0, 0.0, 0.0));
+	glm::dvec3 direction = pitchQuat * glm::dvec3(0.0, 0.0, -1.0);
+	glm::dvec3 up = pitchQuat * glm::dvec3(0.0, 1.0, 0.0);
 
-	glm::float64 w = cosYaw2 * cosPitch2 * cosRoll2 + sinYaw2 * sinPitch2 * sinRoll2;
-	glm::float64 x = cosYaw2 * sinPitch2 * cosRoll2 + sinYaw2 * cosPitch2 * sinRoll2;
-	glm::float64 y = sinYaw2 * cosPitch2 * cosRoll2 - cosYaw2 * sinPitch2 * sinRoll2;
-	glm::float64 z = cosYaw2 * cosPitch2 * sinRoll2 - sinYaw2 * sinPitch2 * cosRoll2;
+	glm::dquat yawQuat = glm::angleAxis(orientation.y, up);
+	direction = yawQuat * direction;
+	glm::dvec3 right = yawQuat * glm::dvec3(1.0, 0.0, 0.0);
 
-	return glm::dquat(w, x, y, z);
+	glm::dquat rollQuat = glm::angleAxis(orientation.z, direction);
+	up = rollQuat * up;
+	right = rollQuat * right;
+
+	return rollQuat * yawQuat * pitchQuat;
 }
 
 glm::dmat4 Entity::updateMatrix() {
@@ -32,7 +33,6 @@ void Entity::draw(Shader shader, uint8_t mode) {
 		glUniform3fv(shader.uniforms[OBJ_COLOR], 1, &surface.color[0]);
 	if (shader.uniforms.contains(OBJ_MAT))
 		glUniform4fv(shader.uniforms[OBJ_MAT], 1, &surface.material[0]);
-
 
 	// Handle displacement map for the vertex shader
 	if (surface.normal != -1) {

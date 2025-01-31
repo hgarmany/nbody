@@ -8,11 +8,12 @@
 
 class Entity {
 public:
-	Surface surface;
 	glm::dmat4 modelMatrix;
+	Surface surface;
 	glm::dvec3 position;
 	glm::dvec3 prevPosition;
 	glm::dvec3 velocity;
+	glm::dvec3 rotVelocity;
 	glm::dvec3 acceleration;
 	glm::dvec3 orientation;
 	glm::dvec3 scale;
@@ -24,6 +25,7 @@ public:
 		position = glm::dvec3(0.0f);
 		prevPosition = position;
 		velocity = glm::dvec3(0.0f);
+		rotVelocity = glm::dvec3(0.0f);
 		acceleration = glm::dvec3(0.0f);
 		orientation = glm::dvec3(0.0f, 0.0f, 0.0f);
 		scale = glm::dvec3(1.0f);
@@ -53,18 +55,19 @@ public:
 		entity = std::make_shared<Entity>();
 	}
 
-	/*void setModel(int modelIndex) {
-		entity->modelIndex = modelIndex;
-	}*/
-
 	void setModel(size_t modelIndex) {
 		entity->modelIndex = modelIndex;
 	}
 
-	void setMotion(glm::dvec3 position, glm::dvec3 velocity = glm::dvec3(0.0f)) {
+	void setMotion(
+		glm::dvec3 position, 
+		glm::dvec3 velocity = glm::dvec3(0.0f), 
+		glm::dvec3 rotVelocity = glm::dvec3(0.0f)
+	) {
 		entity->position = position;
 		entity->prevPosition = position;
 		entity->velocity = velocity;
+		entity->rotVelocity = rotVelocity;
 	}
 
 	void setOrientation(glm::dvec3 orientation) {
