@@ -3,16 +3,10 @@
 #include <string>
 
 std::vector<Model> Model::modelLibrary;
-std::vector<GLfloat> Model::vertexLibrary;
-std::vector<GLuint> Model::indexLibrary;
-std::vector<GLfloat> Model::normalLibrary;
-std::vector<GLfloat> Model::texLibrary;
 
 Model::Model(
-	size_t vertsStart, size_t vertsLength,
-	size_t indexStart, size_t indexLength,
-	size_t normalStart, size_t normalLength,
-	size_t texStart, size_t texLength,
+	std::vector<GLfloat>& verts, std::vector<GLuint>& indices,
+	std::vector<GLfloat>& normals, std::vector<GLfloat>& tex,
 	std::vector<GLfloat>& tan, std::vector<GLfloat>& bitan
 ) {
 
@@ -24,28 +18,22 @@ Model::Model(
 
 	glBindVertexArray(VAO);
 
-	this->vertsStart = vertsStart;
-	this->vertsLength = vertsLength;
-	this->indexStart = indexStart;
-	this->indexLength = indexLength;
-
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, vertsLength * sizeof(GLfloat), &vertexLibrary[vertsStart], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GLfloat), verts.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0); // Position
 
-	if (normalLength == 0) {
-		normalStart = generateNormals();
-		normalLength = vertsLength;
+	if (normals.size() == 0) {
+		normals = generateNormals(verts, indices);
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, NorBuf);
-	glBufferData(GL_ARRAY_BUFFER, normalLength * sizeof(GLfloat), &normalLibrary[normalStart], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(GLfloat), normals.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
 
 	glBindBuffer(GL_ARRAY_BUFFER, TexBuf);
-	glBufferData(GL_ARRAY_BUFFER, texLength * sizeof(GLfloat), &texLibrary[texStart], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, tex.size() * sizeof(GLfloat), tex.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); // Texture coordinates
 
@@ -54,7 +42,7 @@ Model::Model(
 	{
 		glGenBuffers(1, &TanBuf);
 		glBindBuffer(GL_ARRAY_BUFFER, TanBuf);
-		glBufferData(GL_ARRAY_BUFFER, tan.size() * sizeof(GLfloat), &tan[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, tan.size() * sizeof(GLfloat), tan.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(3);
 		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
 	}
@@ -63,23 +51,21 @@ Model::Model(
 	{
 		glGenBuffers(1, &BitanBuf);
 		glBindBuffer(GL_ARRAY_BUFFER, BitanBuf);
-		glBufferData(GL_ARRAY_BUFFER, bitan.size() * sizeof(GLfloat), &bitan[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, bitan.size() * sizeof(GLfloat), bitan.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(4);
 		glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
 	}
 
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLength * sizeof(GLuint), &indexLibrary[indexStart], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
 
-	//glBindVertexArray(0);
+	numFaces = (GLsizei)indices.size();
 }
 
 Model::Model(
-	size_t vertsStart, size_t vertsLength,
-	size_t indexStart, size_t indexLength,
-	size_t normalStart, size_t normalLength,
-	size_t texStart, size_t texLength
+	std::vector<GLfloat>& verts, std::vector<GLuint>& indices,
+	std::vector<GLfloat>& normals, std::vector<GLfloat>& tex
 ) {
 
 	glGenVertexArrays(1, &VAO);
@@ -90,82 +76,34 @@ Model::Model(
 
 	glBindVertexArray(VAO);
 
-	this->vertsStart = vertsStart;
-	this->vertsLength = vertsLength;
-	this->indexStart = indexStart;
-	this->indexLength = indexLength;
-
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, vertsLength * sizeof(GLfloat), &vertexLibrary[vertsStart], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GLfloat), verts.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0); // Position
 
-	if (normalLength == 0) {
-		normalStart = generateNormals();
-		normalLength = vertsLength;
+	if (normals.size() == 0) {
+		normals = generateNormals(verts, indices);
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, NorBuf);
-	glBufferData(GL_ARRAY_BUFFER, normalLength * sizeof(GLfloat), &normalLibrary[normalStart], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(GLfloat), normals.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
 
 	glBindBuffer(GL_ARRAY_BUFFER, TexBuf);
-	glBufferData(GL_ARRAY_BUFFER, texLength * sizeof(GLfloat), &texLibrary[texStart], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, tex.size() *sizeof(GLfloat), tex.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); // Texture coordinates
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLength * sizeof(GLuint), &indexLibrary[indexStart], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
 
-	//glBindVertexArray(0);
+	numFaces = (GLsizei)indices.size();
 }
 
-size_t Model::ModelFromImportedVectors(
-	std::vector<GLfloat>& verts, 
-	std::vector<GLuint>& indices, 
-	std::vector<GLfloat>& normals, 
-	std::vector<GLfloat>& tex,
-	std::vector<GLfloat>& tan,
-	std::vector<GLfloat>& bitan) {
-
-	size_t vertStart = vertexLibrary.size();
-	size_t indexStart = indexLibrary.size();
-	size_t normalStart = normalLibrary.size();
-	size_t texStart = texLibrary.size();
-
-	vertexLibrary.insert(vertexLibrary.end(), verts.begin(), verts.end());
-	indexLibrary.insert(indexLibrary.end(), indices.begin(), indices.end());
-	normalLibrary.insert(normalLibrary.end(), normals.begin(), normals.end());
-	texLibrary.insert(texLibrary.end(), tex.begin(), tex.end());
-
-	modelLibrary.emplace_back(
-		vertStart, verts.size(), 
-		indexStart, indices.size(), 
-		normalStart, normals.size(), 
-		texStart, tex.size(),
-		tan, bitan);
-	return modelLibrary.size() - 1;
-}
-
-size_t Model::ModelFromImportedVectors(std::vector<GLfloat>& verts, std::vector<GLuint>& indices, std::vector<GLfloat>& normals, std::vector<GLfloat>& tex) {
-	size_t vertStart = vertexLibrary.size();
-	size_t indexStart = indexLibrary.size();
-	size_t normalStart = normalLibrary.size();
-	size_t texStart = texLibrary.size();
-
-	vertexLibrary.insert(vertexLibrary.end(), verts.begin(), verts.end());
-	indexLibrary.insert(indexLibrary.end(), indices.begin(), indices.end());
-	normalLibrary.insert(normalLibrary.end(), normals.begin(), normals.end());
-	texLibrary.insert(texLibrary.end(), tex.begin(), tex.end());
-
-	modelLibrary.emplace_back(vertStart, verts.size(), indexStart, indices.size(), normalStart, normals.size(), texStart, tex.size());
-	return modelLibrary.size() - 1;
-}
-
-size_t Model::generateNormals() {
-	size_t numFaces = indexLength / 3;  // Each vertex has 3 components (x, y, z)
-	size_t numVerts = vertsLength;
+std::vector<GLfloat> Model::generateNormals(std::vector<GLfloat>& verts, std::vector<GLuint>& indices) {
+	size_t numFaces = indices.size() / 3;  // Each vertex has 3 components (x, y, z)
+	size_t numVerts = verts.size();
 
 	// Initialize normals to zero
 	std::vector<GLfloat> normals;
@@ -177,12 +115,13 @@ size_t Model::generateNormals() {
 	// Iterate through each triangle (each group of 3 vertices)
 	for (int i = 0; i < numFaces; i++) {
 		// Extract the 3 vertices for the current triangle
-		GLint a = indexLibrary[indexStart + 3 * i];
-		GLint b = indexLibrary[indexStart + 3 * i + 1];
-		GLint c = indexLibrary[indexStart + 3 * i + 2];
-		glm::vec3 v0(vertexLibrary[vertsStart + 3 * a], vertexLibrary[vertsStart + 3 * a + 1], vertexLibrary[vertsStart + 3 * a + 2]);
-		glm::vec3 v1(vertexLibrary[vertsStart + 3 * b], vertexLibrary[vertsStart + 3 * b + 1], vertexLibrary[vertsStart + 3 * b + 2]);
-		glm::vec3 v2(vertexLibrary[vertsStart + 3 * c], vertexLibrary[vertsStart + 3 * c + 1], vertexLibrary[vertsStart + 3 * c + 2]);
+		GLint a = indices[i * 3];
+		GLint b = indices[i * 3 + 1];
+		GLint c = indices[i * 3 + 2];
+		
+		glm::vec3 v0(verts[a * 3], verts[a * 3 + 1], verts[a * 3 + 2]);
+		glm::vec3 v1(verts[b * 3], verts[b * 3 + 1], verts[b * 3 + 2]);
+		glm::vec3 v2(verts[c * 3], verts[c * 3 + 1], verts[c * 3 + 2]);
 
 		// Calculate two edge vectors of the triangle
 		glm::vec3 edge1 = v1 - v0;
@@ -214,9 +153,7 @@ size_t Model::generateNormals() {
 		normals[i + 2] = normal.z;
 	}
 
-	size_t normalStart = normalLibrary.size();
-	normalLibrary.insert(normalLibrary.end(), normals.begin(), normals.end());
-	return normalStart;
+	return normals;
 }
 
 size_t duplicatePoint(std::vector<GLfloat>& vertices, std::vector<GLfloat>& normals, std::vector<GLfloat>& tex, size_t index) {
@@ -342,64 +279,8 @@ size_t Model::Cube() {
 		20, 23, 22, 20, 22, 21
 	};
 
-	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
-}
-
-size_t Model::Sphere() {
-	// Define sphere properties
-	const int SPHERE_LATITUDE = 50; // Number of latitude lines
-	const int SPHERE_LONGITUDE = 50; // Number of longitude lines
-
-	std::vector<GLfloat> tempVer;
-	std::vector<GLuint> tempInd;
-	std::vector<GLfloat> tempNor;
-	std::vector<GLfloat> tempTex;
-
-	for (int lat = 0; lat <= SPHERE_LATITUDE; ++lat) {
-		float theta = lat * pi / SPHERE_LATITUDE; // Latitude angle
-		for (int lon = 0; lon <= SPHERE_LONGITUDE; ++lon) {
-			float phi = lon * 2.0f * pi / SPHERE_LONGITUDE; // Longitude angle
-			float x = sin(theta) * cos(phi);
-			float y = cos(theta);
-			float z = sin(theta) * sin(phi);
-
-			// Add vertex positions
-			tempVer.push_back(x);
-			tempVer.push_back(y);
-			tempVer.push_back(z);
-
-			// Add normals (normalized position vector)
-			tempNor.push_back(x);  // Normal x
-			tempNor.push_back(y);  // Normal y
-			tempNor.push_back(z);  // Normal z
-
-			// Add texture coordinates (not used for shading but often useful)
-			float u = (float)lon / (float)SPHERE_LONGITUDE;
-			float v = (float)lat / (float)SPHERE_LATITUDE;
-			tempTex.push_back(u);
-			tempTex.push_back(v);
-		}
-	}
-
-	// Generate the indices to form the sphere faces (triangles)
-	for (int lat = 0; lat < SPHERE_LATITUDE; lat++) {
-		for (int lon = 0; lon < SPHERE_LONGITUDE; lon++) {
-			GLuint first = lat * (SPHERE_LONGITUDE + 1) + lon;
-			GLuint second = first + SPHERE_LONGITUDE + 1;
-
-			// First triangle
-			tempInd.push_back(first);
-			tempInd.push_back(second);
-			tempInd.push_back(first + 1);
-
-			// Second triangle
-			tempInd.push_back(second);
-			tempInd.push_back(second + 1);
-			tempInd.push_back(first + 1);
-		}
-	}
-
-	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex);
+	modelLibrary.emplace_back(tempVer, tempInd, tempNor, tempTex);
+	return modelLibrary.size() - 1;
 }
 
 void normalize(GLfloat& x, GLfloat& y, GLfloat& z) {
@@ -702,6 +583,6 @@ size_t Model::Icosphere(int subdivisions) {
 		tempBitan[i + 2] = bitangent.z;
 	}
 
-	// Pass tangent and bitangent data to your model creation
-	return ModelFromImportedVectors(tempVer, tempInd, tempNor, tempTex, tempTan, tempBitan);
+	modelLibrary.emplace_back(tempVer, tempInd, tempNor, tempTex, tempTan, tempBitan);
+	return modelLibrary.size() - 1;
 }

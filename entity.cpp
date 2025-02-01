@@ -68,6 +68,6 @@ void Entity::draw(Shader shader, uint8_t mode) {
 		glUniformMatrix4fv(shader.M, 1, GL_FALSE, &M[0][0]);
 	}
 
-	glDrawElements(GL_TRIANGLES, (GLsizei)Model::modelLibrary[modelIndex].indexLength, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, Model::modelLibrary[modelIndex].numFaces, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }
