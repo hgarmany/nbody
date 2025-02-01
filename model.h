@@ -56,6 +56,8 @@ public:
 		EBO = other.EBO;
 		NorBuf = other.NorBuf;
 		TexBuf = other.TexBuf;
+		TanBuf = other.TanBuf;
+		BitanBuf = other.BitanBuf;
 
 		other.VAO = 0;
 	}
@@ -66,6 +68,8 @@ public:
 			glDeleteBuffers(1, &EBO);
 			glDeleteBuffers(1, &NorBuf);
 			glDeleteBuffers(1, &TexBuf);
+			glDeleteBuffers(1, &TanBuf);
+			glDeleteBuffers(1, &BitanBuf);
 			glDeleteVertexArrays(1, &VAO);
 		}
 	}

@@ -1,6 +1,8 @@
 ﻿#include "entity.h"
 #include <glm/gtc/quaternion.hpp>
 
+Entity Entity::skybox;
+
 // rotates on local axes in pitch, yaw, roll order
 glm::dquat Entity::getRotationQuat() {
 	glm::dquat pitchQuat = glm::angleAxis(orientation.x, glm::dvec3(1.0, 0.0, 0.0));

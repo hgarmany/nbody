@@ -9,10 +9,11 @@ enum shaderUniform : uint8_t
 };
 
 typedef struct shader {
-    GLuint index, M, V, P;
+    GLuint index = 0, M = 0, V = 0, P = 0;
     std::map<uint8_t, GLuint> uniforms;
 
 } Shader;
 
 Shader initStandardShader();
 Shader initSkyboxShader();
+Shader initTrailShader();

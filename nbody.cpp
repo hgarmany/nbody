@@ -5,17 +5,20 @@
 #include <chrono>
 #include "physics.h"
 #include "controls.h"
+#include "builder.h"
 
 #include "stb_image.h"
 
-Shader shader, skyboxShader;
+Shader shader, skyboxShader, trailShader;
 glm::mat4 projection;
 GLFWwindow* window;
-Entity skybox;
 
-size_t starBody;
+GLuint trailVAO, trailVBO, trailAlphaBuf;
+
 size_t cube, sphere;
 int screenSize = WIDTH;
+
+size_t maxTrailLength = 2500;
 
 // Function to update the projection matrix based on window size
 void static updateProjectionMatrix(GLFWwindow* window) {
@@ -86,7 +89,7 @@ void static render() {
 
 	// Activate the shader program
 	glUseProgram(shader.index);
-	glm::vec3 lightPos = bodies[starBody].position;
+	glm::vec3 lightPos = bodies[0].position;
 	glm::vec3 lightColor = glm::vec3(1.0f);
 	glUniform3fv(shader.uniforms[LIGHT_POS], 1, &lightPos[0]);
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
@@ -98,7 +101,45 @@ void static render() {
 	for (Entity body : bodies)
 		body.draw(shader, MODE_TEX);
 
+	// start trails
 
+	glUseProgram(trailShader.index);
+	setPV(trailShader, projection, view);
+	std::vector<glm::vec3> trailVertices;
+	std::vector<float> trailAlphas;
+	for (GravityBody body : bodies) {
+		trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
+		for (size_t j = 0; j < body.trail->size(); ++j) {
+			trailAlphas.push_back(static_cast<float>(j) / body.trail->size());
+		}
+	}
+
+	glBindVertexArray(trailVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
+	glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), trailVertices.data(), GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(0); // Assuming location 0 for positions
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, trailAlphaBuf);
+	glBufferData(GL_ARRAY_BUFFER, trailAlphas.size() * sizeof(float), trailAlphas.data(), GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(1); // Assuming location 1 for alphas
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
+
+	GLint offset = 0;
+	for (GravityBody body : bodies) {
+		glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &body.trailColor[0]);
+		glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
+		offset += (GLint)body.trail->size();
+	}
+
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glBindVertexArray(0); // Unbind VAO
+
+	// end trails
+	
 	glDepthFunc(GL_LEQUAL);
 	glUseProgram(skyboxShader.index);
 
@@ -106,7 +147,7 @@ void static render() {
 	view = glm::mat4(glm::mat3(view));
 	setPV(skyboxShader, projection, view);
 
-	skybox.draw(skyboxShader, MODE_CUBEMAP);
+	Entity::skybox.draw(skyboxShader, MODE_CUBEMAP);
 
 	glDepthFunc(GL_LESS);
 }
@@ -119,96 +160,61 @@ void static MessageCallback(GLenum source,
 	const GLchar* message,
 	const void* userParam)
 {
-	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
-		(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
-		type, severity, message);
+	if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+		fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+			(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
+			type, severity, message);
+}
+
+void updateTrails() {
+	for (GravityBody body : bodies) {
+		if (body.trail) {
+			body.trail->push_back(body.position); // Add the current position to the trail
+			if (body.trail->size() > maxTrailLength) {
+				body.trail->pop_front(); // Remove the oldest position
+			}
+		}
+	}
+}
+
+void cleanGL() {
+	glDeleteBuffers(1, &trailVBO);
+	glDeleteBuffers(1, &trailAlphaBuf);
+
+	glDeleteProgram(shader.index);
+	glDeleteProgram(skyboxShader.index);
+	glDeleteProgram(trailShader.index);
+
+	glfwTerminate();
 }
 
 void buildObjects() {
-	std::vector<std::string> faces = {
-		"assets/sky/right.jpg",
-		"assets/sky/left.jpg",
-		"assets/sky/top.jpg",
-		"assets/sky/bottom.jpg",
-		"assets/sky/front.jpg",
-		"assets/sky/back.jpg"
-	};
-
 	Surface earth = Surface("assets/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
 	earth.normal = Surface::getTexture("assets/earth_normal.jpg");
 	Surface moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
 	moon.normal = Surface::getTexture("assets/moon_normal.jpg");
 	Surface sun = Surface("assets/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
-	Surface stars = Surface::CubeMap(faces);
 
-	// sun
 	GravityBodyBuilder builder;
-	builder.init(1.9891e30f);
-	builder.setModel(sphere);
-	builder.setRadius(500.0f);
-	double spin = 2 * pi / 86400 / 27;
-	builder.setMotion(glm::dvec3(0.0), glm::dvec3(0.0));
-	builder.setOrientation(glm::dvec3(0.126, 0, 0));
-	builder.setSurface(sun);
-	bodies.push_back(builder.get());
-	starBody = 0;
 
-	// earth
-	builder.init(5.9722e24f);
-	builder.setModel(sphere);
-	builder.setRadius(250.0f);
-	spin = 2 * pi / 86400;
-	builder.setMotion(
-		glm::dvec3(149598.0, 0.0, 0.0), 
-		glm::dvec3(0.0, 0.0, 0.029786), 
-		glm::dvec3(0.0, spin, 0.0)
-	);
-	builder.setOrientation(glm::dvec3(0.40910518, 0, 0));
-	builder.setSurface(earth);
-	bodies.push_back(builder.get());
-
-	//moon
-	builder.init(7.3477e22f);
-	builder.setModel(sphere);
-	builder.setRadius(100.0f);
-	spin = 2 * pi / 86400 / 27.3;
-	builder.setMotion(
-		glm::dvec3(149982.7, 0.0, 0.0), 
-		glm::dvec3(0.0, 0.0, 0.028764), 
-		glm::dvec3(0.0, spin, 0.0)
-	);
-	builder.setOrientation(glm::dvec3(0.116588, 0, 0));
-	builder.setSurface(moon);
-	bodies.push_back(builder.get());
+	builder.buildEarthMoonSun(sphere, earth, moon, sun);
 
 	// !earth
 	builder.init(5.9722e24f);
 	builder.setModel(sphere);
 	builder.setRadius(250.0f);
-	spin = 2 * pi / 86400;
+	double spin = 2 * pi / 86400;
 	builder.setMotion(
-		glm::dvec3(147216.9, 0.0, 25958.3), 
-		glm::dvec3(-0.0051742, 0.0, 0.029344), 
+		glm::dvec3(147216.9, 0.0, 25958.3),
+		glm::dvec3(-0.0051742, 0.0, 0.029344),
 		glm::dvec3(0.0, spin, 0.0)
 	);
 	builder.setOrientation(glm::dvec3(0.40910518, 0, 0));
 	builder.setSurface(earth);
+	builder.addTrail();
 	bodies.push_back(builder.get());
 
-	// second sun
-	/*builder.init(1.9891e30f);
-	builder.setModel(sphere);
-	builder.setRadius(500.0f);
-	builder.setMotion(glm::vec3(0.0, 2500.0f, 0.0f), glm::vec3(0.25f, 0.0f, 0.0f));
-	builder.setSurface(sun);
-	bodies.push_back(builder.get());*/
-
-	// stars
-	EntityBuilder skyBuilder;
-	skyBuilder.init();
-	skyBuilder.setModel(cube);
-	skyBuilder.setSurface(stars);
-	skybox = skyBuilder.get();
+	builder.buildSky(cube);
 }
 
 int main() {
@@ -245,10 +251,16 @@ int main() {
 
 	shader = initStandardShader();
 	skyboxShader = initSkyboxShader();
+	trailShader = initTrailShader();
+
+	glGenVertexArrays(1, &trailVAO);
+	glGenBuffers(1, &trailVBO);
+	glGenBuffers(1, &trailAlphaBuf);
 
 	double lastLoopTime = glfwGetTime();
 	double lastFrameTime = lastLoopTime;
 
+	glm::dvec3 center = bodies[0].position;
 	while (!glfwWindowShouldClose(window)) {
 		double currentTime = glfwGetTime();
 		glm::float64 deltaTime = currentTime - lastLoopTime;
@@ -259,7 +271,7 @@ int main() {
 
 		flyCam(window, deltaTime);
 
-		// flip around sun-cube
+		// adjust earth axial tilt and time of day
 		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 			bodies[1].orientation.y += deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
@@ -270,9 +282,7 @@ int main() {
 			bodies[1].orientation.x -= deltaTime;
 
 		if (currentTime - lastFrameTime > MAX_FRAME_TIME) {
-			//std::cout << currentTime - lastFrameTime << "\n";
-			camera.position = bodies[1].position + glm::dvec3(0.0, 3.0, 0.0) * bodies[1].scale;
-
+			updateTrails();
 			render();
 			lastFrameTime = currentTime;
 
@@ -281,10 +291,6 @@ int main() {
 		}
 	}
 
-	// Cleanup
-	glDeleteProgram(shader.index);
-	glDeleteProgram(skyboxShader.index);
-
-	glfwTerminate();
+	cleanGL();
 	exit(EXIT_SUCCESS);
 }

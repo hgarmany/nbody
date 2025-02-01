@@ -8,6 +8,8 @@
 
 class Entity {
 public:
+	static Entity skybox;
+
 	glm::dmat4 modelMatrix;
 	Surface surface;
 	glm::dvec3 position;
@@ -42,50 +44,4 @@ public:
 	void draw(Shader shader, uint8_t mode);
 
 	virtual ~Entity() {}
-};
-
-class EntityBuilder {
-protected:
-	std::shared_ptr<Entity> entity;
-public:
-	EntityBuilder() {
-	}
-
-	void init() {
-		entity = std::make_shared<Entity>();
-	}
-
-	void setModel(size_t modelIndex) {
-		entity->modelIndex = modelIndex;
-	}
-
-	void setMotion(
-		glm::dvec3 position, 
-		glm::dvec3 velocity = glm::dvec3(0.0f), 
-		glm::dvec3 rotVelocity = glm::dvec3(0.0f)
-	) {
-		entity->position = position;
-		entity->prevPosition = position;
-		entity->velocity = velocity;
-		entity->rotVelocity = rotVelocity;
-	}
-
-	void setOrientation(glm::dvec3 orientation) {
-		entity->orientation = orientation;
-	}
-
-	void setScale(glm::dvec3 scale) {
-		entity->scale = scale;
-	}
-
-	void setSurface(Surface surface) {
-		entity->surface = surface;
-	}
-
-	Entity get() {
-		entity->updateMatrix();
-		Entity temp = *entity;
-		entity.reset();
-		return temp;
-	}
 };

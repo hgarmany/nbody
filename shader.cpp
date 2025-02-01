@@ -75,13 +75,13 @@ Shader initStandardShader() {
 
 	const char* fragmentSource = R"(
 		#version 330 core
-		out vec4 FragColor;
-
 		in vec3 FragPos;
 		in vec3 Normal;
 		in vec3 Tangent;
 		in vec3 Bitangent;
 		in vec2 TexCoords;
+
+		out vec4 FragColor;
 
 		uniform vec3 objectColor;
 		uniform vec4 material;
@@ -175,16 +175,15 @@ Shader initSkyboxShader() {
 
 	const char* fragmentSource = R"(
 		#version 330 core
-		out vec4 FragColor;
-
 		in vec3 TexCoords;
+
+		out vec4 FragColor;
 
 		uniform samplerCube skybox;
 
 		void main()
 		{    
 			FragColor = texture(skybox, TexCoords);
-			//FragColor = vec4(1.0);
 		}
 	)";
 
@@ -197,6 +196,48 @@ Shader initSkyboxShader() {
 	shader.P = glGetUniformLocation(shaderProgram, "projection");
 
 	shader.uniforms[TEX_MAP] = glGetUniformLocation(shaderProgram, "skybox");
+
+	return shader;
+}
+
+Shader initTrailShader() {
+	const char* vertexSource = R"(
+		#version 330 core
+		layout (location = 0) in vec3 aPos;
+		layout (location = 1) in float alpha;
+
+		out float f_alpha;
+
+		uniform mat4 view;
+		uniform mat4 projection;
+
+		void main() {
+			gl_Position = projection * view * vec4(aPos, 1.0);
+			f_alpha = alpha;
+		}
+	)";
+
+	const char* fragmentSource = R"(
+		#version 330 core
+		in float f_alpha;
+
+		out vec4 fragColor;
+
+		uniform vec3 color;
+
+		void main() {
+			fragColor = vec4(color, f_alpha); // Fade out trail with alpha
+		}
+	)";
+
+	GLuint shaderProgram = compileShader(vertexSource, fragmentSource);
+
+	Shader shader;
+	glUseProgram(shaderProgram);
+	shader.index = shaderProgram;
+	shader.V = glGetUniformLocation(shaderProgram, "view");
+	shader.P = glGetUniformLocation(shaderProgram, "projection");
+	shader.uniforms[OBJ_COLOR] = glGetUniformLocation(shaderProgram, "color");
 
 	return shader;
 }
