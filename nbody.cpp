@@ -189,28 +189,19 @@ void cleanGL() {
 }
 
 void buildObjects() {
-	Surface earth = Surface("assets/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
-	earth.normal = Surface::getTexture("assets/earth_normal.jpg");
-	Surface moon = Surface("assets/moon.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	moon.normal = Surface::getTexture("assets/moon_normal.jpg");
-	Surface sun = Surface("assets/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
-
 	GravityBodyBuilder builder;
 
-	builder.buildEarthMoonSun(sphere, earth, moon, sun);
+	builder.buildSolarSystem(sphere);
 
 	// !earth
-	builder.init(5.9722e24f);
-	builder.setModel(sphere);
-	builder.setRadius(250.0f);
+	Orbit earthOrbit(&bodies[0], 1.494880e5, 0.01671123f, 1.796601f, 0.1745f, -2.672099e-7f, 0.0f);
+	builder.init(5.9722e24f, earthOrbit);
+	builder.setModel(bodies[3].modelIndex);
+	builder.setRadius(6.371f);
 	double spin = 2 * pi / 86400;
-	builder.setMotion(
-		glm::dvec3(147216.9, 0.0, 25958.3),
-		glm::dvec3(-0.0051742, 0.0, 0.029344),
-		glm::dvec3(0.0, spin, 0.0)
-	);
-	builder.setOrientation(glm::dvec3(0.40910518, 0, 0));
-	builder.setSurface(earth);
+	builder.setSpin(spin);
+	builder.setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
+	builder.setSurface(bodies[3].surface);
 	builder.addTrail();
 	bodies.push_back(builder.get());
 
@@ -280,6 +271,10 @@ int main() {
 			bodies[1].orientation.x += deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 			bodies[1].orientation.x -= deltaTime;
+
+		glm::dvec3 span = bodies[bodies.size() - 1].position - bodies[0].position;
+		double height = glm::length(span);
+		printf("\t%.4f\t\t%.4f\t%.4f\t%.4f\t\t\r", height, span.x, span.y, span.z);
 
 		if (currentTime - lastFrameTime > MAX_FRAME_TIME) {
 			updateTrails();

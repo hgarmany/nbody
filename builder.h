@@ -61,10 +61,20 @@ public:
 		entity = std::make_shared<GravityBody>(mass);
 	}
 
+	void init(float mass, Orbit orbit) {
+		entity = std::make_shared<GravityBody>(mass, orbit);
+	}
+
 	void setRadius(float radius) {
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
 			body->radius = radius;
 			body->scale = glm::dvec3(radius);
+		}
+	}
+
+	void setSpin(double spin) {
+		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
+			body->rotVelocity.y = spin;
 		}
 	}
 
@@ -85,5 +95,5 @@ public:
 		return GravityBody(0.0);
 	}
 
-	void buildEarthMoonSun(size_t modelIndex, Surface& earth, Surface& moon, Surface& sun);
+	void buildSolarSystem(size_t modelIndex);
 };

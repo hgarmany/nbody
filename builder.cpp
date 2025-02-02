@@ -19,11 +19,20 @@ void EntityBuilder::buildSky(size_t modelIndex) {
 	Entity::skybox = get();
 }
 
-void GravityBodyBuilder::buildEarthMoonSun(size_t modelIndex, Surface& earth, Surface& moon, Surface& sun) {
+void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
+	Surface mercury = Surface("assets/sol/mercury.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
+	Surface venus = Surface("assets/sol/venus.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
+	Surface earth = Surface("assets/sol/earth.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
+	Surface mars = Surface("assets/sol/mars.jpg", glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), glm::vec3(1.0f));
+	earth.normal = Surface::getTexture("assets/sol/earth_normal.jpg");
+	Surface moon = Surface("assets/sol/moon.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
+	moon.normal = Surface::getTexture("assets/sol/moon_normal.jpg");
+	Surface sun = Surface("assets/sol/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
+
 	// sun
 	init(1.9891e30f);
 	setModel(modelIndex);
-	setRadius(500.0f);
+	setRadius(695.7f);
 	double spin = 2 * pi / 86400 / 27;
 	setMotion(glm::dvec3(0.0), glm::dvec3(0.0));
 	setOrientation(glm::dvec3(0.126, 0, 0));
@@ -31,33 +40,64 @@ void GravityBodyBuilder::buildEarthMoonSun(size_t modelIndex, Surface& earth, Su
 	addTrail();
 	bodies.push_back(get());
 
-	// earth
-	init(5.9722e24f);
+	// mercury with true orbital properties
+	Orbit mercuryOrbit(&bodies[0], 5.790923e4, 0.20563593, 1.351894, 0.843531, 0.1222599, 0.0f);
+	init(3.301e23f, mercuryOrbit);
 	setModel(modelIndex);
-	setRadius(250.0f);
-	spin = 2 * pi / 86400;
-	setMotion(
-		glm::dvec3(149598.0, 0.0, 0.0),
-		glm::dvec3(0.0, 0.0, 0.029786),
-		glm::dvec3(0.0, spin, 0.0)
-	);
-	setOrientation(glm::dvec3(0.40910518, 0, 0));
-	setSurface(earth);
-	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
+	setRadius(2.4397f);
+	spin = 2 * pi / 86400 / 58.6;
+	setSpin(spin);
+	setOrientation(glm::dvec3(0.0005934119 + mercuryOrbit.inclination, 0, 0));
+	setSurface(mercury);
+	addTrail();
 	bodies.push_back(get());
 
-	//moon
-	init(7.3477e22f);
+	// venus with true orbital properties
+	Orbit venusOrbit(&bodies[0], 1.082095e5, 0.00677672, 2.296896, 3.176134, 0.05924827, 0.0f);
+	init(4.867e24f, venusOrbit);
 	setModel(modelIndex);
-	setRadius(100.0f);
-	spin = 2 * pi / 86400 / 27.3;
-	setMotion(
-		glm::dvec3(149982.7, 0.0, 0.0),
-		glm::dvec3(0.0, 0.0, 0.028764),
-		glm::dvec3(0.0, spin, 0.0)
-	);
-	setOrientation(glm::dvec3(0.116588, 0, 0));
+	setRadius(6.0518f);
+	spin = 2 * pi / 86400 / 243;
+	setSpin(spin);
+	setOrientation(glm::dvec3(0.04607669 + venusOrbit.inclination, 0, 0));
+	setSurface(venus);
+	addTrail();
+	bodies.push_back(get());
+
+	// earth with true orbital properties
+	//Orbit earthOrbit(&bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, 1.753438f);
+	Orbit earthOrbit(&bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, 0.0f);
+	init(5.9722e24f, earthOrbit);
+	setModel(modelIndex);
+	setRadius(6.371f);
+	spin = 2 * pi / 86400;
+	setSpin(spin);
+	setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
+	setSurface(earth);
+	addTrail();
+	bodies.push_back(get());
+
+	// moon with true orbital properties
+	Orbit moonOrbit(&bodies[3], 3.84399e2, 0.0549f, 0.0f, 0.0f, 0.08979719f, 0.0f);
+	init(5.9722e24f, moonOrbit);
+	setModel(modelIndex);
+	setRadius(1.7374f);
+	spin = 2 * pi / 86400 / 27.321;
+	setSpin(spin);
+	setOrientation(glm::dvec3(0.02691996 + moonOrbit.inclination, 0, 0));
 	setSurface(moon);
+	addTrail();
+	bodies.push_back(get());
+
+	// mars with true orbital properties
+	Orbit marsOrbit(&bodies[0], 2.27956e5, 0.09339410, -0.4178952, 0.8649771, 0.03228321, 0.0f);
+	init(6.4169e23, marsOrbit);
+	setModel(modelIndex);
+	setRadius(3.3895f);
+	spin = 2 * pi / 86400 / 1.029;
+	setSpin(spin);
+	setOrientation(glm::dvec3(0.4396484 + marsOrbit.inclination, 0, 0));
+	setSurface(mars);
 	addTrail();
 	bodies.push_back(get());
 }
