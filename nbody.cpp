@@ -3,18 +3,25 @@
 
 #include <iostream>
 #include <chrono>
+#include <thread>
+#include <mutex>
 #include "physics.h"
 #include "controls.h"
 #include "builder.h"
 
 #include "stb_image.h"
 
+std::mutex physicsMutex;
+std::condition_variable physicsCV;
+bool physicsUpdated = false;
+std::atomic<bool> running(true);
+
 Shader shader, skyboxShader, trailShader;
-glm::mat4 projection;
+glm::dmat4 projection;
 GLFWwindow* window;
 
 GLuint trailVAO, trailVBO, trailAlphaBuf;
-
+int physicsFrames, lastPhysicsFrames = 0;
 size_t cube, sphere;
 int screenSize = WIDTH;
 
@@ -79,9 +86,9 @@ void static initWindow() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor initially
 }
 
-void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
-	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
-	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
+void setPV(Shader& shader, glm::dmat4& P, glm::dmat4& V) {
+	glUniformMatrix4dv(shader.P, 1, GL_FALSE, &P[0][0]);
+	glUniformMatrix4dv(shader.V, 1, GL_FALSE, &V[0][0]);
 }
 
 void static render() {
@@ -95,7 +102,7 @@ void static render() {
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
 
 	// set camera
-	glm::mat4 view = camera.viewMatrix();
+	glm::dmat4 view = camera.viewMatrix();
 	setPV(shader, projection, view);
 
 	for (Entity body : bodies)
@@ -108,9 +115,11 @@ void static render() {
 	std::vector<glm::vec3> trailVertices;
 	std::vector<float> trailAlphas;
 	for (GravityBody body : bodies) {
-		trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
-		for (size_t j = 0; j < body.trail->size(); ++j) {
-			trailAlphas.push_back(static_cast<float>(j) / body.trail->size());
+		if (body.trail) {
+			trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
+			for (size_t j = 0; j < body.trail->size(); ++j) {
+				trailAlphas.push_back(static_cast<float>(j) / body.trail->size());
+			}
 		}
 	}
 
@@ -129,9 +138,11 @@ void static render() {
 
 	GLint offset = 0;
 	for (GravityBody body : bodies) {
-		glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &body.trailColor[0]);
-		glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
-		offset += (GLint)body.trail->size();
+		if (body.trail) {
+			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &body.trailColor[0]);
+			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
+			offset += (GLint)body.trail->size();
+		}
 	}
 
 	glDisableVertexAttribArray(0);
@@ -167,12 +178,40 @@ void static MessageCallback(GLenum source,
 }
 
 void updateTrails() {
-	for (GravityBody body : bodies) {
-		if (body.trail) {
-			body.trail->push_back(body.position); // Add the current position to the trail
-			if (body.trail->size() > maxTrailLength) {
-				body.trail->pop_front(); // Remove the oldest position
+	std::vector<GravityBody> futureBodies = bodies;
+	std::vector<double> period(futureBodies.size(), -1);
+	for (int j = 0; j < futureBodies.size(); j++) {
+		size_t parentIndex = bodies[j].parentIndex;
+		if (futureBodies[j].trail && parentIndex != -1) {
+			// populate the period in s of the body at index j
+			futureBodies[j].trail->clear();
+			double gravParam = G * (bodies[parentIndex].mass + bodies[j].mass);
+			double distance = glm::length(futureBodies[j].position - futureBodies[parentIndex].position);
+			double dV = glm::length(futureBodies[j].velocity - futureBodies[parentIndex].velocity);
+			double semiMajorAxis = 1.0 / (2.0 / distance - pow(dV, 2.0) / gravParam);
+			if (semiMajorAxis < 0)
+				semiMajorAxis *= -1.0;
+			period[j] = 2.0 * pi * sqrt(semiMajorAxis * semiMajorAxis * semiMajorAxis / gravParam);
+		}
+	}
+	for (int i = 0; i <= maxTrailLength; i++) {
+		// simulate a new physics frame for the allowed trail length
+		for (int j = 0; j < futureBodies.size(); j++) {
+			// capture the time-reversed simulated position of the body at index j as a component of the trail
+			size_t parentIndex = bodies[j].parentIndex;
+			if (futureBodies[j].trail && parentIndex != -1) {
+				if (futureBodies[j].trail && i * 0.05 * TIME_STEP <= period[j]) {
+					// trails follow the body's parent
+					futureBodies[j].trail->push_back(futureBodies[j].position - futureBodies[parentIndex].position + bodies[parentIndex].position);
+				}
 			}
+		}
+		updateBodies(-0.05, futureBodies);
+	}
+
+	for (int j = 0; j < futureBodies.size(); j++) {
+		if (futureBodies[j].trail) {
+			futureBodies[j].trail->push_back(futureBodies[j].trail->front());
 		}
 	}
 }
@@ -195,7 +234,7 @@ void buildObjects() {
 
 	// !earth
 	Orbit earthOrbit(&bodies[0], 1.494880e5, 0.01671123f, 1.796601f, 0.1745f, -2.672099e-7f, 0.0f);
-	builder.init(5.9722e24f, earthOrbit);
+	builder.init(5.9722e24f, earthOrbit, 0);
 	builder.setModel(bodies[3].modelIndex);
 	builder.setRadius(6.371f);
 	double spin = 2 * pi / 86400;
@@ -205,7 +244,73 @@ void buildObjects() {
 	builder.addTrail();
 	bodies.push_back(builder.get());
 
+	bodies[6].parentIndex = 0;
 	builder.buildSky(cube);
+}
+
+void physicsLoop() {
+	double lastLoopTime = glfwGetTime();
+	while (running) {
+		double currentTime = glfwGetTime();
+		glm::float64 deltaTime = currentTime - lastLoopTime;
+
+		// rate limit on new simulation frames
+		if (deltaTime < MIN_P_FRAME_TIME) {
+			int waiting = int(1e6 * (MIN_P_FRAME_TIME - deltaTime));
+			std::this_thread::sleep_for(std::chrono::microseconds(waiting));
+			currentTime = glfwGetTime();
+			deltaTime = currentTime - lastLoopTime;
+		}
+		
+		lastLoopTime = currentTime;
+
+		if (hasPhysics)
+			updateBodies(deltaTime, bodies);
+
+		flyCam(window, deltaTime);
+
+		// manual control: adjust earth axial tilt and time of day
+		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+			bodies[3].orientation.y += deltaTime;
+		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+			bodies[3].orientation.y -= deltaTime;
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+			bodies[3].orientation.x += deltaTime;
+		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+			bodies[3].orientation.x -= deltaTime;
+
+		// data is ready for renderer to access
+		physicsUpdated = true;
+		physicsFrames++;
+		physicsCV.notify_one();
+	}
+}
+
+void renderLoop(GLFWwindow* window) {
+	double lastFrameTime = glfwGetTime();
+	double currentTime = glfwGetTime();
+
+	while (!glfwWindowShouldClose(window)) {
+		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
+			// capture physics results when they are ready
+			{
+				std::unique_lock<std::mutex> lock(physicsMutex);
+				physicsCV.wait(lock, [] { return physicsUpdated; });
+				physicsUpdated = false;
+				printf("%u\n",physicsFrames - lastPhysicsFrames);
+				lastPhysicsFrames = physicsFrames;
+			}
+
+			updateTrails();
+			render();
+			lastFrameTime = currentTime;
+
+			glfwSwapBuffers(window);
+			glfwPollEvents();
+		}
+
+		currentTime = glfwGetTime();
+	}
 }
 
 int main() {
@@ -232,6 +337,7 @@ int main() {
 
 	setXY(window);
 
+	// obtain initial perspective information from relationship between window and screen
 	GLFWmonitor* screen = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(screen);
 	screenSize = mode->height;
@@ -248,43 +354,15 @@ int main() {
 	glGenBuffers(1, &trailVBO);
 	glGenBuffers(1, &trailAlphaBuf);
 
-	double lastLoopTime = glfwGetTime();
-	double lastFrameTime = lastLoopTime;
+	camera.position = bodies[3].position + glm::dvec3(0.0, bodies[3].radius * 3, 0.0);
 
-	glm::dvec3 center = bodies[0].position;
-	while (!glfwWindowShouldClose(window)) {
-		double currentTime = glfwGetTime();
-		glm::float64 deltaTime = currentTime - lastLoopTime;
-		lastLoopTime = currentTime;
+	// entering work area: split program into physics and rendering threads
+	std::thread physicsThread(physicsLoop);
+	renderLoop(window);
 
-		if (hasPhysics)
-			updateBodies(deltaTime);
-
-		flyCam(window, deltaTime);
-
-		// adjust earth axial tilt and time of day
-		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-			bodies[1].orientation.y += deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-			bodies[1].orientation.y -= deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-			bodies[1].orientation.x += deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-			bodies[1].orientation.x -= deltaTime;
-
-		glm::dvec3 span = bodies[bodies.size() - 1].position - bodies[0].position;
-		double height = glm::length(span);
-		printf("\t%.4f\t\t%.4f\t%.4f\t%.4f\t\t\r", height, span.x, span.y, span.z);
-
-		if (currentTime - lastFrameTime > MAX_FRAME_TIME) {
-			updateTrails();
-			render();
-			lastFrameTime = currentTime;
-
-			glfwSwapBuffers(window);
-			glfwPollEvents();
-		}
-	}
+	// exiting work area: close threads and clean up data
+	running = false;
+	physicsThread.join();
 
 	cleanGL();
 	exit(EXIT_SUCCESS);

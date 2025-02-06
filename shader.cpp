@@ -46,7 +46,7 @@ GLuint compileShader(const char* vertSource, const char* fragSource) {
 
 Shader initStandardShader() {
 	const char* vertexSource = R"(
-		#version 330 core
+		#version 400 core
 		layout (location = 0) in vec3 aPos;
 		layout (location = 1) in vec3 aNormal;
 		layout (location = 2) in vec2 aTex;
@@ -59,22 +59,22 @@ Shader initStandardShader() {
 		out vec3 Bitangent;
 		out vec2 TexCoords;
 
-		uniform mat4 model;
-		uniform mat4 view;
-		uniform mat4 projection;
+		uniform dmat4 model;
+		uniform dmat4 view;
+		uniform dmat4 projection;
 
 		void main() {
-			FragPos = vec3(model * vec4(aPos, 1.0));
+			FragPos = vec3(model * dvec4(aPos, 1.0));
 			Normal = mat3(transpose(inverse(model))) * aNormal;
 			Tangent = mat3(transpose(inverse(model))) * aTan;
 			Bitangent = mat3(transpose(inverse(model))) * aBitan;
 			TexCoords = aTex;
-			gl_Position = projection * view * vec4(FragPos, 1.0);
+			gl_Position = vec4(projection * view * dvec4(FragPos, 1.0));
 		}
 	)";
 
 	const char* fragmentSource = R"(
-		#version 330 core
+		#version 400 core
 		in vec3 FragPos;
 		in vec3 Normal;
 		in vec3 Tangent;
@@ -157,24 +157,24 @@ Shader initStandardShader() {
 
 Shader initSkyboxShader() {
 	const char* vertexSource = R"(
-		#version 330 core
+		#version 400 core
 		layout (location = 0) in vec3 aPos;
 
 		out vec3 TexCoords;
 
-		uniform mat4 projection;
-		uniform mat4 view;
+		uniform dmat4 projection;
+		uniform dmat4 view;
 
 		void main()
 		{
 			TexCoords = aPos;
-			vec4 pos = projection * view * vec4(aPos, 1.0);
-			gl_Position = pos.xyww;  // Keep the depth at the maximum value
+			dvec4 pos = projection * view * dvec4(aPos, 1.0);
+			gl_Position = vec4(pos.xyww);  // Keep the depth at the maximum value
 		}  
 	)";
 
 	const char* fragmentSource = R"(
-		#version 330 core
+		#version 400 core
 		in vec3 TexCoords;
 
 		out vec4 FragColor;
@@ -202,23 +202,23 @@ Shader initSkyboxShader() {
 
 Shader initTrailShader() {
 	const char* vertexSource = R"(
-		#version 330 core
+		#version 400 core
 		layout (location = 0) in vec3 aPos;
 		layout (location = 1) in float alpha;
 
 		out float f_alpha;
 
-		uniform mat4 view;
-		uniform mat4 projection;
+		uniform dmat4 view;
+		uniform dmat4 projection;
 
 		void main() {
-			gl_Position = projection * view * vec4(aPos, 1.0);
+			gl_Position = vec4(projection * view * dvec4(aPos, 1.0));
 			f_alpha = alpha;
 		}
 	)";
 
 	const char* fragmentSource = R"(
-		#version 330 core
+		#version 400 core
 		in float f_alpha;
 
 		out vec4 fragColor;

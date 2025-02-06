@@ -30,7 +30,7 @@ glm::dmat4 Entity::updateMatrix() {
 
 void Entity::draw(Shader shader, uint8_t mode) {
 	glBindVertexArray(Model::modelLibrary[modelIndex].VAO);
-
+	
 	if (shader.uniforms.contains(OBJ_COLOR))
 		glUniform3fv(shader.uniforms[OBJ_COLOR], 1, &surface.color[0]);
 	if (shader.uniforms.contains(OBJ_MAT))
@@ -64,8 +64,8 @@ void Entity::draw(Shader shader, uint8_t mode) {
 	}
 
 	if (mode != MODE_CUBEMAP) {
-		glm::mat4 M = updateMatrix();
-		glUniformMatrix4fv(shader.M, 1, GL_FALSE, &M[0][0]);
+		glm::dmat4 M = updateMatrix();
+		glUniformMatrix4dv(shader.M, 1, GL_FALSE, &M[0][0]);
 	}
 
 	glDrawElements(GL_TRIANGLES, Model::modelLibrary[modelIndex].numFaces, GL_UNSIGNED_INT, 0);

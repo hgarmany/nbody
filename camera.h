@@ -27,7 +27,7 @@ public:
 		right = glm::cross(direction, up);
 	}
 
-	glm::mat4 viewMatrix() {
+	glm::dmat4 viewMatrix() {
 		return glm::dmat4(
 			right.x, up.x, -direction.x, 0.0,
 			right.y, up.y, -direction.y, 0.0,

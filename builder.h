@@ -61,8 +61,8 @@ public:
 		entity = std::make_shared<GravityBody>(mass);
 	}
 
-	void init(float mass, Orbit orbit) {
-		entity = std::make_shared<GravityBody>(mass, orbit);
+	void init(float mass, Orbit orbit, size_t parentIndex) {
+		entity = std::make_shared<GravityBody>(mass, orbit, parentIndex);
 	}
 
 	void setRadius(float radius) {
