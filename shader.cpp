@@ -210,9 +210,10 @@ Shader initTrailShader() {
 
 		uniform dmat4 view;
 		uniform dmat4 projection;
+		uniform dvec3 parentPos;
 
 		void main() {
-			gl_Position = vec4(projection * view * dvec4(aPos, 1.0));
+			gl_Position = vec4(projection * view * dvec4(dvec3(aPos) + parentPos, 1.0));
 			f_alpha = alpha;
 		}
 	)";
@@ -238,6 +239,7 @@ Shader initTrailShader() {
 	shader.V = glGetUniformLocation(shaderProgram, "view");
 	shader.P = glGetUniformLocation(shaderProgram, "projection");
 	shader.uniforms[OBJ_COLOR] = glGetUniformLocation(shaderProgram, "color");
+	shader.uniforms[OBJ_POS] = glGetUniformLocation(shaderProgram, "parentPos");
 
 	return shader;
 }

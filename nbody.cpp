@@ -26,6 +26,7 @@ size_t cube, sphere;
 int screenSize = WIDTH;
 
 size_t maxTrailLength = 2500;
+double initTime;
 
 // Function to update the projection matrix based on window size
 void static updateProjectionMatrix(GLFWwindow* window) {
@@ -137,9 +138,14 @@ void static render() {
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
 
 	GLint offset = 0;
+	glm::dvec3 root(0.0);
 	for (GravityBody body : bodies) {
 		if (body.trail) {
 			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &body.trailColor[0]);
+			if (body.parentIndex != -1)
+				glUniform3dv(trailShader.uniforms[OBJ_POS], 1, &bodies[body.parentIndex].position[0]);
+			else
+				glUniform3dv(trailShader.uniforms[OBJ_POS], 1, &root[0]);
 			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
 			offset += (GLint)body.trail->size();
 		}
@@ -177,41 +183,67 @@ void static MessageCallback(GLenum source,
 			type, severity, message);
 }
 
-void updateTrails() {
-	std::vector<GravityBody> futureBodies = bodies;
-	std::vector<double> period(futureBodies.size(), -1);
-	for (int j = 0; j < futureBodies.size(); j++) {
-		size_t parentIndex = bodies[j].parentIndex;
-		if (futureBodies[j].trail && parentIndex != -1) {
-			// populate the period in s of the body at index j
-			futureBodies[j].trail->clear();
-			double gravParam = G * (bodies[parentIndex].mass + bodies[j].mass);
-			double distance = glm::length(futureBodies[j].position - futureBodies[parentIndex].position);
-			double dV = glm::length(futureBodies[j].velocity - futureBodies[parentIndex].velocity);
-			double semiMajorAxis = 1.0 / (2.0 / distance - pow(dV, 2.0) / gravParam);
-			if (semiMajorAxis < 0)
-				semiMajorAxis *= -1.0;
-			period[j] = 2.0 * pi * sqrt(semiMajorAxis * semiMajorAxis * semiMajorAxis / gravParam);
-		}
-	}
-	for (int i = 0; i <= maxTrailLength; i++) {
-		// simulate a new physics frame for the allowed trail length
-		for (int j = 0; j < futureBodies.size(); j++) {
-			// capture the time-reversed simulated position of the body at index j as a component of the trail
-			size_t parentIndex = bodies[j].parentIndex;
-			if (futureBodies[j].trail && parentIndex != -1) {
-				if (futureBodies[j].trail && i * 0.05 * TIME_STEP <= period[j]) {
-					// trails follow the body's parent
-					futureBodies[j].trail->push_back(futureBodies[j].position - futureBodies[parentIndex].position + bodies[parentIndex].position);
+void updateTrails(double time) {
+	for (GravityBody body : bodies) {
+		auto trail = body.trail;
+
+		if (trail) {
+			size_t parentIndex = body.parentIndex;
+
+			// trail relative to parent body
+			if (parentIndex != -1) {
+				// remove trail as the body returns to its original orbital position
+				if (trail->size() > 1) {
+
+					bool previouslyAhead = true;
+					bool currentlyBehind = true;
+
+					while (previouslyAhead && currentlyBehind) {
+						glm::dvec3 a = trail->front();
+						glm::dvec3 vel = body.velocity - bodies[parentIndex].velocity;
+						glm::dvec3 b = trail->back();
+
+						/*glm::dvec3 n = glm::cross(b, (body.position - bodies[parentIndex].position));
+					
+						double angle = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b)));
+						if (glm::dot(n, glm::cross(a, b)) < 0)
+							angle *= -1;
+
+						b = body.position - bodies[parentIndex].position;
+						double angle2 = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b)));
+						if (glm::dot(n, glm::cross(a, b)) < 0)
+							angle2 *= -1;
+
+						if (body.trailColor == glm::vec3(0.0f, 0.0f, 1.0f)) {
+							printf("%.3f\t%.3f\n", angle, angle2);
+						}
+						if (angle < 0 && angle > -pi/100) {
+							trail->pop_front();
+						}*/
+
+						previouslyAhead = glm::dot(glm::normalize(vel), a - b) >= 0;
+
+						b = body.position - bodies[parentIndex].position;
+
+						currentlyBehind = glm::dot(glm::normalize(vel), a - b) < 0;
+
+						if (previouslyAhead && currentlyBehind) {
+							trail->pop_front();
+						}
+					}
+				}
+
+				trail->push_back(body.position - bodies[parentIndex].position);
+
+			}
+
+			// trail relative to world space
+			else {
+				trail->push_back(body.position);
+				while (trail->size() > maxTrailLength) {
+					trail->pop_front();
 				}
 			}
-		}
-		updateBodies(-0.05, futureBodies);
-	}
-
-	for (int j = 0; j < futureBodies.size(); j++) {
-		if (futureBodies[j].trail) {
-			futureBodies[j].trail->push_back(futureBodies[j].trail->front());
 		}
 	}
 }
@@ -253,15 +285,6 @@ void physicsLoop() {
 	while (running) {
 		double currentTime = glfwGetTime();
 		glm::float64 deltaTime = currentTime - lastLoopTime;
-
-		// rate limit on new simulation frames
-		if (deltaTime < MIN_P_FRAME_TIME) {
-			int waiting = int(1e6 * (MIN_P_FRAME_TIME - deltaTime));
-			std::this_thread::sleep_for(std::chrono::microseconds(waiting));
-			currentTime = glfwGetTime();
-			deltaTime = currentTime - lastLoopTime;
-		}
-		
 		lastLoopTime = currentTime;
 
 		if (hasPhysics)
@@ -297,11 +320,11 @@ void renderLoop(GLFWwindow* window) {
 				std::unique_lock<std::mutex> lock(physicsMutex);
 				physicsCV.wait(lock, [] { return physicsUpdated; });
 				physicsUpdated = false;
-				printf("%u\n",physicsFrames - lastPhysicsFrames);
 				lastPhysicsFrames = physicsFrames;
 			}
 
-			updateTrails();
+			if (hasPhysics)
+				updateTrails(currentTime - lastFrameTime);
 			render();
 			lastFrameTime = currentTime;
 
@@ -355,6 +378,7 @@ int main() {
 	glGenBuffers(1, &trailAlphaBuf);
 
 	camera.position = bodies[3].position + glm::dvec3(0.0, bodies[3].radius * 3, 0.0);
+	initTime = glfwGetTime();
 
 	// entering work area: split program into physics and rendering threads
 	std::thread physicsThread(physicsLoop);
