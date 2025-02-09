@@ -80,7 +80,7 @@ public:
 
 	void addTrail(glm::vec3 trailColor = glm::vec3(1.0f)) {
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
-			body->trail = new std::deque<glm::dvec3>;
+			body->trail = new std::deque<glm::vec3>;
 			body->trailColor = trailColor;
 		}
 	}

@@ -17,7 +17,7 @@ bool physicsUpdated = false;
 std::atomic<bool> running(true);
 
 Shader shader, skyboxShader, trailShader;
-glm::dmat4 projection;
+glm::mat4 projection;
 GLFWwindow* window;
 
 GLuint trailVAO, trailVBO, trailAlphaBuf;
@@ -87,9 +87,9 @@ void static initWindow() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor initially
 }
 
-void setPV(Shader& shader, glm::dmat4& P, glm::dmat4& V) {
-	glUniformMatrix4dv(shader.P, 1, GL_FALSE, &P[0][0]);
-	glUniformMatrix4dv(shader.V, 1, GL_FALSE, &V[0][0]);
+void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
+	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
+	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
 }
 
 void static render() {
@@ -103,11 +103,20 @@ void static render() {
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
 
 	// set camera
-	glm::dmat4 view = camera.viewMatrix();
+	glm::mat4 view = camera.viewMatrix();
 	setPV(shader, projection, view);
 
-	for (Entity body : bodies)
+	Camera copy = camera;
+	for (Entity body : bodies) {
+		copy.position = camera.position - body.position;
+		glm::mat4 relativeView = copy.viewMatrix();
+		glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(body.position))[0]);
+		setPV(shader, projection, relativeView);
+		glm::dvec3 bodyPos = body.position;
+		body.position = glm::dvec3(0.0);
 		body.draw(shader, MODE_TEX);
+		body.position = bodyPos;
+	}
 
 	// start trails
 
@@ -138,14 +147,15 @@ void static render() {
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
 
 	GLint offset = 0;
-	glm::dvec3 root(0.0);
+	glm::vec3 root(0.0);
 	for (GravityBody body : bodies) {
 		if (body.trail) {
 			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &body.trailColor[0]);
 			if (body.parentIndex != -1)
-				glUniform3dv(trailShader.uniforms[OBJ_POS], 1, &bodies[body.parentIndex].position[0]);
+				root = glm::vec3(bodies[body.parentIndex].position);
 			else
-				glUniform3dv(trailShader.uniforms[OBJ_POS], 1, &root[0]);
+				root = glm::vec3(0.0);
+			glUniform3fv(trailShader.uniforms[OBJ_POS], 1, &root[0]);
 			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
 			offset += (GLint)body.trail->size();
 		}
@@ -197,11 +207,11 @@ void updateTrails(double time) {
 
 					// remove any trail points behind the body's position
 					while (doLoop) {
-						glm::dvec3 a = trail->front();
-						glm::dvec3 vel = body.velocity - bodies[parentIndex].velocity;
-						glm::dvec3 b = trail->back();
+						glm::vec3 a = trail->front();
+						glm::vec3 vel = body.velocity - bodies[parentIndex].velocity;
+						glm::vec3 b = trail->back();
 
-						glm::dvec3 n = glm::cross(b, (body.position - bodies[parentIndex].position));
+						glm::vec3 n = glm::cross(b, glm::vec3(body.position - bodies[parentIndex].position));
 
 						// get angle between the last point added to the trail and the start of the trail
 						double angle = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b)));
@@ -221,7 +231,7 @@ void updateTrails(double time) {
 					}
 				}
 
-				trail->push_back(body.position - bodies[parentIndex].position);
+				trail->push_back(glm::vec3(body.position - bodies[parentIndex].position));
 
 			}
 
@@ -276,7 +286,7 @@ void physicsLoop() {
 		lastLoopTime = currentTime;
 
 		if (hasPhysics)
-			updateBodies(deltaTime, bodies);
+			updateBodies(deltaTime);
 
 		flyCam(window, deltaTime);
 

@@ -44,7 +44,7 @@ typedef struct orbit {
 class GravityBody : public Entity {
 public:
 	glm::vec3 trailColor;
-	std::deque<glm::dvec3>* trail;
+	std::deque<glm::vec3>* trail;
 	glm::float64 mass;
 	glm::float64 radius;
 	size_t parentIndex;
