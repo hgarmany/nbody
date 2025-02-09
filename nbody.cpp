@@ -192,44 +192,32 @@ void updateTrails(double time) {
 
 			// trail relative to parent body
 			if (parentIndex != -1) {
-				// remove trail as the body returns to its original orbital position
 				if (trail->size() > 1) {
+					bool doLoop = true;
 
-					bool previouslyAhead = true;
-					bool currentlyBehind = true;
-
-					while (previouslyAhead && currentlyBehind) {
+					// remove any trail points behind the body's position
+					while (doLoop) {
 						glm::dvec3 a = trail->front();
 						glm::dvec3 vel = body.velocity - bodies[parentIndex].velocity;
 						glm::dvec3 b = trail->back();
 
-						/*glm::dvec3 n = glm::cross(b, (body.position - bodies[parentIndex].position));
-					
+						glm::dvec3 n = glm::cross(b, (body.position - bodies[parentIndex].position));
+
+						// get angle between the last point added to the trail and the start of the trail
 						double angle = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b)));
 						if (glm::dot(n, glm::cross(a, b)) < 0)
 							angle *= -1;
 
+						// get angle between the body's current position and the start of the trail
 						b = body.position - bodies[parentIndex].position;
 						double angle2 = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b)));
 						if (glm::dot(n, glm::cross(a, b)) < 0)
 							angle2 *= -1;
 
-						if (body.trailColor == glm::vec3(0.0f, 0.0f, 1.0f)) {
-							printf("%.3f\t%.3f\n", angle, angle2);
-						}
-						if (angle < 0 && angle > -pi/100) {
+						if (angle < 0 && angle2 >= 0)
 							trail->pop_front();
-						}*/
-
-						previouslyAhead = glm::dot(glm::normalize(vel), a - b) >= 0;
-
-						b = body.position - bodies[parentIndex].position;
-
-						currentlyBehind = glm::dot(glm::normalize(vel), a - b) < 0;
-
-						if (previouslyAhead && currentlyBehind) {
-							trail->pop_front();
-						}
+						else
+							doLoop = false;
 					}
 				}
 
@@ -273,10 +261,10 @@ void buildObjects() {
 	builder.setSpin(spin);
 	builder.setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
 	builder.setSurface(bodies[3].surface);
-	builder.addTrail();
+	builder.addTrail(glm::vec3(0.9f, 0.9f, 0.9f));
 	bodies.push_back(builder.get());
 
-	bodies[6].parentIndex = 0;
+	bodies[bodies.size() - 1].parentIndex = 0;
 	builder.buildSky(cube);
 }
 
@@ -325,6 +313,7 @@ void renderLoop(GLFWwindow* window) {
 
 			if (hasPhysics)
 				updateTrails(currentTime - lastFrameTime);
+
 			render();
 			lastFrameTime = currentTime;
 
@@ -347,13 +336,12 @@ int main() {
 
 	// initialize models
 	cube = Model::Cube();
-	sphere = Model::Icosphere(4);
+	sphere = Model::Icosphere(5);
 
 	buildObjects();
 
 	// setup starting camera
-	camera.position = bodies[1].position;
-	camera.position.y += bodies[1].scale.y * 2;
+	camera.position = bodies[3].position + glm::dvec3(0.0, bodies[3].radius * 3, 0.0);
 	camera.direction = glm::normalize(bodies[0].position - bodies[1].position);
 	camera.right = glm::cross(camera.direction, glm::dvec3(0.0, 1.0, 0.0));
 	camera.up = glm::cross(camera.right, camera.direction);
@@ -377,7 +365,6 @@ int main() {
 	glGenBuffers(1, &trailVBO);
 	glGenBuffers(1, &trailAlphaBuf);
 
-	camera.position = bodies[3].position + glm::dvec3(0.0, bodies[3].radius * 3, 0.0);
 	initTime = glfwGetTime();
 
 	// entering work area: split program into physics and rendering threads

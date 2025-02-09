@@ -91,20 +91,31 @@ public:
 		float cosX = cosf(orbit.inclination);
 		float cosY = cosf(orbit.anLongitude);
 		float cosZ = cosf(orbit.argPeriapsis);
-		/*
-		glm::dmat2x3 rotation(
-			cosZ * cosY - sinZ * cosX * sinY,
-			cosZ * sinY + sinZ * cosX * cosY,
-			sinZ * sinX,
+		
+		glm::mat4 rotate = glm::mat4(
+			cosY * cosZ - sinY * cosX * sinZ,
+			sinY * sinX,
+			-cosY * sinZ - sinY * cosX * cosZ,
+			0.0f,
 
-			-(sinZ * cosY + cosZ * cosX * sinY),
-			cosZ * cosX * sinY - sinZ * sinY,
-			cosZ * sinX
+			sinX * sinZ,
+			cosX,
+			sinX * cosZ,
+			0.0f,
+
+			sinY * cosZ + cosY * cosX * sinZ,
+			-cosY * sinX,
+			-sinY * sinZ + cosY * cosX * cosZ,
+			0.0f,
+
+			0.0f, 0.0f, 0.0f, 1.0f
 		);
-		*/
+
+		/*
 		glm::mat4 rotate = glm::rotate(glm::mat4(1.0f), orbit.argPeriapsis, glm::vec3(0.0f, 1.0f, 0.0f));
 		rotate = glm::rotate(rotate, orbit.inclination, glm::vec3(1.0f, 0.0f, 0.0f));
 		rotate = glm::rotate(rotate, orbit.anLongitude, glm::vec3(0.0f, 1.0f, 0.0f));
+		*/
 
 		position = glm::dvec3((rotate * glm::dvec4(-positionInFrame.x, 0.0f, positionInFrame.y, 0.0f))) + orbit.parent->position;
 		prevPosition = position;
