@@ -18,8 +18,8 @@ public:
 	Surface(glm::vec4 material = glm::vec4(0.0f), glm::vec3 color = glm::vec3(0.0f)) {
 		this->material = material;
 		this->color = color;
-		texture = -1;
-		normal = -1;
+		texture = 0;
+		normal = 0;
 	}
 
 	Surface(const char* path, glm::vec4 material, glm::vec3 color);

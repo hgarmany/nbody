@@ -1,4 +1,5 @@
 #include "physics.h"
+#include "controls.h"
 #include <vector>
 
 std::vector<GravityBody> bodies;
@@ -10,7 +11,7 @@ glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b) {
     return forceMagnitude * glm::normalize(direction);
 }
 
-void updateBodies(glm::float64 deltaTime) {
+void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 
     glm::float64 halfDt = deltaTime * TIME_STEP * 0.5;
     glm::float64 fullDt = deltaTime * TIME_STEP;

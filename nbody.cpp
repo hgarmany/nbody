@@ -4,47 +4,25 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
-#include <mutex>
-#include "physics.h"
 #include "controls.h"
 #include "builder.h"
+#include "render.h"
 
 #include "stb_image.h"
 
-std::mutex physicsMutex;
-std::condition_variable physicsCV;
-bool physicsUpdated = false;
 std::atomic<bool> running(true);
 
-Shader shader, skyboxShader, trailShader;
-glm::mat4 projection;
 GLFWwindow* window;
 
-GLuint trailVAO, trailVBO, trailAlphaBuf;
-int physicsFrames, lastPhysicsFrames = 0;
 size_t cube, sphere;
-int screenSize = WIDTH;
 
-size_t maxTrailLength = 2500;
 double initTime;
-
-// Function to update the projection matrix based on window size
-void static updateProjectionMatrix(GLFWwindow* window) {
-	int width, height;
-	glfwGetFramebufferSize(window, &width, &height);  // Get the current framebuffer size
-
-	if (height == 0) height = 1;  // Prevent division by zero
-
-	// Calculate the aspect ratio dynamically
-	float aspect = (float)width / (float)height;
-
-	// Define the projection matrix (FOV, aspect ratio, near, far)
-	projection = glm::perspective(FOV * height / screenSize, aspect, 1e0f, 1e9f);
-}
 
 // Set this function as a callback to update projection matrix during window resizing
 void static window_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);  // Set the OpenGL viewport to match the new window size
+	WIDTH = width;
+	HEIGHT = height;
 	updateProjectionMatrix(window);  // Update the projection matrix with the new size
 }
 
@@ -87,96 +65,57 @@ void static initWindow() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor initially
 }
 
-void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
-	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
-	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
+// setup for the simple display quad
+void initQuad() {
+	GLfloat quadVertices[] = {
+		// Positions       // Texture Coords
+		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Bottom-left
+		1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom-right
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Top-right
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Top-right
+		-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,  // Top-left
+		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f   // Bottom-left
+	};
+
+	glGenVertexArrays(1, &quadVAO);
+	glGenBuffers(1, &quadVBO);
+
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+	// load vertex data
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+
+	// load uv mapping
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
 }
 
-void static render() {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+// prepares an FBO for capturing renders
+void initPIP() {
+	glGenFramebuffers(1, &pipFBO);
+	glGenTextures(1, &pipTexture);
+	glGenRenderbuffers(1, &pipDepthBuffer);
 
-	// Activate the shader program
-	glUseProgram(shader.index);
-	glm::vec3 lightPos = bodies[0].position;
-	glm::vec3 lightColor = glm::vec3(1.0f);
-	glUniform3fv(shader.uniforms[LIGHT_POS], 1, &lightPos[0]);
-	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
+	GLsizei pipWidth = GLsizei(WIDTH * pipSize);
+	GLsizei pipHeight = GLsizei(HEIGHT * pipSize);
 
-	// set camera
-	glm::mat4 view = camera.viewMatrix();
-	setPV(shader, projection, view);
+	// texture space for holding render data
+	glBindTexture(GL_TEXTURE_2D, pipTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pipWidth, pipHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	Camera copy = camera;
-	for (Entity body : bodies) {
-		copy.position = camera.position - body.position;
-		glm::mat4 relativeView = copy.viewMatrix();
-		glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(body.position))[0]);
-		setPV(shader, projection, relativeView);
-		glm::dvec3 bodyPos = body.position;
-		body.position = glm::dvec3(0.0);
-		body.draw(shader, MODE_TEX);
-		body.position = bodyPos;
-	}
+	// attach texture buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, pipFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipTexture, 0);
 
-	// start trails
-
-	glUseProgram(trailShader.index);
-	setPV(trailShader, projection, view);
-	std::vector<glm::vec3> trailVertices;
-	std::vector<float> trailAlphas;
-	for (GravityBody body : bodies) {
-		if (body.trail) {
-			trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
-			for (size_t j = 0; j < body.trail->size(); ++j) {
-				trailAlphas.push_back(static_cast<float>(j) / body.trail->size());
-			}
-		}
-	}
-
-	glBindVertexArray(trailVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
-	glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), trailVertices.data(), GL_DYNAMIC_DRAW);
-
-	glEnableVertexAttribArray(0); // Assuming location 0 for positions
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, trailAlphaBuf);
-	glBufferData(GL_ARRAY_BUFFER, trailAlphas.size() * sizeof(float), trailAlphas.data(), GL_DYNAMIC_DRAW);
-
-	glEnableVertexAttribArray(1); // Assuming location 1 for alphas
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
-
-	GLint offset = 0;
-	glm::vec3 root(0.0);
-	for (GravityBody body : bodies) {
-		if (body.trail) {
-			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &body.trailColor[0]);
-			if (body.parentIndex != -1)
-				root = glm::vec3(bodies[body.parentIndex].position);
-			else
-				root = glm::vec3(0.0);
-			glUniform3fv(trailShader.uniforms[OBJ_POS], 1, &root[0]);
-			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
-			offset += (GLint)body.trail->size();
-		}
-	}
-
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glBindVertexArray(0); // Unbind VAO
-
-	// end trails
-	
-	glDepthFunc(GL_LEQUAL);
-	glUseProgram(skyboxShader.index);
-
-	// set camera
-	view = glm::mat4(glm::mat3(view));
-	setPV(skyboxShader, projection, view);
-
-	Entity::skybox.draw(skyboxShader, MODE_CUBEMAP);
-
-	glDepthFunc(GL_LESS);
+	// attach depth buffer
+	glBindRenderbuffer(GL_RENDERBUFFER, pipDepthBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, pipWidth, pipHeight);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, pipDepthBuffer);
 }
 
 void static MessageCallback(GLenum source,
@@ -191,70 +130,6 @@ void static MessageCallback(GLenum source,
 		fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
 			(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
 			type, severity, message);
-}
-
-void updateTrails(double time) {
-	for (GravityBody body : bodies) {
-		auto trail = body.trail;
-
-		if (trail) {
-			size_t parentIndex = body.parentIndex;
-
-			// trail relative to parent body
-			if (parentIndex != -1) {
-				if (trail->size() > 1) {
-					bool doLoop = true;
-
-					// remove any trail points behind the body's position
-					while (doLoop) {
-						glm::vec3 a = trail->front();
-						glm::vec3 vel = body.velocity - bodies[parentIndex].velocity;
-						glm::vec3 b = trail->back();
-
-						glm::vec3 n = glm::cross(b, glm::vec3(body.position - bodies[parentIndex].position));
-
-						// get angle between the last point added to the trail and the start of the trail
-						double angle = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b)));
-						if (glm::dot(n, glm::cross(a, b)) < 0)
-							angle *= -1;
-
-						// get angle between the body's current position and the start of the trail
-						b = body.position - bodies[parentIndex].position;
-						double angle2 = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b)));
-						if (glm::dot(n, glm::cross(a, b)) < 0)
-							angle2 *= -1;
-
-						if (angle < 0 && angle2 >= 0)
-							trail->pop_front();
-						else
-							doLoop = false;
-					}
-				}
-
-				trail->push_back(glm::vec3(body.position - bodies[parentIndex].position));
-
-			}
-
-			// trail relative to world space
-			else {
-				trail->push_back(body.position);
-				while (trail->size() > maxTrailLength) {
-					trail->pop_front();
-				}
-			}
-		}
-	}
-}
-
-void cleanGL() {
-	glDeleteBuffers(1, &trailVBO);
-	glDeleteBuffers(1, &trailAlphaBuf);
-
-	glDeleteProgram(shader.index);
-	glDeleteProgram(skyboxShader.index);
-	glDeleteProgram(trailShader.index);
-
-	glfwTerminate();
 }
 
 void buildObjects() {
@@ -276,6 +151,12 @@ void buildObjects() {
 
 	bodies[bodies.size() - 1].parentIndex = 0;
 	builder.buildSky(cube);
+
+	// camera
+	builder.init();
+	builder.setMotion(bodies[3].position + bodies[3].radius * 5, bodies[3].velocity * 1.1);
+	builder.addTrail();
+	bodies.push_back(builder.get());
 }
 
 void physicsLoop() {
@@ -286,7 +167,7 @@ void physicsLoop() {
 		lastLoopTime = currentTime;
 
 		if (hasPhysics)
-			updateBodies(deltaTime);
+			updateBodies(deltaTime, bodies);
 
 		flyCam(window, deltaTime);
 
@@ -307,34 +188,6 @@ void physicsLoop() {
 	}
 }
 
-void renderLoop(GLFWwindow* window) {
-	double lastFrameTime = glfwGetTime();
-	double currentTime = glfwGetTime();
-
-	while (!glfwWindowShouldClose(window)) {
-		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
-			// capture physics results when they are ready
-			{
-				std::unique_lock<std::mutex> lock(physicsMutex);
-				physicsCV.wait(lock, [] { return physicsUpdated; });
-				physicsUpdated = false;
-				lastPhysicsFrames = physicsFrames;
-			}
-
-			if (hasPhysics)
-				updateTrails(currentTime - lastFrameTime);
-
-			render();
-			lastFrameTime = currentTime;
-
-			glfwSwapBuffers(window);
-			glfwPollEvents();
-		}
-
-		currentTime = glfwGetTime();
-	}
-}
-
 int main() {
 	initWindow();
 
@@ -343,6 +196,8 @@ int main() {
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(MessageCallback, 0);
 #endif
+	initPIP();
+	initQuad();
 
 	// initialize models
 	cube = Model::Cube();
@@ -367,9 +222,7 @@ int main() {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
 
-	shader = initStandardShader();
-	skyboxShader = initSkyboxShader();
-	trailShader = initTrailShader();
+	initShaders();
 
 	glGenVertexArrays(1, &trailVAO);
 	glGenBuffers(1, &trailVBO);

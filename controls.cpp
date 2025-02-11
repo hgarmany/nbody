@@ -3,11 +3,13 @@
 #include <glm/gtc/quaternion.hpp>
 
 Camera camera;
-bool hasPhysics = false;
 bool firstMouse = true;
 bool cursorDisabled = true;
+bool hasPhysics = false;
 
 glm::float64 pitch, yaw, roll;
+
+int WIDTH = 900, HEIGHT = 600;
 
 double lastX = WIDTH / 2;
 double lastY = HEIGHT / 2;
@@ -28,7 +30,7 @@ std::map<keyMapName, int> keyMap = {
 keyMapName mousePXAction = YAW_LEFT, mouseNXAction = YAW_RIGHT, mousePYAction = PITCH_UP, mouseNYAction = PITCH_DOWN;
 
 // Camera movement speed
-double cameraSpeed = 2e4;
+double cameraSpeed = 2e2;
 
 void setXY(GLFWwindow* window) {
 	glfwGetCursorPos(window, &lastX, &lastY);
@@ -97,13 +99,17 @@ void flyCam(GLFWwindow* window, double deltaTime) {
 	glm::float64 velocity = cameraSpeed * deltaTime;
 
 	if (glfwGetKey(window, keyMap[MOVE_FORWARD]) == GLFW_PRESS)
-		camera.position += camera.direction * velocity;
+		camera.velocity += camera.direction * velocity;
+		//camera.position += camera.direction * velocity;
 	if (glfwGetKey(window, keyMap[STRAFE_LEFT]) == GLFW_PRESS)
-		camera.position -= camera.right * velocity;
+		camera.velocity -= camera.right * velocity;
+		//camera.position -= camera.right * velocity;
 	if (glfwGetKey(window, keyMap[MOVE_BACKWARD]) == GLFW_PRESS)
-		camera.position -= camera.direction * velocity;
+		camera.velocity -= camera.direction * velocity;
+		//camera.position -= camera.direction * velocity;
 	if (glfwGetKey(window, keyMap[STRAFE_RIGHT]) == GLFW_PRESS)
-		camera.position += camera.right * velocity;
+		camera.velocity += camera.right * velocity;
+		//camera.position += camera.right * velocity;
 	if (glfwGetKey(window, keyMap[PITCH_UP]) == GLFW_PRESS)
 		camera.setOrientation(deltaTime, 0.0f, 0.0f);
 	if (glfwGetKey(window, keyMap[PITCH_DOWN]) == GLFW_PRESS)

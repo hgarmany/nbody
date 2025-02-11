@@ -2,7 +2,6 @@
 
 #include "gravitybody.h"
 
-
 class EntityBuilder {
 protected:
 	std::shared_ptr<Entity> entity;
@@ -57,7 +56,7 @@ public:
 	GravityBodyBuilder() {
 	}
 
-	void init(float mass) {
+	void init(float mass = 1.0f) {
 		entity = std::make_shared<GravityBody>(mass);
 	}
 

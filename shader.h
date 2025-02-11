@@ -17,3 +17,4 @@ typedef struct shader {
 Shader initStandardShader();
 Shader initSkyboxShader();
 Shader initTrailShader();
+Shader initFrameOverlayShader();

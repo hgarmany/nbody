@@ -18,11 +18,13 @@ Model::Model(
 
 	glBindVertexArray(VAO);
 
+	// load vertex data
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GLfloat), verts.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0); // Position
 
+	// load normals, generating new ones if they are unavailable
 	if (normals.size() == 0) {
 		normals = generateNormals(verts, indices);
 	}
@@ -32,28 +34,27 @@ Model::Model(
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
 
+	// load uv mapping
 	glBindBuffer(GL_ARRAY_BUFFER, TexBuf);
 	glBufferData(GL_ARRAY_BUFFER, tex.size() * sizeof(GLfloat), tex.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); // Texture coordinates
 
-
-	if (tan.size() > 0)
-	{
+	// load tangent and bitangent data if they exist
+	if (tan.size() > 0) {
 		glGenBuffers(1, &TanBuf);
 		glBindBuffer(GL_ARRAY_BUFFER, TanBuf);
 		glBufferData(GL_ARRAY_BUFFER, tan.size() * sizeof(GLfloat), tan.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
+		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	}
 
-	if (bitan.size() > 0)
-	{
+	if (bitan.size() > 0) {
 		glGenBuffers(1, &BitanBuf);
 		glBindBuffer(GL_ARRAY_BUFFER, BitanBuf);
 		glBufferData(GL_ARRAY_BUFFER, bitan.size() * sizeof(GLfloat), bitan.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(4);
-		glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
+		glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	}
 
 

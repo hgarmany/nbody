@@ -243,3 +243,43 @@ Shader initTrailShader() {
 
 	return shader;
 }
+
+Shader initFrameOverlayShader() {
+	const char* vertexSource = R"(
+		#version 330 core
+		layout (location = 0) in vec2 aPos;
+		layout (location = 1) in vec2 aTex;
+
+		out vec2 TexCoords;
+		
+		uniform mat4 model;
+		
+		void main() {
+			TexCoords = aTex;
+			gl_Position = model * vec4(aPos.x, aPos.y, 0.0, 1.0); 
+		}  
+	)";
+
+	const char* fragmentSource = R"(
+		#version 330 core
+		in vec2 TexCoords;
+
+		out vec4 FragColor;
+
+		uniform sampler2D textureMap;
+
+		void main() { 
+			FragColor = texture(textureMap, TexCoords);
+		}
+	)";
+
+	GLuint shaderProgram = compileShader(vertexSource, fragmentSource);
+
+	Shader shader;
+	glUseProgram(shaderProgram);
+	shader.index = shaderProgram;
+	shader.M = glGetUniformLocation(shaderProgram, "model");
+	shader.uniforms[TEX_MAP] = glGetUniformLocation(shaderProgram, "textureMap");
+
+	return shader;
+}

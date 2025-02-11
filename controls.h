@@ -6,6 +6,7 @@
 
 extern Camera camera;
 extern bool hasPhysics;
+extern int WIDTH, HEIGHT;
 
 enum keyMapName {
 	MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
