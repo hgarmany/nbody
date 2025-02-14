@@ -56,7 +56,7 @@ public:
 	GravityBodyBuilder() {
 	}
 
-	void init(float mass = 1.0f) {
+	void init(double mass = DBL_MIN) {
 		entity = std::make_shared<GravityBody>(mass);
 	}
 

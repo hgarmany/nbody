@@ -18,6 +18,31 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\builder.h" />
+    <ClInclude Include="source\camera.h" />
+    <ClInclude Include="source\controls.h" />
+    <ClInclude Include="source\entity.h" />
+    <ClInclude Include="source\gravitybody.h" />
+    <ClInclude Include="source\model.h" />
+    <ClInclude Include="source\physics.h" />
+    <ClInclude Include="source\render.h" />
+    <ClInclude Include="source\shader.h" />
+    <ClInclude Include="source\stb_image.h" />
+    <ClInclude Include="source\surface.h" />
+    <ClInclude Include="source\util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\builder.cpp" />
+    <ClCompile Include="source\controls.cpp" />
+    <ClCompile Include="source\entity.cpp" />
+    <ClCompile Include="source\model.cpp" />
+    <ClCompile Include="source\nbody.cpp" />
+    <ClCompile Include="source\physics.cpp" />
+    <ClCompile Include="source\render.cpp" />
+    <ClCompile Include="source\shader.cpp" />
+    <ClCompile Include="source\surface.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -137,31 +162,6 @@
       <AdditionalLibraryDirectories>$(SolutionDir)glfw-3.4.bin.WIN64\lib-vc2022;$(SolutionDir)glew-2.1.0-win32\glew-2.1.0\lib\Release\x64;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x64</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="builder.cpp" />
-    <ClCompile Include="controls.cpp" />
-    <ClCompile Include="entity.cpp" />
-    <ClCompile Include="model.cpp" />
-    <ClCompile Include="nbody.cpp" />
-    <ClCompile Include="physics.cpp" />
-    <ClCompile Include="render.cpp" />
-    <ClCompile Include="shader.cpp" />
-    <ClCompile Include="surface.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="builder.h" />
-    <ClInclude Include="camera.h" />
-    <ClInclude Include="controls.h" />
-    <ClInclude Include="entity.h" />
-    <ClInclude Include="gravitybody.h" />
-    <ClInclude Include="model.h" />
-    <ClInclude Include="physics.h" />
-    <ClInclude Include="render.h" />
-    <ClInclude Include="shader.h" />
-    <ClInclude Include="stb_image.h" />
-    <ClInclude Include="surface.h" />
-    <ClInclude Include="util.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

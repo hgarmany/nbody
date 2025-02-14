@@ -9,12 +9,17 @@ const float FOV = glm::radians(45.0f);
 
 // units : space in Mm, time in s
 const double G = 6.67430e-29; // Gravitational constant
-const double TIME_STEP = 5e5; // Time step for the simulation
 
 enum render_mode : uint8_t {
 	MODE_TEX,
 	MODE_SOLID,
 	MODE_CUBEMAP
+};
+
+enum camera_mode : uint8_t {
+	FREE_CAM,
+	LOCK_CAM,
+	GRAV_CAM
 };
 
 inline void printMatrix(glm::mat4& A) {

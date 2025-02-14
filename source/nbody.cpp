@@ -3,14 +3,10 @@
 
 #include <iostream>
 #include <chrono>
-#include <thread>
-#include "controls.h"
 #include "builder.h"
 #include "render.h"
 
 #include "stb_image.h"
-
-std::atomic<bool> running(true);
 
 GLFWwindow* window;
 
@@ -21,8 +17,8 @@ double initTime;
 // Set this function as a callback to update projection matrix during window resizing
 void static window_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);  // Set the OpenGL viewport to match the new window size
-	WIDTH = width;
-	HEIGHT = height;
+	windowWidth = width;
+	windowHeight = height;
 	updateProjectionMatrix(window);  // Update the projection matrix with the new size
 }
 
@@ -41,7 +37,7 @@ void static initWindow() {
 	// multisample buffer for antialiasing
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	window = glfwCreateWindow(WIDTH, HEIGHT, "N-Body Simulator", nullptr, nullptr);
+	window = glfwCreateWindow(windowWidth, windowHeight, "N-Body Simulator", nullptr, nullptr);
 
 	if (!window) {
 		std::cerr << "Window creation failed!" << std::endl;
@@ -99,8 +95,8 @@ void initPIP() {
 	glGenTextures(1, &pipTexture);
 	glGenRenderbuffers(1, &pipDepthBuffer);
 
-	GLsizei pipWidth = GLsizei(WIDTH * pipSize);
-	GLsizei pipHeight = GLsizei(HEIGHT * pipSize);
+	GLsizei pipWidth = GLsizei(windowWidth * pipSize);
+	GLsizei pipHeight = GLsizei(windowHeight * pipSize);
 
 	// texture space for holding render data
 	glBindTexture(GL_TEXTURE_2D, pipTexture);
@@ -159,35 +155,6 @@ void buildObjects() {
 	bodies.push_back(builder.get());
 }
 
-void physicsLoop() {
-	double lastLoopTime = glfwGetTime();
-	while (running) {
-		double currentTime = glfwGetTime();
-		glm::float64 deltaTime = currentTime - lastLoopTime;
-		lastLoopTime = currentTime;
-
-		if (hasPhysics)
-			updateBodies(deltaTime, bodies);
-
-		flyCam(window, deltaTime);
-
-		// manual control: adjust earth axial tilt and time of day
-		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-			bodies[3].orientation.y += deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-			bodies[3].orientation.y -= deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-			bodies[3].orientation.x += deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-			bodies[3].orientation.x -= deltaTime;
-
-		// data is ready for renderer to access
-		physicsUpdated = true;
-		physicsFrames++;
-		physicsCV.notify_one();
-	}
-}
-
 int main() {
 	initWindow();
 
@@ -206,10 +173,13 @@ int main() {
 	buildObjects();
 
 	// setup starting camera
-	camera.position = bodies[3].position + glm::dvec3(0.0, bodies[3].radius * 3, 0.0);
-	camera.direction = glm::normalize(bodies[0].position - bodies[1].position);
-	camera.right = glm::cross(camera.direction, glm::dvec3(0.0, 1.0, 0.0));
-	camera.up = glm::cross(camera.right, camera.direction);
+	camera = Camera(
+		bodies[3].position + glm::dvec3(0.0, bodies[3].radius * 3, 0.0),
+		glm::normalize(bodies[0].position - bodies[1].position),
+		glm::dvec3(0.0, 1.0, 0.0)
+	);
+	camera.mode = FREE_CAM;
+	camera.mode = LOCK_CAM;
 
 	setXY(window);
 
@@ -217,7 +187,7 @@ int main() {
 	GLFWmonitor* screen = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(screen);
 	screenSize = mode->height;
-	projection = glm::perspective(FOV * HEIGHT / screenSize, (float)WIDTH / HEIGHT, 1e0f, 1e9f);
+	projection = glm::perspective(FOV * windowHeight / screenSize, (float)windowWidth / windowHeight, 1e0f, 1e9f);
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
@@ -231,7 +201,7 @@ int main() {
 	initTime = glfwGetTime();
 
 	// entering work area: split program into physics and rendering threads
-	std::thread physicsThread(physicsLoop);
+	std::thread physicsThread(physicsLoop, window);
 	renderLoop(window);
 
 	// exiting work area: close threads and clean up data

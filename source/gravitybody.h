@@ -49,7 +49,7 @@ public:
 	glm::float64 radius;
 	size_t parentIndex;
 
-	GravityBody(glm::float64 mass = 1.0) {
+	GravityBody(glm::float64 mass = DBL_MIN) {
 		parentIndex = -1;
 		trail = nullptr;
 		trailColor = glm::vec3(0.0f);

@@ -6,11 +6,16 @@
 
 extern Camera camera;
 extern bool hasPhysics;
-extern int WIDTH, HEIGHT;
+extern int windowWidth, windowHeight;
+extern double lastX, lastY;
+extern size_t lockIndex;
+extern double lockDistanceFactor;
+extern double timeStep; // Time step for the simulation;
 
 enum keyMapName {
 	MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
-	PITCH_UP, PITCH_DOWN, YAW_LEFT, YAW_RIGHT, ROLL_LEFT, ROLL_RIGHT
+	PITCH_UP, PITCH_DOWN, YAW_LEFT, YAW_RIGHT, ROLL_LEFT, ROLL_RIGHT,
+	T_PHYSICS, T_LOCK_SELECT, INCREASE_TIME_STEP, DECREASE_TIME_STEP
 };
 
 extern std::map<keyMapName, int> keyMap;

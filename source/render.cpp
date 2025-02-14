@@ -2,16 +2,13 @@
 #include <mutex>
 
 glm::mat4 projection;
-int screenSize = WIDTH;
+int screenSize = windowWidth;
 float pipSize = 0.35f;
 
-std::condition_variable physicsCV;
-bool physicsUpdated = false;
-int physicsFrames = 0, lastPhysicsFrames = 0;
+std::mutex physicsMutex;
 
 size_t maxTrailLength = 2500;
-
-std::mutex physicsMutex;
+size_t cameraFutureTrailLength = 2500;
 
 GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer;
 Shader shader, skyboxShader, trailShader, frameShader;
@@ -67,11 +64,11 @@ void updateProjectionMatrix(GLFWwindow* window) {
 	projection = glm::perspective(FOV * height / screenSize, aspect, 1e0f, 1e9f);
 }
 
-void updateTrails(double time) {
+void updateTrails(double time, camera_mode mode) {
 	for (GravityBody body : bodies) {
 		auto trail = body.trail;
 
-		if (trail) {
+		if (trail && body.mass > 1.0 || mode == GRAV_CAM) {
 			size_t parentIndex = body.parentIndex;
 
 			// trail relative to parent body
@@ -117,6 +114,53 @@ void updateTrails(double time) {
 				}
 			}
 		}
+	}
+}
+
+void updateFreeCam(double deltaTime) {
+	camera.position += camera.velocity * deltaTime;
+	camera.velocity = glm::dvec3(0);
+}
+
+void updateLockCam(double deltaTime) {
+	if (lockIndex != -1) {
+		GravityBody* body = &bodies[lockIndex];
+		if (body->parentIndex != -1) {
+			camera.direction = glm::dvec3(0, -1, 0);
+			camera.up = glm::normalize(body->position - bodies[body->parentIndex].position);
+			camera.right = glm::cross(camera.direction, camera.up);
+		}
+		camera.position = body->position - lockDistanceFactor * body->radius * camera.direction;
+	}
+}
+
+void updateGravCam(double deltaTime) {
+	if (hasPhysics) {
+		// bind camera to gravity-bound object
+		camera.position = bodies[bodies.size() - 1].position;
+		bodies[bodies.size() - 1].velocity += camera.velocity;
+		camera.velocity = glm::dvec3(0);
+
+		// project camera object's future movement in the system
+		std::vector<GravityBody> copy = bodies;
+		for (int i = 0; i < cameraFutureTrailLength; i++) {
+			updateBodies(deltaTime, copy);
+			bodies[bodies.size() - 1].trail->push_back(copy[copy.size() - 1].position);
+		}
+	}
+}
+
+void updateCamera(double deltaTime) {
+	switch (camera.mode) {
+	case FREE_CAM:
+		updateFreeCam(deltaTime);
+		break;
+	case LOCK_CAM:
+		updateLockCam(deltaTime);
+		break;
+	case GRAV_CAM:
+		updateGravCam(deltaTime);
+		break;
 	}
 }
 
@@ -216,8 +260,8 @@ void render(Camera& camera) {
 
 void renderPIP(GLFWwindow* window) {
 	glBindFramebuffer(GL_FRAMEBUFFER, pipFBO);
-	GLsizei pipWidth = GLsizei(WIDTH * pipSize);
-	GLsizei pipHeight = GLsizei(HEIGHT * pipSize);
+	GLsizei pipWidth = GLsizei(windowWidth * pipSize);
+	GLsizei pipHeight = GLsizei(windowHeight * pipSize);
 	glViewport(0, 0, pipWidth, pipHeight);
 	// update pip size
 	glBindTexture(GL_TEXTURE_2D, pipTexture);
@@ -231,7 +275,7 @@ void renderPIP(GLFWwindow* window) {
 	render(pipCam);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glViewport(0, 0, WIDTH, HEIGHT);
+	glViewport(0, 0, windowWidth, windowHeight);
 	updateProjectionMatrix(window);
 
 	// Step 3: Render the PIP texture to a quad in the main screen
@@ -255,40 +299,26 @@ void renderLoop(GLFWwindow* window) {
 
 	while (!glfwWindowShouldClose(window)) {
 		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
-			glm::dvec3 oldSpeed = camera.velocity;
 			// capture physics results when they are ready
-			{
-				std::unique_lock<std::mutex> lock(physicsMutex);
-				physicsCV.wait(lock, [] { return physicsUpdated; });
-				physicsUpdated = false;
-				lastPhysicsFrames = physicsFrames;
-			}
+			std::unique_lock<std::mutex> lock(physicsMutex);
+			physicsCV.wait(lock, [] { return physicsUpdated; });
+			physicsUpdated = false;
+			lastPhysicsFrames = physicsFrames;
+			lock.unlock();
 
-			glm::dvec3 newSpeed = camera.velocity;
 
-			if (hasPhysics) {
-				updateTrails(currentTime - lastFrameTime);
+			updateCamera(currentTime - lastFrameTime);
 
-				// bind camera to gravity-bound object
-				camera.position = bodies[bodies.size() - 1].position;
-				bodies[bodies.size() - 1].velocity += newSpeed - oldSpeed;
-				camera.velocity = bodies[bodies.size() - 1].velocity;
 
-				// project camera object's future movement in the system
-				std::vector<GravityBody> copy = bodies;
-				for (int i = 0; i < 1500; i++) {
-					updateBodies(currentTime - lastFrameTime, copy);
-					bodies[bodies.size() - 1].trail->push_back(copy[copy.size() - 1].position);
-				}
+			if (hasPhysics)
+				updateTrails(currentTime - lastFrameTime, camera.mode);
+			render(camera);
 
-				render(camera);
-
+			if (hasPhysics && camera.mode == GRAV_CAM) {
 				// clean up future trail
-				for (int i = 0; i < 1500; i++)
+				for (int i = 0; i < cameraFutureTrailLength; i++)
 					bodies[bodies.size() - 1].trail->pop_back();
 			}
-			else
-				render(camera);
 
 			renderPIP(window);
 

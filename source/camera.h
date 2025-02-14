@@ -13,6 +13,7 @@ public:
 	glm::dvec3 up;
 	glm::dvec3 velocity;
 	glm::dvec3 right;
+	camera_mode mode;
 
 	Camera(
 		glm::dvec3 position = glm::dvec3(0.0), 
@@ -25,6 +26,7 @@ public:
 
 		velocity = glm::dvec3(0.0);
 		right = glm::cross(direction, up);
+		mode = FREE_CAM;
 	}
 
 	glm::dmat4 viewMatrix() {

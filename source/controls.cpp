@@ -9,10 +9,15 @@ bool hasPhysics = false;
 
 glm::float64 pitch, yaw, roll;
 
-int WIDTH = 900, HEIGHT = 600;
+int windowWidth = 900, windowHeight = 600;
 
-double lastX = WIDTH / 2;
-double lastY = HEIGHT / 2;
+double lastX = windowWidth / 2;
+double lastY = windowHeight / 2;
+
+bool isChoosingBody = false;
+size_t lockIndex = -1;
+double lockDistanceFactor = 3;
+double timeStep = 1e5;
 
 std::map<keyMapName, int> keyMap = {
 	{ MOVE_FORWARD, GLFW_KEY_W },
@@ -25,6 +30,10 @@ std::map<keyMapName, int> keyMap = {
 	{ YAW_RIGHT, -1 },
 	{ ROLL_LEFT, GLFW_KEY_Q },
 	{ ROLL_RIGHT, GLFW_KEY_E },
+	{ T_PHYSICS, GLFW_KEY_P },
+	{ T_LOCK_SELECT, GLFW_KEY_F },
+	{ INCREASE_TIME_STEP, GLFW_KEY_PERIOD },
+	{ DECREASE_TIME_STEP, GLFW_KEY_COMMA }
 };
 
 keyMapName mousePXAction = YAW_LEFT, mouseNXAction = YAW_RIGHT, mousePYAction = PITCH_UP, mouseNYAction = PITCH_DOWN;
@@ -80,24 +89,39 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 // process key presses and releases
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
-		switch (key) {
-		case GLFW_KEY_P:
+		if (key == keyMap[T_PHYSICS])
 			hasPhysics = !hasPhysics;
-		}
-	}
+		else if (key == keyMap[T_LOCK_SELECT])
+			isChoosingBody = !isChoosingBody;
+		else if (key == keyMap[INCREASE_TIME_STEP])
+			timeStep *= 1.1;
+		else if (key == keyMap[DECREASE_TIME_STEP])
+			timeStep *= 0.9;
 
-	/*if (action == GLFW_RELEASE) {
-		switch (key) {
-		default:
-			break;
+		if (isChoosingBody && key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
+			lockIndex = key - GLFW_KEY_0;
 		}
-	}*/
+
+	}
 }
 
 // Function to move the camera based on keyboard input
 void flyCam(GLFWwindow* window, double deltaTime) {
 	glm::float64 velocity = cameraSpeed * deltaTime;
 
+	if (glfwGetKey(window, keyMap[ROLL_LEFT]) == GLFW_PRESS)
+		camera.setOrientation(0.0f, 0.0f, -deltaTime * 1e3);
+	if (glfwGetKey(window, keyMap[ROLL_RIGHT]) == GLFW_PRESS)
+		camera.setOrientation(0.0f, 0.0f, deltaTime * 1e3);
+
+	if (glfwGetKey(window, keyMap[PITCH_UP]) == GLFW_PRESS)
+		camera.setOrientation(deltaTime, 0.0f, 0.0f);
+	if (glfwGetKey(window, keyMap[PITCH_DOWN]) == GLFW_PRESS)
+		camera.setOrientation(-deltaTime, 0.0f, 0.0f);
+	if (glfwGetKey(window, keyMap[YAW_LEFT]) == GLFW_PRESS)
+		camera.setOrientation(0.0f, deltaTime, 0.0f);
+	if (glfwGetKey(window, keyMap[YAW_RIGHT]) == GLFW_PRESS)
+		camera.setOrientation(0.0f, -deltaTime, 0.0f);
 	if (glfwGetKey(window, keyMap[MOVE_FORWARD]) == GLFW_PRESS)
 		camera.velocity += camera.direction * velocity;
 		//camera.position += camera.direction * velocity;
@@ -110,19 +134,6 @@ void flyCam(GLFWwindow* window, double deltaTime) {
 	if (glfwGetKey(window, keyMap[STRAFE_RIGHT]) == GLFW_PRESS)
 		camera.velocity += camera.right * velocity;
 		//camera.position += camera.right * velocity;
-	if (glfwGetKey(window, keyMap[PITCH_UP]) == GLFW_PRESS)
-		camera.setOrientation(deltaTime, 0.0f, 0.0f);
-	if (glfwGetKey(window, keyMap[PITCH_DOWN]) == GLFW_PRESS)
-		camera.setOrientation(-deltaTime, 0.0f, 0.0f);
-	if (glfwGetKey(window, keyMap[YAW_LEFT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, deltaTime, 0.0f);
-	if (glfwGetKey(window, keyMap[YAW_RIGHT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, -deltaTime, 0.0f);
-
-	if (glfwGetKey(window, keyMap[ROLL_LEFT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, 0.0f, -deltaTime * 1e3);
-	if (glfwGetKey(window, keyMap[ROLL_RIGHT]) == GLFW_PRESS)
-		camera.setOrientation(0.0f, 0.0f, deltaTime * 1e3);
 }
 
 // toggle between usable cursor and mouse-controlled camera
@@ -140,9 +151,15 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 // mouse scroll processing
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	if (yoffset > 0) {
-		cameraSpeed *= 0.8f; // decrease speed when scrolling up
+		if (camera.mode == LOCK_CAM)
+			lockDistanceFactor *= 0.9; // zoom in
+		else
+			cameraSpeed *= 0.8f; // decrease speed when scrolling up
 	}
 	else {
-		cameraSpeed *= 1.2f; // increase speed when scrolling down
+		if (camera.mode == LOCK_CAM)
+			lockDistanceFactor *= 1.1; // zoom out
+		else
+			cameraSpeed *= 1.2f; // increase speed when scrolling down
 	}
 }

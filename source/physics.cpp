@@ -4,6 +4,11 @@
 
 std::vector<GravityBody> bodies;
 
+std::atomic<bool> running(true);
+std::condition_variable physicsCV;
+bool physicsUpdated = false;
+int physicsFrames = 0, lastPhysicsFrames = 0;
+
 glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b) {
     glm::dvec3 direction = b.position - a.position;
     glm::float64 distance = glm::length(direction);
@@ -12,9 +17,8 @@ glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b) {
 }
 
 void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
-
-    glm::float64 halfDt = deltaTime * TIME_STEP * 0.5;
-    glm::float64 fullDt = deltaTime * TIME_STEP;
+    glm::float64 halfDt = deltaTime * timeStep * 0.5;
+    glm::float64 fullDt = deltaTime * timeStep;
 
     // Update velocities and positions by half-step, clear accelerations
     for (GravityBody& body : bodies) {
@@ -35,6 +39,36 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
     // Update velocities to full-step using the new accelerations
     for (GravityBody& body : bodies) {
         body.velocity += body.acceleration * halfDt;
-        body.orientation += body.rotVelocity * TIME_STEP * deltaTime;
+        body.orientation += body.rotVelocity * timeStep * deltaTime;
+    }
+}
+
+void physicsLoop(GLFWwindow* window) {
+    double lastLoopTime = glfwGetTime();
+    while (running) {
+
+        double currentTime = glfwGetTime();
+        glm::float64 deltaTime = currentTime - lastLoopTime;
+        lastLoopTime = currentTime;
+
+        if (hasPhysics)
+            updateBodies(deltaTime, bodies);
+
+        flyCam(window, deltaTime);
+
+        // manual control: adjust earth axial tilt and time of day
+        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+            bodies[3].orientation.y += deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+            bodies[3].orientation.y -= deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+            bodies[3].orientation.x += deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+            bodies[3].orientation.x -= deltaTime;
+
+        // data is ready for renderer to access
+        physicsUpdated = true;
+        physicsFrames++;
+        physicsCV.notify_one();
     }
 }

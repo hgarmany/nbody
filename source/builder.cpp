@@ -46,7 +46,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// mercury
 	Orbit mercuryOrbit(&bodies[0], 5.790923e4, 0.20563593f, 1.351894f, 0.843531f, 0.1222599f, 2.207044f);
-	init(3.301e23f, mercuryOrbit, 0);
+	init(3.301e23, mercuryOrbit, 0);
 	setModel(modelIndex);
 	setRadius(2.4397f);
 	spin = 2 * pi / 86400 / 58.6;
@@ -58,7 +58,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// venus
 	Orbit venusOrbit(&bodies[0], 1.082095e5, 0.00677672f, 2.296896f, 3.176134f, 0.05924827f, -0.4618222f);
-	init(4.867e24f, venusOrbit, 0);
+	init(4.867e24, venusOrbit, 0);
 	setModel(modelIndex);
 	setRadius(6.0518f);
 	spin = 2 * pi / 86400 / 243;
@@ -70,7 +70,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// earth
 	Orbit earthOrbit(&bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, -0.043163f);
-	init(5.9722e24f, earthOrbit, 0);
+	init(5.9722e24, earthOrbit, 0);
 	setModel(modelIndex);
 	setRadius(6.371f);
 	spin = 2 * pi / 86400;
@@ -83,7 +83,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	GravityBody* earthPtr = &bodies[3];
 	// moon
 	Orbit moonOrbit(earthPtr, 384.399, 0.0549f, 0.0f, 0.0f, 0.08979719f, 0.0f);
-	init(5.9722e24f, moonOrbit, 3);
+	init(5.9722e24, moonOrbit, 3);
 	setModel(modelIndex);
 	setRadius(1.7374f);
 	spin = 2 * pi / 86400 / 27.321;
@@ -96,7 +96,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// mars
 	Orbit marsOrbit(&bodies[0], 2.27956e5, 0.09339410f, -0.4178952f, 0.8649771f, 0.03228321f, -0.5265543f);
-	init(6.4169e23f, marsOrbit, 0);
+	init(6.4169e23, marsOrbit, 0);
 	setModel(modelIndex);
 	setRadius(3.3895f);
 	spin = 2 * pi / 86400 / 1.029;
@@ -108,7 +108,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// jupiter
 	Orbit jupiterOrbit(&bodies[0], 7.783408e5, 0.04838624f, 0.2570605f, 1.753601f, 0.02276602f, -1.412069f);
-	init(1.898e27f, jupiterOrbit, 0);
+	init(1.898e27, jupiterOrbit, 0);
 	setModel(modelIndex);
 	setRadius(69.911f);
 	spin = 2 * pi / 86400 / 0.415;
@@ -120,7 +120,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// io
 	Orbit ioOrbit(&bodies[6], 421.7, 0.0041f, 1.705798f, 5.462549f, 8.726646e-4f, -5.305661f);
-	init(8.932e22f, ioOrbit, 6);
+	init(8.932e22, ioOrbit, 6);
 	setModel(modelIndex);
 	setRadius(1.8215f);
 	spin = 2 * pi / 86400 / 1.769;
@@ -132,7 +132,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// europa
 	Orbit europaOrbit(&bodies[6], 670.9, 0.0101f, 2.714196f, 3.078359f, 0.008203047f, -1.400138f);
-	init(4.800e22f, europaOrbit, 6);
+	init(4.800e22, europaOrbit, 6);
 	setModel(modelIndex);
 	setRadius(1.5608f);
 	spin = 2 * pi / 86400 / 3.551;
@@ -144,7 +144,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// ganymede
 	Orbit ganymedeOrbit(&bodies[6], 1070, 0.0015f, 3.295723f, 2.09162f, 0.003403392f, -3.271899f);
-	init(1.4819e23f, ganymedeOrbit, 6);
+	init(1.4819e23, ganymedeOrbit, 6);
 	setModel(modelIndex);
 	setRadius(2.634f);
 	spin = 2 * pi / 86400 / 7.155;
@@ -156,7 +156,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 	// callisto
 	Orbit callistoOrbit(&bodies[6], 1883, 0.007f, 5.863137f, 5.642039f, 0.004904375f, 2.720846f);
-	init(1.0759e23f, callistoOrbit, 6);
+	init(1.0759e23, callistoOrbit, 6);
 	setModel(modelIndex);
 	setRadius(2.410f);
 	spin = 2 * pi / 86400 / 16.689;
