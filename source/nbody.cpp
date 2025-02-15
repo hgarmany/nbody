@@ -142,7 +142,7 @@ void buildObjects() {
 	builder.setSpin(spin);
 	builder.setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
 	builder.setSurface(bodies[3].surface);
-	builder.addTrail(glm::vec3(0.9f, 0.9f, 0.9f));
+	builder.addTrail(glm::vec3(0.9f, 0.9f, 0.9f), 3); // orbital trail w.r.t earth
 	bodies.push_back(builder.get());
 
 	bodies[bodies.size() - 1].parentIndex = 0;
@@ -178,8 +178,8 @@ int main() {
 		glm::normalize(bodies[0].position - bodies[1].position),
 		glm::dvec3(0.0, 1.0, 0.0)
 	);
-	camera.mode = FREE_CAM;
 	camera.mode = LOCK_CAM;
+	lockIndex = 0;
 
 	setXY(window);
 

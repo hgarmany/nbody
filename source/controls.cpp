@@ -14,9 +14,9 @@ int windowWidth = 900, windowHeight = 600;
 double lastX = windowWidth / 2;
 double lastY = windowHeight / 2;
 
-bool isChoosingBody = false;
-size_t lockIndex = -1;
-double lockDistanceFactor = 3;
+bool isChoosingBody = true;
+size_t lockIndex = 0;
+double lockDistanceFactor = 5;
 double timeStep = 1e5;
 
 std::map<keyMapName, int> keyMap = {
@@ -32,6 +32,8 @@ std::map<keyMapName, int> keyMap = {
 	{ ROLL_RIGHT, GLFW_KEY_E },
 	{ T_PHYSICS, GLFW_KEY_P },
 	{ T_LOCK_SELECT, GLFW_KEY_F },
+	{ T_LOCK_PAGE_UP, GLFW_KEY_RIGHT_BRACKET },
+	{ T_LOCK_PAGE_DOWN, GLFW_KEY_LEFT_BRACKET },
 	{ INCREASE_TIME_STEP, GLFW_KEY_PERIOD },
 	{ DECREASE_TIME_STEP, GLFW_KEY_COMMA }
 };
@@ -91,8 +93,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (action == GLFW_PRESS) {
 		if (key == keyMap[T_PHYSICS])
 			hasPhysics = !hasPhysics;
-		else if (key == keyMap[T_LOCK_SELECT])
+		else if (key == keyMap[T_LOCK_SELECT]) {
 			isChoosingBody = !isChoosingBody;
+			if (camera.mode == LOCK_CAM)
+				camera.mode = FREE_CAM;
+			else {
+				camera.mode = LOCK_CAM;
+				lockIndex = -1;
+			}
+		}
+		else if (key == keyMap[T_LOCK_PAGE_UP])
+			lockIndex++;
+		else if (key == keyMap[T_LOCK_PAGE_DOWN])
+			lockIndex--;
 		else if (key == keyMap[INCREASE_TIME_STEP])
 			timeStep *= 1.1;
 		else if (key == keyMap[DECREASE_TIME_STEP])

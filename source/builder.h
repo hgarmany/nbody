@@ -60,7 +60,7 @@ public:
 		entity = std::make_shared<GravityBody>(mass);
 	}
 
-	void init(float mass, Orbit orbit, size_t parentIndex) {
+	void init(double mass, Orbit orbit, size_t parentIndex) {
 		entity = std::make_shared<GravityBody>(mass, orbit, parentIndex);
 	}
 
@@ -77,10 +77,12 @@ public:
 		}
 	}
 
-	void addTrail(glm::vec3 trailColor = glm::vec3(1.0f)) {
+	void addTrail(glm::vec3 color = glm::vec3(1.0f), size_t parentIndex = -1) {
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
-			body->trail = new std::deque<glm::vec3>;
-			body->trailColor = trailColor;
+			if (parentIndex == -1)
+				body->trail = new Trail(color, body->parentIndex);
+			else
+				body->trail = new Trail(color, parentIndex);
 		}
 	}
 

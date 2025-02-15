@@ -41,18 +41,35 @@ typedef struct orbit {
 	}
 } Orbit;
 
+class Trail {
+public:
+	glm::mat4 rotation;
+	glm::vec3 color;
+	std::deque<glm::dvec3> queue;
+	size_t parentIndex;
+
+	Trail(glm::vec3 color = glm::vec3(0.0f), size_t parentIndex = -1)
+		: color(color), parentIndex(parentIndex), rotation(glm::mat4(1.0f)) {}
+
+	glm::dvec3 front() { return queue.front(); }
+	glm::dvec3 back() { return queue.back(); }
+	std::deque<glm::dvec3>::const_iterator begin() const { return queue.begin(); }
+	std::deque<glm::dvec3>::const_iterator end() const { return queue.end(); }
+	void push(const glm::dvec3 point) { queue.push_back(point); }
+	void pop() { queue.pop_front(); }
+	size_t size() { return queue.size(); }
+};
+
 class GravityBody : public Entity {
 public:
-	glm::vec3 trailColor;
-	std::deque<glm::vec3>* trail;
 	glm::float64 mass;
 	glm::float64 radius;
+	Trail* trail;
 	size_t parentIndex;
 
 	GravityBody(glm::float64 mass = DBL_MIN) {
 		parentIndex = -1;
 		trail = nullptr;
-		trailColor = glm::vec3(0.0f);
 		this->mass = mass;
 		radius = 0.0;
 		position = glm::dvec3(0.0);
@@ -65,7 +82,6 @@ public:
 	GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 		this->parentIndex = parentIndex;
 		trail = nullptr;
-		trailColor = glm::vec3(0.0f);
 		this->mass = mass;
 		radius = 0.0;
 		acceleration = glm::dvec3(0.0);

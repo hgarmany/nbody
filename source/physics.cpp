@@ -3,6 +3,7 @@
 #include <vector>
 
 std::vector<GravityBody> bodies;
+std::vector<GravityBody> frameBodies;
 
 std::atomic<bool> running(true);
 std::condition_variable physicsCV;
@@ -53,8 +54,6 @@ void physicsLoop(GLFWwindow* window) {
 
         if (hasPhysics)
             updateBodies(deltaTime, bodies);
-
-        flyCam(window, deltaTime);
 
         // manual control: adjust earth axial tilt and time of day
         if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)

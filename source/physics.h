@@ -11,7 +11,7 @@ extern std::condition_variable physicsCV;
 extern bool physicsUpdated;
 extern int physicsFrames, lastPhysicsFrames;
 
-extern std::vector<GravityBody> bodies;
+extern std::vector<GravityBody> bodies, frameBodies;
 
 glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b);
 void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies);
