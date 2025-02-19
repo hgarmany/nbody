@@ -34,7 +34,7 @@ public:
 
 		surface.material = glm::vec4(0.1f, 1.0f, 1.0f, 0.0f);
 		surface.color = glm::vec3(1.0f);
-		surface.texture = -1;
+		surface.texture = 0;
 
 		modelIndex = -1;
 	}

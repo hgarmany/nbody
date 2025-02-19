@@ -29,6 +29,9 @@ glm::dmat4 Entity::updateMatrix() {
 }
 
 void Entity::draw(Shader shader, uint8_t mode) {
+	if (modelIndex == -1)
+		return; // cannot draw an object with no model
+
 	glBindVertexArray(Model::modelLibrary[modelIndex].VAO);
 	
 	if (shader.uniforms.contains(OBJ_COLOR))
@@ -37,15 +40,14 @@ void Entity::draw(Shader shader, uint8_t mode) {
 		glUniform4fv(shader.uniforms[OBJ_MAT], 1, &surface.material[0]);
 
 	// Handle displacement map for the vertex shader
-	if (surface.normal != -1) {
+	if (surface.normal) {
 		glActiveTexture(GL_TEXTURE1); // Use a different texture unit
 		glBindTexture(GL_TEXTURE_2D, surface.normal);
 		glUniform1i(shader.uniforms[NORMAL_MAP], 1); // Tell shader to use texture unit 1
 		glUniform1i(shader.uniforms[NORM_BOOL], 1);
 	}
-	else if (mode == MODE_TEX) {
+	else if (shader.uniforms.count(NORM_BOOL))
 		glUniform1i(shader.uniforms[NORM_BOOL], 0);
-	}
 
 	if (surface.texture != -1) {
 		glActiveTexture(GL_TEXTURE0);

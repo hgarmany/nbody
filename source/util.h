@@ -4,7 +4,6 @@
 
 const float pi = 3.141592653589793f;
 const float MIN_FRAME_TIME = 1.0f / 60.0f;
-const float MIN_P_FRAME_TIME = 0.001f;
 const float FOV = glm::radians(45.0f);
 
 // units : space in Mm, time in s

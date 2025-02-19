@@ -35,13 +35,29 @@ std::map<keyMapName, int> keyMap = {
 	{ T_LOCK_PAGE_UP, GLFW_KEY_RIGHT_BRACKET },
 	{ T_LOCK_PAGE_DOWN, GLFW_KEY_LEFT_BRACKET },
 	{ INCREASE_TIME_STEP, GLFW_KEY_PERIOD },
-	{ DECREASE_TIME_STEP, GLFW_KEY_COMMA }
+	{ DECREASE_TIME_STEP, GLFW_KEY_COMMA },
+	{ QUIT, GLFW_KEY_ESCAPE }
+};
+
+// lambda library for all key-based controls
+std::unordered_map<int, std::function<void()>> keyActions = {
+		{keyMap[T_PHYSICS], []() { hasPhysics = !hasPhysics; }},
+		{keyMap[T_LOCK_SELECT], []() {
+			isChoosingBody = !isChoosingBody;
+			camera.mode = (camera.mode == LOCK_CAM) ? FREE_CAM : LOCK_CAM;
+			if (camera.mode == LOCK_CAM) lockIndex = -1;
+		}},
+		{keyMap[T_LOCK_PAGE_UP], []() { lockIndex++; }},
+		{keyMap[T_LOCK_PAGE_DOWN], []() { lockIndex--; }},
+		{keyMap[INCREASE_TIME_STEP], []() { timeStep *= 1.1; }},
+		{keyMap[DECREASE_TIME_STEP], []() { timeStep *= 0.9; }},
+		{keyMap[QUIT], []() { exit(EXIT_FAILURE); }}
 };
 
 keyMapName mousePXAction = YAW_LEFT, mouseNXAction = YAW_RIGHT, mousePYAction = PITCH_UP, mouseNYAction = PITCH_DOWN;
 
 // Camera movement speed
-double cameraSpeed = 2e2;
+double cameraSpeed = 1e5;
 
 void setXY(GLFWwindow* window) {
 	glfwGetCursorPos(window, &lastX, &lastY);
@@ -90,31 +106,13 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 
 // process key presses and releases
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (action == GLFW_PRESS) {
-		if (key == keyMap[T_PHYSICS])
-			hasPhysics = !hasPhysics;
-		else if (key == keyMap[T_LOCK_SELECT]) {
-			isChoosingBody = !isChoosingBody;
-			if (camera.mode == LOCK_CAM)
-				camera.mode = FREE_CAM;
-			else {
-				camera.mode = LOCK_CAM;
-				lockIndex = -1;
-			}
-		}
-		else if (key == keyMap[T_LOCK_PAGE_UP])
-			lockIndex++;
-		else if (key == keyMap[T_LOCK_PAGE_DOWN])
-			lockIndex--;
-		else if (key == keyMap[INCREASE_TIME_STEP])
-			timeStep *= 1.1;
-		else if (key == keyMap[DECREASE_TIME_STEP])
-			timeStep *= 0.9;
+	if (action != GLFW_PRESS) {
+		if (keyActions.find(key) != keyActions.end())
+			keyActions[key]();
 
-		if (isChoosingBody && key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
+		// handling for body index selection
+		if (isChoosingBody && key >= GLFW_KEY_0 && key <= GLFW_KEY_9)
 			lockIndex = key - GLFW_KEY_0;
-		}
-
 	}
 }
 

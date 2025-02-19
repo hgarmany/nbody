@@ -20,19 +20,21 @@ void EntityBuilder::buildSky(size_t modelIndex) {
 }
 
 void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
-	Surface mercury = Surface("assets/sol/mercury.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface venus = Surface("assets/sol/venus.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface earth = Surface("assets/sol/earth.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface mars = Surface("assets/sol/mars.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface jupiter = Surface("assets/sol/jupiter.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface io = Surface("assets/sol/io.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface europa = Surface("assets/sol/europa.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface ganymede = Surface("assets/sol/ganymede.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
-	Surface callisto = Surface("assets/sol/callisto.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
+	glm::vec4 diffuseMat(0.0f, 1.0f, 0.0f, 0.0f);
+	Surface sun = Surface("assets/sol/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	Surface mercury = Surface("assets/sol/mercury.jpg", diffuseMat);
+	Surface venus = Surface("assets/sol/venus.jpg", diffuseMat);
+	Surface earth = Surface("assets/sol/earth.jpg", diffuseMat);
 	earth.normal = Surface::getTexture("assets/sol/earth_normal.jpg");
-	Surface moon = Surface("assets/sol/moon.jpg", glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec3(1.0f));
+	Surface moon = Surface("assets/sol/moon.jpg", diffuseMat);
 	moon.normal = Surface::getTexture("assets/sol/moon_normal.jpg");
-	Surface sun = Surface("assets/sol/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f));
+	Surface mars = Surface("assets/sol/mars.jpg", diffuseMat);
+	Surface jupiter = Surface("assets/sol/jupiter.jpg", diffuseMat);
+	Surface io = Surface("assets/sol/io.jpg", diffuseMat);
+	Surface europa = Surface("assets/sol/europa.jpg", diffuseMat);
+	Surface ganymede = Surface("assets/sol/ganymede.jpg", diffuseMat);
+	Surface callisto = Surface("assets/sol/callisto.jpg", diffuseMat);
+	Surface saturn = Surface("assets/sol/saturn.jpg", diffuseMat);
 
 	// sun
 	init(1.9891e30f);
@@ -164,5 +166,17 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setOrientation(glm::dvec3(0 + callistoOrbit.inclination, 0, 0));
 	setSurface(callisto);
 	addTrail(glm::vec3(0.6f, 0.6f, 0.8f));
+	bodies.push_back(get());
+
+	// saturn
+	Orbit saturnOrbit(&bodies[0], 1.432041e6, 0.05415060f, 1.613242f, 0.8716928f, 0.04336201f, -2.726251f);
+	init(5.6832e26, saturnOrbit, 0);
+	setModel(modelIndex);
+	setRadius(60.268f);
+	spin = 2 * pi / 86400 / 0.444;
+	setSpin(spin);
+	setOrientation(glm::dvec3(0.4665265 + saturnOrbit.inclination, 0, 0));
+	setSurface(saturn);
+	addTrail(glm::vec3(0.7f, 0.8f, 0.1f));
 	bodies.push_back(get());
 }

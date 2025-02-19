@@ -1,15 +1,22 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "surface.h"
 
-GLuint Surface::getTexture(const char* path) {
+GLuint Surface::getTexture(const char* path, bool useInterpolation) {
 	GLuint texture;
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	if (useInterpolation) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+	else {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
 
 	int width, height, numChannels;
 	unsigned char* data = stbi_load(path, &width, &height, &numChannels, 0);
@@ -45,7 +52,7 @@ Surface::Surface(const char* path, glm::vec4 material, glm::vec3 color) {
 	this->material = material;
 	this->color = color;
 	texture = getTexture(path);
-	normal = -1;
+	normal = 0;
 }
 
 Surface Surface::CubeMap(std::vector<std::string> faces) {

@@ -3,13 +3,12 @@
 #include "shader.h"
 #include "physics.h"
 
-extern glm::mat4 projection;
-extern int screenSize;
-extern float pipSize;
-
-extern GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer;
-
+void initCamera();
+void initQuad();
+void initPIP();
 void initShaders();
+void initTrails();
+void initStarBuffer();
 void cleanGL();
 
 void setPV(Shader& shader, glm::mat4& P, glm::mat4& V);

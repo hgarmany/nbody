@@ -11,20 +11,138 @@ std::mutex physicsMutex;
 
 size_t maxTrailLength = 2500;
 size_t cameraFutureTrailLength = 2500;
+GLsizei starCapacity = 20;
 
-GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer;
-Shader shader, skyboxShader, trailShader, frameShader;
+GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex;
+Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
 
 Camera pipCam(
 	glm::dvec3(0, 1e6, 0),
 	glm::dvec3(0, -1, 0),
 	glm::dvec3(1, 0, 0));
 
+void initCamera() {
+	glm::dvec3 direction = glm::normalize(bodies[bodies.size() - 1].position - bodies[0].position);
+	glm::dvec3 right(1.0, 0.0, 0.0);
+	glm::dvec3 up = glm::cross(right, direction);
+
+	camera = Camera(
+		bodies[bodies.size() - 1].position,
+		direction, up
+	);
+	camera.mode = LOCK_CAM;
+	lockIndex = 0;
+
+	// obtain initial perspective information from relationship between window and screen
+	GLFWmonitor* screen = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(screen);
+	screenSize = mode->height;
+	projection = glm::perspective(FOV * windowHeight / screenSize, (float)windowWidth / windowHeight, 1e-1f, 1e9f);
+
+}
+
+// setup for the simple display quad
+void initQuad() {
+	GLfloat quadVertices[] = {
+		// Positions       // Texture Coords
+		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Bottom-left
+		1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom-right
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Top-right
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Top-right
+		-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,  // Top-left
+		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f   // Bottom-left
+	};
+
+	glGenVertexArrays(1, &quadVAO);
+	glGenBuffers(1, &quadVBO);
+
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+	// load vertex data
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+
+	// load uv mapping
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+}
+
+// prepares an FBO for capturing renders
+void initPIP() {
+	glGenFramebuffers(1, &pipFBO);
+	glGenTextures(1, &pipTexture);
+	glGenRenderbuffers(1, &pipDepthBuffer);
+
+	GLsizei pipWidth = GLsizei(windowWidth * pipSize);
+	GLsizei pipHeight = GLsizei(windowHeight * pipSize);
+
+	// texture space for holding render data
+	glBindTexture(GL_TEXTURE_2D, pipTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pipWidth, pipHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// attach texture buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, pipFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipTexture, 0);
+
+	// attach depth buffer
+	glBindRenderbuffer(GL_RENDERBUFFER, pipDepthBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, pipWidth, pipHeight);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, pipDepthBuffer);
+}
+
 void initShaders() {
 	shader = initStandardShader();
 	skyboxShader = initSkyboxShader();
 	trailShader = initTrailShader();
 	frameShader = initFrameOverlayShader();
+	spriteShader = initSpriteShader();
+}
+
+void initTrails() {
+	glGenVertexArrays(1, &trailVAO);
+	glGenBuffers(1, &trailVBO);
+	glGenBuffers(1, &trailAlphaBuf);
+}
+
+void initStarBuffer() {
+	glBindVertexArray(quadVAO); // Use existing quadVAO
+
+	glGenBuffers(1, &instanceVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	glBufferData(GL_ARRAY_BUFFER, starCapacity * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+
+	// Setup instance attribute (location = 2 for position)
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+	glVertexAttribDivisor(2, 1); // Update per instance
+}
+
+// grab star positions based on bodies in the system
+GLsizei updateStarPositions() {
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+
+	std::vector<glm::vec3> positions;
+	positions.reserve(frameBodies.size());
+	for (GravityBody& body : frameBodies) {
+		if (body.mass > 1e5f)
+			positions.push_back(body.position - camera.position);
+	}
+	
+	GLsizei size = (GLsizei)positions.size();
+	
+	// reallocate buffer if the system requires more stars than it can hold
+	if (size > starCapacity) {
+		glBufferData(GL_ARRAY_BUFFER, 2 * size * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+		starCapacity = 2 * size;
+	}
+	
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size * sizeof(glm::vec3), positions.data());  // Update positions
+
+	return size;
 }
 
 void cleanGL() {
@@ -63,7 +181,7 @@ void updateProjectionMatrix(GLFWwindow* window) {
 	if (height == 0) height = 1; // prevent division by zero
 
 	float aspect = (float)width / (float)height;
-	projection = glm::perspective(FOV * height / screenSize, aspect, 1e0f, 1e9f);
+	projection = glm::perspective(FOV * height / screenSize, aspect, 1e-1f, 1e9f);
 }
 
 glm::dmat4 relativeRotationalMatrix(GravityBody* subject, GravityBody* reference, bool detranslate = false) {
@@ -88,10 +206,18 @@ glm::dmat4 relativeRotationalMatrix(GravityBody* subject, GravityBody* reference
 	return rotate;
 }
 
+bool testObjectVisibility(Entity& entity) {
+	double longestPossibleAxisLength = glm::length(entity.scale);
+	double angularSize = 2.0 * atan2(longestPossibleAxisLength, glm::distance(camera.position, entity.position));
+	if (windowHeight * angularSize / FOV < 0.5) {
+		return false;
+	}
+	return true;
+}
+
 void updateTrails() {
 	for (GravityBody body : frameBodies) {
 		Trail* trail = body.trail;
-
 		if (trail && (body.mass > 1.0 || camera.mode == GRAV_CAM)) {
 			size_t parentIndex = body.trail->parentIndex;
 
@@ -103,7 +229,6 @@ void updateTrails() {
 					// remove any trail points behind the body's position
 					while (doLoop &&
 						parentIndex == body.parentIndex) {
-						printf("T\n");
 						glm::dvec3 a = glm::normalize(trail->front());
 						glm::dvec3 b = glm::normalize(trail->back());
 
@@ -129,7 +254,7 @@ void updateTrails() {
 				
 				glm::dvec3 relativePosition = 
 					glm::dmat3(relativeRotationalMatrix(&body, &frameBodies[parentIndex])) *
-					glm::dvec3(body.position - frameBodies[parentIndex].position);
+					glm::dvec3(body.position - frameBodies[body.parentIndex].position);
 					//glm::dvec3(body.position);
 
 				trail->push(relativePosition);
@@ -151,14 +276,14 @@ void updateFreeCam(double deltaTime) {
 }
 
 void updateLockCam(double deltaTime) {
-	if (lockIndex >= bodies.size() && lockIndex != -1)
+	if (lockIndex >= frameBodies.size() && lockIndex != -1)
 		lockIndex = 0;
 
 	if (lockIndex != -1) {
-		GravityBody* body = &bodies[lockIndex];
+		GravityBody* body = &frameBodies[lockIndex];
 		if (body->parentIndex != -1) {
-			camera.right = glm::normalize(body->position - bodies[body->parentIndex].position);
-			camera.up = glm::normalize(body->velocity - bodies[body->parentIndex].velocity);
+			camera.right = glm::normalize(body->position - frameBodies[body->parentIndex].position);
+			camera.up = glm::normalize(body->velocity - frameBodies[body->parentIndex].velocity);
 			camera.direction = glm::cross(camera.up, camera.right);
 			camera.right = glm::cross(camera.direction, camera.up);
 		}
@@ -204,6 +329,39 @@ void drawQuad() {
 	glBindVertexArray(0);
 }
 
+void renderBillboards(GLFWwindow* window) {
+	// configure shader
+	glUseProgram(spriteShader.index);
+
+	// update camera
+	glm::mat4 view = glm::mat4(glm::mat3(camera.viewMatrix()));
+	updateProjectionMatrix(window);
+
+	setPV(spriteShader, projection, view);
+	glm::ivec2 windowSize(windowWidth, windowHeight);
+	glUniform2iv(spriteShader.uniforms[WINDOW_SIZE], 1, &windowSize[0]);
+
+	// assign points in space for star billboards 
+	// and get the number of billboards to be rendered
+	GLsizei numStars = updateStarPositions();
+
+	// load star sprite
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, starTex);
+	glUniform1i(spriteShader.uniforms[TEX_MAP], 0);
+
+	// send texture metadata
+	glm::ivec2 dims;
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &dims.x);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &dims.y);
+	glUniform2iv(spriteShader.uniforms[TEX_SIZE], 1, &dims[0]);
+
+	// draw billboards at the configured locations
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numStars);
+}
+
 void render(Camera& camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -220,14 +378,17 @@ void render(Camera& camera) {
 
 	Camera copy = camera;
 	for (Entity body : frameBodies) {
-		copy.position = camera.position - body.position;
-		glm::mat4 relativeView = copy.viewMatrix();
-		glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(body.position))[0]);
-		setPV(shader, projection, relativeView);
-		glm::dvec3 bodyPos = body.position;
-		body.position = glm::dvec3(0.0);
-		body.draw(shader, MODE_TEX);
-		body.position = bodyPos;
+		if (testObjectVisibility(body)) {
+			copy.position = camera.position - body.position;
+			glm::mat4 relativeView = copy.viewMatrix();
+			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(body.position))[0]);
+			setPV(shader, projection, relativeView);
+			glm::dvec3 bodyPos = body.position;
+			body.position = glm::dvec3(0.0);
+			body.draw(shader, MODE_TEX);
+			//body.draw(shader, MODE_SOLID);
+			body.position = bodyPos;
+		}
 	}
 
 	// start trails
@@ -239,8 +400,8 @@ void render(Camera& camera) {
 	for (GravityBody body : frameBodies) {
 		if (body.trail) {
 			trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
-			for (size_t j = 0; j < body.trail->size(); ++j) {
-				trailAlphas.push_back(static_cast<float>(j) / body.trail->size());
+			for (size_t j = body.trail->size(); j > 0; j--) {
+				trailAlphas.push_back(1.0f);
 			}
 		}
 	}
@@ -271,10 +432,14 @@ void render(Camera& camera) {
 				root = glm::vec3(0.0);
 			glUniform3fv(trailShader.uniforms[OBJ_POS], 1, &root[0]);
 
-			glm::dmat4 rotate = relativeRotationalMatrix(&body, &frameBodies[parentIndex], true);
+			glm::dmat4 modelMatrix(1.0f);
+			if (body.parentIndex != -1) {
+				glm::dmat4 rotate = relativeRotationalMatrix(&body, &frameBodies[parentIndex], true);
 
-			glm::dmat4 modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[parentIndex].position);
-			modelMatrix *= rotate;
+				modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex].position);
+				modelMatrix *= rotate;
+			}
+
 			glm::mat4 mOut = modelMatrix;
 			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &mOut[0][0]);
 
@@ -298,7 +463,6 @@ void render(Camera& camera) {
 	setPV(skyboxShader, projection, view);
 
 	Entity::skybox.draw(skyboxShader, MODE_CUBEMAP);
-
 	glDepthFunc(GL_LESS);
 }
 
@@ -331,14 +495,16 @@ void renderPIP(GLFWwindow* window) {
 	glm::mat4 pipTransform = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f - pipSize, -1.0f + pipSize, 0.0f));
 	pipTransform = glm::scale(pipTransform, glm::vec3(pipSize, pipSize, 1.0f));
 	glUniformMatrix4fv(frameShader.M, 1, GL_FALSE, &pipTransform[0][0]);
-
 	glBindTexture(GL_TEXTURE_2D, pipTexture);
+
 	drawQuad();  // Assume a quad is already defined for rendering
 }
 
 void renderLoop(GLFWwindow* window) {
 	double lastFrameTime = glfwGetTime();
 	double currentTime = glfwGetTime();
+
+	starTex = Surface::getTexture("assets/star.png", true);
 
 	while (!glfwWindowShouldClose(window)) {
 		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
@@ -350,14 +516,13 @@ void renderLoop(GLFWwindow* window) {
 				physicsUpdated = false;
 				lastPhysicsFrames = physicsFrames;
 
-				flyCam(window, currentTime - lastFrameTime);
-				updateCamera(currentTime - lastFrameTime);
-
 				frameBodies = bodies;
 
 				lock.unlock();
 			}
 
+			flyCam(window, currentTime - lastFrameTime);
+			updateCamera(currentTime - lastFrameTime);
 
 			if (hasPhysics)
 				updateTrails();
@@ -371,6 +536,8 @@ void renderLoop(GLFWwindow* window) {
 			//}
 
 			renderPIP(window);
+
+			renderBillboards(window);
 
 			lastFrameTime = currentTime;
 

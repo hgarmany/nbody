@@ -15,10 +15,10 @@ extern double timeStep; // Time step for the simulation;
 enum keyMapName {
 	MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
 	PITCH_UP, PITCH_DOWN, YAW_LEFT, YAW_RIGHT, ROLL_LEFT, ROLL_RIGHT,
-	T_PHYSICS, T_LOCK_SELECT, T_LOCK_PAGE_UP, T_LOCK_PAGE_DOWN, INCREASE_TIME_STEP, DECREASE_TIME_STEP
+	T_PHYSICS, T_LOCK_SELECT, T_LOCK_PAGE_UP, T_LOCK_PAGE_DOWN, INCREASE_TIME_STEP, DECREASE_TIME_STEP,
+	QUIT
 };
 
-extern std::map<keyMapName, int> keyMap;
 extern keyMapName mousePXAction, mouseNXAction, mousePYAction, mouseNYAction;
 
 void setXY(GLFWwindow* window);

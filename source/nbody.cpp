@@ -61,59 +61,6 @@ void static initWindow() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor initially
 }
 
-// setup for the simple display quad
-void initQuad() {
-	GLfloat quadVertices[] = {
-		// Positions       // Texture Coords
-		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Bottom-left
-		1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom-right
-		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Top-right
-		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Top-right
-		-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,  // Top-left
-		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f   // Bottom-left
-	};
-
-	glGenVertexArrays(1, &quadVAO);
-	glGenBuffers(1, &quadVBO);
-
-	glBindVertexArray(quadVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-	// load vertex data
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
-	glEnableVertexAttribArray(0);
-
-	// load uv mapping
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(1);
-}
-
-// prepares an FBO for capturing renders
-void initPIP() {
-	glGenFramebuffers(1, &pipFBO);
-	glGenTextures(1, &pipTexture);
-	glGenRenderbuffers(1, &pipDepthBuffer);
-
-	GLsizei pipWidth = GLsizei(windowWidth * pipSize);
-	GLsizei pipHeight = GLsizei(windowHeight * pipSize);
-
-	// texture space for holding render data
-	glBindTexture(GL_TEXTURE_2D, pipTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pipWidth, pipHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// attach texture buffer
-	glBindFramebuffer(GL_FRAMEBUFFER, pipFBO);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipTexture, 0);
-
-	// attach depth buffer
-	glBindRenderbuffer(GL_RENDERBUFFER, pipDepthBuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, pipWidth, pipHeight);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, pipDepthBuffer);
-}
-
 void static MessageCallback(GLenum source,
 	GLenum type,
 	GLuint id,
@@ -132,11 +79,11 @@ void buildObjects() {
 	GravityBodyBuilder builder;
 
 	builder.buildSolarSystem(sphere);
-
+	
 	// !earth
 	Orbit earthOrbit(&bodies[0], 1.494880e5, 0.01671123f, 1.796601f, 0.1745f, -2.672099e-7f, 0.0f);
 	builder.init(5.9722e24f, earthOrbit, 0);
-	builder.setModel(bodies[3].modelIndex);
+	builder.setModel(sphere);
 	builder.setRadius(6.371f);
 	double spin = 2 * pi / 86400;
 	builder.setSpin(spin);
@@ -145,12 +92,11 @@ void buildObjects() {
 	builder.addTrail(glm::vec3(0.9f, 0.9f, 0.9f), 3); // orbital trail w.r.t earth
 	bodies.push_back(builder.get());
 
-	bodies[bodies.size() - 1].parentIndex = 0;
 	builder.buildSky(cube);
 
 	// camera
 	builder.init();
-	builder.setMotion(bodies[3].position + bodies[3].radius * 5, bodies[3].velocity * 1.1);
+	builder.setMotion(bodies[0].position + glm::dvec3(0, 0, bodies[0].radius * 5), bodies[0].velocity * 1.1);
 	builder.addTrail();
 	bodies.push_back(builder.get());
 }
@@ -169,34 +115,21 @@ int main() {
 	// initialize models
 	cube = Model::Cube();
 	sphere = Model::Icosphere(5);
-
+	
 	buildObjects();
 
-	// setup starting camera
-	camera = Camera(
-		bodies[3].position + glm::dvec3(0.0, bodies[3].radius * 3, 0.0),
-		glm::normalize(bodies[0].position - bodies[1].position),
-		glm::dvec3(0.0, 1.0, 0.0)
-	);
-	camera.mode = LOCK_CAM;
-	lockIndex = 0;
+	initCamera();
 
 	setXY(window);
 
-	// obtain initial perspective information from relationship between window and screen
-	GLFWmonitor* screen = glfwGetPrimaryMonitor();
-	const GLFWvidmode* mode = glfwGetVideoMode(screen);
-	screenSize = mode->height;
-	projection = glm::perspective(FOV * windowHeight / screenSize, (float)windowWidth / windowHeight, 1e0f, 1e9f);
-
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND);
 
 	initShaders();
-
-	glGenVertexArrays(1, &trailVAO);
-	glGenBuffers(1, &trailVBO);
-	glGenBuffers(1, &trailAlphaBuf);
+	initTrails();
+	initStarBuffer();
 
 	initTime = glfwGetTime();
 

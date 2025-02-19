@@ -70,6 +70,8 @@ Shader initStandardShader() {
 			Bitangent = mat3(transpose(inverse(model))) * aBitan;
 			TexCoords = aTex;
 			gl_Position = vec4(projection * view * vec4(FragPos, 1.0));
+			float depth = 2.0 * log(1.0 + gl_Position.w) / log(1e9 + 1.0) - 1.0;
+			gl_Position.z = depth * gl_Position.w;
 		}
 	)";
 
@@ -215,6 +217,8 @@ Shader initTrailShader() {
 
 		void main() {
 			gl_Position = projection * view * model * vec4(aPos, 1.0);
+			float depth = 2.0 * log(1.0 + gl_Position.w) / log(1e9 + 1.0) - 1.0;
+			gl_Position.z = depth * gl_Position.w;
 			f_alpha = alpha;
 		}
 	)";
@@ -259,6 +263,8 @@ Shader initFrameOverlayShader() {
 		void main() {
 			TexCoords = aTex;
 			gl_Position = model * vec4(aPos.x, aPos.y, 0.0, 1.0); 
+			float depth = 2.0 * log(1.0 + gl_Position.w) / log(1e9 + 1.0) - 1.0;
+			gl_Position.z = depth * gl_Position.w;
 		}  
 	)";
 
@@ -282,6 +288,68 @@ Shader initFrameOverlayShader() {
 	shader.index = shaderProgram;
 	shader.M = glGetUniformLocation(shaderProgram, "model");
 	shader.uniforms[TEX_MAP] = glGetUniformLocation(shaderProgram, "textureMap");
+
+	return shader;
+}
+
+Shader initSpriteShader() {
+	const char* vertexSource = R"(
+		#version 330 core
+
+		layout (location = 0) in vec3 aPos;       // Quad vertex position (local space)
+		layout (location = 1) in vec2 aTexCoord;  // Texture coordinates
+		layout (location = 2) in vec3 instancePos; // Per-instance world position
+
+		out vec2 TexCoord;
+
+		uniform mat4 view;          // View matrix (without translation)
+		uniform mat4 projection;
+		uniform ivec2 windowSize;
+		uniform ivec2 texSize;
+
+		void main() {
+			gl_Position = projection * view * vec4(instancePos, 1.0);
+
+			TexCoord = aTexCoord;
+    
+			// scale the sprite based on window and texture dimensions
+			vec2 ndcOffset = vec2(aPos.x * texSize.x / windowSize.x, aPos.y * texSize.y / windowSize.y);
+
+			// Compute the final position of the sprite in clip space (considering its aspect ratio)
+			gl_Position.xy += ndcOffset * gl_Position.w; // Scale correctly in perspective
+			
+			float depth = 2.0 * log(1.0 + gl_Position.w) / log(1e9 + 1.0) - 1.0;
+			gl_Position.z = depth * gl_Position.w;
+		}
+
+	)";
+
+	const char* fragmentSource = R"(
+		#version 330 core
+
+		in vec2 TexCoord;
+		out vec4 FragColor;
+
+		uniform sampler2D billboardTexture;
+
+		void main() {
+			FragColor = texture(billboardTexture, TexCoord);
+			if (FragColor.a < 0.01)
+				discard;
+		}
+	)";
+
+	GLuint shaderProgram = compileShader(vertexSource, fragmentSource);
+
+	Shader shader;
+	glUseProgram(shaderProgram);
+	shader.index = shaderProgram;
+	shader.V = glGetUniformLocation(shaderProgram, "view");
+	shader.P = glGetUniformLocation(shaderProgram, "projection");
+	shader.uniforms[U_FOV] = glGetUniformLocation(shaderProgram, "aspect");
+	shader.uniforms[WINDOW_SIZE] = glGetUniformLocation(shaderProgram, "windowSize");
+	shader.uniforms[TEX_SIZE] = glGetUniformLocation(shaderProgram, "texSize");
+	shader.uniforms[TEX_MAP] = glGetUniformLocation(shaderProgram, "billboardTexture");
 
 	return shader;
 }

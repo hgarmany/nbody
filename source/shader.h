@@ -5,7 +5,8 @@
 
 enum shaderUniform : uint8_t
 {
-    LIGHT_POS, LIGHT_COLOR, OBJ_COLOR, OBJ_MAT, OBJ_POS, VIEW_POS, TEX_BOOL, NORM_BOOL, TEX_MAP, NORMAL_MAP
+    LIGHT_POS, LIGHT_COLOR, OBJ_COLOR, OBJ_MAT, OBJ_POS, VIEW_POS, TEX_BOOL, NORM_BOOL, TEX_MAP, TEX_SIZE, NORMAL_MAP,
+    SCREEN_WIDTH, WINDOW_SIZE, U_FOV
 };
 
 typedef struct shader {
@@ -18,3 +19,4 @@ Shader initStandardShader();
 Shader initSkyboxShader();
 Shader initTrailShader();
 Shader initFrameOverlayShader();
+Shader initSpriteShader();
