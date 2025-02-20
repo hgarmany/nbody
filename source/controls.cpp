@@ -6,6 +6,8 @@ Camera camera;
 bool firstMouse = true;
 bool cursorDisabled = true;
 bool hasPhysics = false;
+bool cameraInertia = false;
+bool overheadLock = false;
 
 glm::float64 pitch, yaw, roll;
 
@@ -34,6 +36,7 @@ std::map<keyMapName, int> keyMap = {
 	{ T_LOCK_SELECT, GLFW_KEY_F },
 	{ T_LOCK_PAGE_UP, GLFW_KEY_RIGHT_BRACKET },
 	{ T_LOCK_PAGE_DOWN, GLFW_KEY_LEFT_BRACKET },
+	{ T_LOCK_OVERHEAD, GLFW_KEY_L },
 	{ INCREASE_TIME_STEP, GLFW_KEY_PERIOD },
 	{ DECREASE_TIME_STEP, GLFW_KEY_COMMA },
 	{ QUIT, GLFW_KEY_ESCAPE }
@@ -49,6 +52,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 		}},
 		{keyMap[T_LOCK_PAGE_UP], []() { lockIndex++; }},
 		{keyMap[T_LOCK_PAGE_DOWN], []() { lockIndex--; }},
+		{keyMap[T_LOCK_OVERHEAD], []() { overheadLock = !overheadLock; }},
 		{keyMap[INCREASE_TIME_STEP], []() { timeStep *= 1.1; }},
 		{keyMap[DECREASE_TIME_STEP], []() { timeStep *= 0.9; }},
 		{keyMap[QUIT], []() { exit(EXIT_FAILURE); }}
@@ -116,14 +120,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 }
 
-// Function to move the camera based on keyboard input
-void flyCam(GLFWwindow* window, double deltaTime) {
-	glm::float64 velocity = cameraSpeed * deltaTime;
-
+void rollCamera(GLFWwindow* window, double deltaTime) {
 	if (glfwGetKey(window, keyMap[ROLL_LEFT]) == GLFW_PRESS)
 		camera.setOrientation(0.0f, 0.0f, -deltaTime * 1e3);
 	if (glfwGetKey(window, keyMap[ROLL_RIGHT]) == GLFW_PRESS)
 		camera.setOrientation(0.0f, 0.0f, deltaTime * 1e3);
+}
+
+// Function to move the camera based on keyboard input
+void flyCam(GLFWwindow* window, double deltaTime) {
+	glm::float64 speed = cameraSpeed * deltaTime;
+
+	if (cameraInertia == false)
+		camera.velocity = glm::dvec3(0.0);
+
+	rollCamera(window, deltaTime);
 
 	if (glfwGetKey(window, keyMap[PITCH_UP]) == GLFW_PRESS)
 		camera.setOrientation(deltaTime, 0.0f, 0.0f);
@@ -134,17 +145,15 @@ void flyCam(GLFWwindow* window, double deltaTime) {
 	if (glfwGetKey(window, keyMap[YAW_RIGHT]) == GLFW_PRESS)
 		camera.setOrientation(0.0f, -deltaTime, 0.0f);
 	if (glfwGetKey(window, keyMap[MOVE_FORWARD]) == GLFW_PRESS)
-		camera.velocity += camera.direction * velocity;
-		//camera.position += camera.direction * velocity;
+		camera.velocity += camera.direction * speed;
 	if (glfwGetKey(window, keyMap[STRAFE_LEFT]) == GLFW_PRESS)
-		camera.velocity -= camera.right * velocity;
-		//camera.position -= camera.right * velocity;
+		camera.velocity -= camera.right * speed;
 	if (glfwGetKey(window, keyMap[MOVE_BACKWARD]) == GLFW_PRESS)
-		camera.velocity -= camera.direction * velocity;
-		//camera.position -= camera.direction * velocity;
+		camera.velocity -= camera.direction * speed;
 	if (glfwGetKey(window, keyMap[STRAFE_RIGHT]) == GLFW_PRESS)
-		camera.velocity += camera.right * velocity;
-		//camera.position += camera.right * velocity;
+		camera.velocity += camera.right * speed;
+
+	camera.position += camera.velocity * deltaTime;
 }
 
 // toggle between usable cursor and mouse-controlled camera

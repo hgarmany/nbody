@@ -40,24 +40,26 @@ void Entity::draw(Shader shader, uint8_t mode) {
 		glUniform4fv(shader.uniforms[OBJ_MAT], 1, &surface.material[0]);
 
 	// Handle displacement map for the vertex shader
-	if (surface.normal) {
+	if (surface.getNormalMap()) {
 		glActiveTexture(GL_TEXTURE1); // Use a different texture unit
-		glBindTexture(GL_TEXTURE_2D, surface.normal);
+		glBindTexture(GL_TEXTURE_2D, surface.getNormalMap());
 		glUniform1i(shader.uniforms[NORMAL_MAP], 1); // Tell shader to use texture unit 1
 		glUniform1i(shader.uniforms[NORM_BOOL], 1);
 	}
 	else if (shader.uniforms.count(NORM_BOOL))
 		glUniform1i(shader.uniforms[NORM_BOOL], 0);
 
-	if (surface.texture != -1) {
+	GLuint texID = surface.getTexture();
+
+	if (texID) {
 		glActiveTexture(GL_TEXTURE0);
 		if (mode == MODE_TEX) {
-			glBindTexture(GL_TEXTURE_2D, surface.texture);
+			glBindTexture(GL_TEXTURE_2D, texID);
 			glUniform1i(shader.uniforms[TEX_MAP], 0);
 			glUniform1i(shader.uniforms[TEX_BOOL], 1);
 		}
 		else if (mode == MODE_CUBEMAP) {
-			glBindTexture(GL_TEXTURE_CUBE_MAP, surface.texture);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, texID);
 		}
 	}
 	else {

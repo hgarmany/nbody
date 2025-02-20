@@ -8,18 +8,12 @@
 
 #include "stb_image.h"
 
-GLFWwindow* window;
-
-size_t cube, sphere;
-
-double initTime;
-
 // Set this function as a callback to update projection matrix during window resizing
 void static window_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);  // Set the OpenGL viewport to match the new window size
 	windowWidth = width;
 	windowHeight = height;
-	updateProjectionMatrix(window);  // Update the projection matrix with the new size
+	updateProjectionMatrix();  // Update the projection matrix with the new size
 }
 
 void static initWindow() {
@@ -76,6 +70,12 @@ void static MessageCallback(GLenum source,
 }
 
 void buildObjects() {
+	size_t cube, sphere;
+
+	// initialize models
+	cube = Model::Cube();
+	sphere = Model::Icosphere(5);
+
 	GravityBodyBuilder builder;
 
 	builder.buildSolarSystem(sphere);
@@ -111,10 +111,6 @@ int main() {
 #endif
 	initPIP();
 	initQuad();
-
-	// initialize models
-	cube = Model::Cube();
-	sphere = Model::Icosphere(5);
 	
 	buildObjects();
 
@@ -131,11 +127,9 @@ int main() {
 	initTrails();
 	initStarBuffer();
 
-	initTime = glfwGetTime();
-
 	// entering work area: split program into physics and rendering threads
 	std::thread physicsThread(physicsLoop, window);
-	renderLoop(window);
+	renderLoop();
 
 	// exiting work area: close threads and clean up data
 	running = false;

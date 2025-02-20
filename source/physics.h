@@ -9,7 +9,6 @@
 extern std::atomic<bool> running;
 extern std::condition_variable physicsCV;
 extern bool physicsUpdated;
-extern int physicsFrames, lastPhysicsFrames;
 
 extern std::vector<GravityBody> bodies, frameBodies;
 

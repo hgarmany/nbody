@@ -32,10 +32,7 @@ public:
 		orientation = glm::dvec3(0.0f, 0.0f, 0.0f);
 		scale = glm::dvec3(1.0f);
 
-		surface.material = glm::vec4(0.1f, 1.0f, 1.0f, 0.0f);
-		surface.color = glm::vec3(1.0f);
-		surface.texture = 0;
-
+		surface = Surface(glm::vec4(0.1f, 1.0f, 1.0f, 0.0f));
 		modelIndex = -1;
 	}
 

@@ -8,7 +8,6 @@ std::vector<GravityBody> frameBodies;
 std::atomic<bool> running(true);
 std::condition_variable physicsCV;
 bool physicsUpdated = false;
-int physicsFrames = 0, lastPhysicsFrames = 0;
 
 void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -76,7 +75,6 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 void physicsLoop(GLFWwindow* window) {
 	double lastLoopTime = glfwGetTime();
 	while (running) {
-
 		double currentTime = glfwGetTime();
 		glm::float64 deltaTime = currentTime - lastLoopTime;
 		lastLoopTime = currentTime;
@@ -85,19 +83,20 @@ void physicsLoop(GLFWwindow* window) {
 			if (hasPhysics)
 				updateBodies(deltaTime, bodies);
 
-			// manual control: adjust earth axial tilt and time of day
-			if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-				bodies[3].orientation.y += deltaTime;
-			if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-				bodies[3].orientation.y -= deltaTime;
-			if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-				bodies[3].orientation.x += deltaTime;
-			if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-				bodies[3].orientation.x -= deltaTime;
+			if (lockIndex != -1) {
+				// spin the subject body around
+				if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+					bodies[lockIndex].orientation.y += deltaTime;
+				if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+					bodies[lockIndex].orientation.y -= deltaTime;
+				if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+					bodies[lockIndex].orientation.x += deltaTime;
+				if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+					bodies[lockIndex].orientation.x -= deltaTime;
+			}
 
 			// data is ready for renderer to access
 			physicsUpdated = true;
-			physicsFrames++;
 			physicsCV.notify_one();
 		}
 		else

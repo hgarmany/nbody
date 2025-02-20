@@ -3,6 +3,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H  
 
+GLFWwindow* window;
 glm::mat4 projection;
 int screenSize = windowWidth;
 float pipSize = 0.35f;
@@ -12,9 +13,13 @@ std::mutex physicsMutex;
 size_t maxTrailLength = 2500;
 size_t cameraFutureTrailLength = 2500;
 GLsizei starCapacity = 20;
+GLsizei trailCapacity = 0;
 
 GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex;
 Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
+
+std::vector<glm::vec3> trailVertices;
+std::vector<float> trailAlphas;
 
 Camera pipCam(
 	glm::dvec3(0, 1e6, 0),
@@ -158,11 +163,13 @@ void cleanGL() {
 	glDeleteProgram(skyboxShader.index);
 	glDeleteProgram(trailShader.index);
 
-	for (GravityBody body : bodies) {
-		if (body.surface.texture)
-			glDeleteTextures(1, &body.surface.texture);
-		if (body.surface.normal)
-			glDeleteTextures(1, &body.surface.normal);
+	for (GravityBody& body : bodies) {
+		GLuint tex = body.surface.getTexture();
+		GLuint nor = body.surface.getNormalMap();
+		if (tex)
+			glDeleteTextures(1, &tex);
+		if (nor)
+			glDeleteTextures(1, &nor);
 	}
 
 	glfwTerminate();
@@ -174,7 +181,7 @@ void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
 }
 
 // update projection matrix based on window size
-void updateProjectionMatrix(GLFWwindow* window) {
+void updateProjectionMatrix() {
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
 
@@ -271,17 +278,18 @@ void updateTrails() {
 }
 
 void updateFreeCam(double deltaTime) {
-	camera.position += camera.velocity * deltaTime;
-	camera.velocity = glm::dvec3(0);
+	flyCam(window, deltaTime);
 }
 
 void updateLockCam(double deltaTime) {
+	rollCamera(window, deltaTime);
+
 	if (lockIndex >= frameBodies.size() && lockIndex != -1)
 		lockIndex = 0;
 
 	if (lockIndex != -1) {
 		GravityBody* body = &frameBodies[lockIndex];
-		if (body->parentIndex != -1) {
+		if (body->parentIndex != -1 && overheadLock) {
 			camera.right = glm::normalize(body->position - frameBodies[body->parentIndex].position);
 			camera.up = glm::normalize(body->velocity - frameBodies[body->parentIndex].velocity);
 			camera.direction = glm::cross(camera.up, camera.right);
@@ -329,13 +337,13 @@ void drawQuad() {
 	glBindVertexArray(0);
 }
 
-void renderBillboards(GLFWwindow* window) {
+void renderBillboards() {
 	// configure shader
 	glUseProgram(spriteShader.index);
 
 	// update camera
 	glm::mat4 view = glm::mat4(glm::mat3(camera.viewMatrix()));
-	updateProjectionMatrix(window);
+	updateProjectionMatrix();
 
 	setPV(spriteShader, projection, view);
 	glm::ivec2 windowSize(windowWidth, windowHeight);
@@ -372,10 +380,6 @@ void render(Camera& camera) {
 	glUniform3fv(shader.uniforms[LIGHT_POS], 1, &lightPos[0]);
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
 
-	// set camera
-	glm::mat4 view = camera.viewMatrix();
-	setPV(shader, projection, view);
-
 	Camera copy = camera;
 	for (Entity body : frameBodies) {
 		if (testObjectVisibility(body)) {
@@ -393,12 +397,26 @@ void render(Camera& camera) {
 
 	// start trails
 
+	// set camera
+	glm::mat4 view = camera.viewMatrix();
+	setPV(shader, projection, view);
+	trailVertices.clear();
+	trailAlphas.clear();
+
 	glUseProgram(trailShader.index);
 	setPV(trailShader, projection, view);
-	std::vector<glm::vec3> trailVertices;
-	std::vector<float> trailAlphas;
 	for (GravityBody body : frameBodies) {
+		// axis
+		glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
+		axisOfRotation = body.getRotationQuat() * axisOfRotation;
+
+		trailVertices.push_back(body.position + 2 * body.radius * axisOfRotation);
+		trailVertices.push_back(body.position - 2 * body.radius * axisOfRotation);
+		trailAlphas.push_back(1.0f);
+		trailAlphas.push_back(1.0f);
+
 		if (body.trail) {
+			// orbit
 			trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
 			for (size_t j = body.trail->size(); j > 0; j--) {
 				trailAlphas.push_back(1.0f);
@@ -408,7 +426,11 @@ void render(Camera& camera) {
 
 	glBindVertexArray(trailVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
-	glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), trailVertices.data(), GL_DYNAMIC_DRAW);
+	if (trailVertices.size() * sizeof(glm::vec3) > trailCapacity) {
+		glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+		trailCapacity = (GLsizei)(trailVertices.size() * sizeof(glm::vec3));
+	}
+	glBufferSubData(GL_ARRAY_BUFFER, 0, trailVertices.size() * sizeof(glm::vec3), trailVertices.data());
 
 	glEnableVertexAttribArray(0); // Assuming location 0 for positions
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
@@ -420,29 +442,32 @@ void render(Camera& camera) {
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
 
 	GLint offset = 0;
-	glm::vec3 root(0.0);
-	for (GravityBody body : frameBodies) {
-		if (body.trail) {
-			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &body.trail->color[0]);
-			size_t parentIndex = body.trail->parentIndex;
-			if (parentIndex != -1) {
-				root = glm::vec3(frameBodies[parentIndex].position);
-			}
-			else
-				root = glm::vec3(0.0);
-			glUniform3fv(trailShader.uniforms[OBJ_POS], 1, &root[0]);
 
-			glm::dmat4 modelMatrix(1.0f);
+	for (GravityBody body : frameBodies) {
+		glm::mat4 modelMatrix(1.0f);
+		glm::vec3 color(1.0f);
+		if (body.trail)
+			color = body.trail->color;
+
+		glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
+
+		// axis
+		glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+		glDrawArrays(GL_LINE_STRIP, offset, 2);
+		offset += 2;
+
+		if (body.trail) {
+			size_t parentIndex = body.trail->parentIndex;
+
+			// orbit
 			if (body.parentIndex != -1) {
-				glm::dmat4 rotate = relativeRotationalMatrix(&body, &frameBodies[parentIndex], true);
+				glm::mat4 rotate = relativeRotationalMatrix(&body, &frameBodies[parentIndex], true);
 
 				modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex].position);
 				modelMatrix *= rotate;
 			}
 
-			glm::mat4 mOut = modelMatrix;
-			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &mOut[0][0]);
-
+			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
 
 			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
 			offset += (GLint)body.trail->size();
@@ -466,7 +491,7 @@ void render(Camera& camera) {
 	glDepthFunc(GL_LESS);
 }
 
-void renderPIP(GLFWwindow* window) {
+void renderPIP() {
 	// update frame buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, pipFBO);
 	GLsizei pipWidth = GLsizei(windowWidth * pipSize);
@@ -486,7 +511,7 @@ void renderPIP(GLFWwindow* window) {
 	// return to screen buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, windowWidth, windowHeight);
-	updateProjectionMatrix(window);
+	updateProjectionMatrix();
 
 	// render frame buffer contents to the screen
 	glUseProgram(frameShader.index);
@@ -500,11 +525,11 @@ void renderPIP(GLFWwindow* window) {
 	drawQuad();  // Assume a quad is already defined for rendering
 }
 
-void renderLoop(GLFWwindow* window) {
+void renderLoop() {
 	double lastFrameTime = glfwGetTime();
 	double currentTime = glfwGetTime();
 
-	starTex = Surface::getTexture("assets/star.png", true);
+	starTex = importTexture("../../assets/star.png", true);
 
 	while (!glfwWindowShouldClose(window)) {
 		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
@@ -514,14 +539,12 @@ void renderLoop(GLFWwindow* window) {
 
 				physicsCV.wait(lock, [] { return physicsUpdated; });
 				physicsUpdated = false;
-				lastPhysicsFrames = physicsFrames;
 
 				frameBodies = bodies;
 
 				lock.unlock();
 			}
 
-			flyCam(window, currentTime - lastFrameTime);
 			updateCamera(currentTime - lastFrameTime);
 
 			if (hasPhysics)
@@ -535,9 +558,9 @@ void renderLoop(GLFWwindow* window) {
 			//		bodies[bodies.size() - 1].trail->pop_back();
 			//}
 
-			renderPIP(window);
+			renderPIP();
 
-			renderBillboards(window);
+			renderBillboards();
 
 			lastFrameTime = currentTime;
 

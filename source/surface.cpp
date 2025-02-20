@@ -1,7 +1,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "surface.h"
 
-GLuint Surface::getTexture(const char* path, bool useInterpolation) {
+GLuint importTexture(const char* path, bool useInterpolation) {
 	GLuint texture;
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
@@ -51,8 +51,13 @@ GLuint Surface::getTexture(const char* path, bool useInterpolation) {
 Surface::Surface(const char* path, glm::vec4 material, glm::vec3 color) {
 	this->material = material;
 	this->color = color;
-	texture = getTexture(path);
+	texture = 0;
 	normal = 0;
+	/*textureFuture = std::make_shared<std::future<GLuint>>(
+		std::async(std::launch::async, [path]() {
+			return importTexture(path);
+	}));*/
+	texture = importTexture(path);
 }
 
 Surface Surface::CubeMap(std::vector<std::string> faces) {
@@ -79,4 +84,26 @@ Surface Surface::CubeMap(std::vector<std::string> faces) {
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
 	return out;
+}
+
+void Surface::setNormal(const char* path) {
+	/*normalFuture = std::make_shared<std::future<GLuint>>(
+		std::async(std::launch::async, [path]() {
+		return importTexture(path);
+	}));*/
+	normal = importTexture(path);
+}
+
+GLuint Surface::getTexture() {
+	/*if (texture == 0 && textureFuture && textureFuture->valid()) {
+		texture = textureFuture->get();
+	}*/
+	return texture;
+}
+
+GLuint Surface::getNormalMap() {
+	/*if (normal == 0 && normalFuture && normalFuture->valid()) {
+		normal = normalFuture->get();
+	}*/
+	return normal;
 }
