@@ -1,12 +1,5 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-
-#include <iostream>
-#include <chrono>
 #include "builder.h"
 #include "render.h"
-
-#include "stb_image.h"
 
 // Set this function as a callback to update projection matrix during window resizing
 void static window_size_callback(GLFWwindow* window, int width, int height) {
@@ -18,7 +11,7 @@ void static window_size_callback(GLFWwindow* window, int width, int height) {
 
 void static initWindow() {
 	if (!glfwInit()) {
-		std::cerr << "GLFW initialization failed!" << std::endl;
+		fprintf(stderr, "GLFW initialization failed!\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -34,11 +27,12 @@ void static initWindow() {
 	window = glfwCreateWindow(windowWidth, windowHeight, "N-Body Simulator", nullptr, nullptr);
 
 	if (!window) {
-		std::cerr << "Window creation failed!" << std::endl;
+		fprintf(stderr, "Window creation failed!\n");
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 	}
 
+	glfwSetWindowPos(window, 500, 500);
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
 		glViewport(0, 0, width, height);
@@ -135,6 +129,10 @@ int main() {
 	running = false;
 	physicsThread.join();
 
-	cleanGL();
+	cleanup();
 	exit(EXIT_SUCCESS);
+}
+
+int WinMain() {
+	main();
 }

@@ -13,6 +13,8 @@ public:
 	glm::dvec3 up;
 	glm::dvec3 velocity;
 	glm::dvec3 right;
+	size_t lockIndex;
+	float lockDistanceFactor;
 	camera_mode mode;
 
 	Camera(
@@ -26,6 +28,8 @@ public:
 
 		velocity = glm::dvec3(0.0);
 		right = glm::cross(direction, up);
+		lockIndex = -1;
+		lockDistanceFactor = 5.0f;
 		mode = FREE_CAM;
 	}
 

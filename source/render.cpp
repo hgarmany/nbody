@@ -1,7 +1,8 @@
 #include "render.h"
 #include <mutex>
-#include <ft2build.h>
-#include FT_FREETYPE_H  
+#include "imgui.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
 
 GLFWwindow* window;
 glm::mat4 projection;
@@ -21,11 +22,6 @@ Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
 std::vector<glm::vec3> trailVertices;
 std::vector<float> trailAlphas;
 
-Camera pipCam(
-	glm::dvec3(0, 1e6, 0),
-	glm::dvec3(0, -1, 0),
-	glm::dvec3(1, 0, 0));
-
 void initCamera() {
 	glm::dvec3 direction = glm::normalize(bodies[bodies.size() - 1].position - bodies[0].position);
 	glm::dvec3 right(1.0, 0.0, 0.0);
@@ -36,14 +32,13 @@ void initCamera() {
 		direction, up
 	);
 	camera.mode = LOCK_CAM;
-	lockIndex = 0;
+	camera.lockIndex = 0;
 
 	// obtain initial perspective information from relationship between window and screen
 	GLFWmonitor* screen = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(screen);
 	screenSize = mode->height;
 	projection = glm::perspective(FOV * windowHeight / screenSize, (float)windowWidth / windowHeight, 1e-1f, 1e9f);
-
 }
 
 // setup for the simple display quad
@@ -114,6 +109,8 @@ void initTrails() {
 }
 
 void initStarBuffer() {
+	starTex = Surface::importTexture("../../assets/star.png", true);
+
 	glBindVertexArray(quadVAO); // Use existing quadVAO
 
 	glGenBuffers(1, &instanceVBO);
@@ -150,18 +147,22 @@ GLsizei updateStarPositions() {
 	return size;
 }
 
-void cleanGL() {
+void cleanup() {
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	glDeleteVertexArrays(1, &trailVAO);
 	glDeleteBuffers(1, &trailVBO);
 	glDeleteBuffers(1, &trailAlphaBuf);
+	glDeleteTextures(1, &starTex);
+	glDeleteBuffers(1, &instanceVBO);
 	glDeleteVertexArrays(1, &quadVAO);
 	glDeleteBuffers(1, &quadVBO);
 
+	glDeleteTextures(1, &pipTexture);
+	glDeleteRenderbuffers(1, &pipDepthBuffer);
 	glDeleteFramebuffers(1, &pipFBO);
-
-	glDeleteProgram(shader.index);
-	glDeleteProgram(skyboxShader.index);
-	glDeleteProgram(trailShader.index);
 
 	for (GravityBody& body : bodies) {
 		GLuint tex = body.surface.getTexture();
@@ -213,7 +214,7 @@ glm::dmat4 relativeRotationalMatrix(GravityBody* subject, GravityBody* reference
 	return rotate;
 }
 
-bool testObjectVisibility(Entity& entity) {
+bool testObjectVisibility(Entity& entity, Camera& camera) {
 	double longestPossibleAxisLength = glm::length(entity.scale);
 	double angularSize = 2.0 * atan2(longestPossibleAxisLength, glm::distance(camera.position, entity.position));
 	if (windowHeight * angularSize / FOV < 0.5) {
@@ -277,35 +278,36 @@ void updateTrails() {
 	}
 }
 
-void updateFreeCam(double deltaTime) {
-	flyCam(window, deltaTime);
+void updateFreeCam(Camera& eye, double deltaTime) {
+	if (&eye == &camera)
+		flyCam(window, deltaTime);
 }
 
-void updateLockCam(double deltaTime) {
+void updateLockCam(Camera& eye, double deltaTime) {
 	rollCamera(window, deltaTime);
 
-	if (lockIndex >= frameBodies.size() && lockIndex != -1)
-		lockIndex = 0;
+	if (eye.lockIndex >= frameBodies.size() && eye.lockIndex != -1)
+		eye.lockIndex = 0;
 
-	if (lockIndex != -1) {
-		GravityBody* body = &frameBodies[lockIndex];
+	if (eye.lockIndex != -1) {
+		GravityBody* body = &frameBodies[eye.lockIndex];
 		if (body->parentIndex != -1 && overheadLock) {
-			camera.right = glm::normalize(body->position - frameBodies[body->parentIndex].position);
-			camera.up = glm::normalize(body->velocity - frameBodies[body->parentIndex].velocity);
-			camera.direction = glm::cross(camera.up, camera.right);
-			camera.right = glm::cross(camera.direction, camera.up);
+			eye.right = glm::normalize(body->position - frameBodies[body->parentIndex].position);
+			eye.up = glm::normalize(body->velocity - frameBodies[body->parentIndex].velocity);
+			eye.direction = glm::cross(eye.up, eye.right);
+			eye.right = glm::cross(eye.direction, eye.up);
 		}
-		camera.position = body->position - lockDistanceFactor * body->radius * camera.direction;
+		eye.position = body->position - eye.lockDistanceFactor * body->radius * eye.direction;
 	}
 }
 
-void updateGravCam(double deltaTime) {
+void updateGravCam(Camera& eye, double deltaTime) {
 	if (hasPhysics) {
-		GravityBody* camBody = &bodies[bodies.size() - 1];
+		GravityBody* camBody = &frameBodies[frameBodies.size() - 1];
 		// bind camera to gravity-bound object
-		camera.position = camBody->position;
-		camBody->velocity += camera.velocity;
-		camera.velocity = glm::dvec3(0);
+		eye.position = camBody->position;
+		camBody->velocity += eye.velocity;
+		eye.velocity = glm::dvec3(0);
 
 		//// project camera object's future movement in the system
 		//std::vector<GravityBody> copy = bodies;
@@ -316,16 +318,16 @@ void updateGravCam(double deltaTime) {
 	}
 }
 
-void updateCamera(double deltaTime) {
-	switch (camera.mode) {
+void updateCamera(Camera& eye, double deltaTime) {
+	switch (eye.mode) {
 	case FREE_CAM:
-		updateFreeCam(deltaTime);
+		updateFreeCam(eye, deltaTime);
 		break;
 	case LOCK_CAM:
-		updateLockCam(deltaTime);
+		updateLockCam(eye, deltaTime);
 		break;
 	case GRAV_CAM:
-		updateGravCam(deltaTime);
+		updateGravCam(eye, deltaTime);
 		break;
 	}
 }
@@ -381,8 +383,8 @@ void render(Camera& camera) {
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
 
 	Camera copy = camera;
-	for (Entity body : frameBodies) {
-		if (testObjectVisibility(body)) {
+	for (GravityBody body : frameBodies) {
+		if (testObjectVisibility(body, camera)) {
 			copy.position = camera.position - body.position;
 			glm::mat4 relativeView = copy.viewMatrix();
 			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(body.position))[0]);
@@ -390,7 +392,6 @@ void render(Camera& camera) {
 			glm::dvec3 bodyPos = body.position;
 			body.position = glm::dvec3(0.0);
 			body.draw(shader, MODE_TEX);
-			//body.draw(shader, MODE_SOLID);
 			body.position = bodyPos;
 		}
 	}
@@ -525,11 +526,97 @@ void renderPIP() {
 	drawQuad();  // Assume a quad is already defined for rendering
 }
 
+static bool showWelcomeMenu = true;
+static bool showLockIndexMenu = true;
+
+void drawGUI(ImGuiIO& io) {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+
+	ImGui::NewFrame();
+	
+	float padding = 10.0f;
+	ImVec2 w1Size, w1Pos;
+	// control menu
+	if (showWelcomeMenu) {
+		ImGui::SetNextWindowPos(ImVec2(padding, padding));
+		ImGui::Begin("Welcome to N-Body Simulator", &showWelcomeMenu, ImGuiWindowFlags_AlwaysAutoResize);
+
+		ImGui::TextWrapped("Controls:");
+		ImGui::BulletText("WASD - Move the camera through space");
+		ImGui::BulletText("Mouse - Pitch/yaw the camera");
+		ImGui::BulletText("Q/E - Roll the camera");
+		ImGui::BulletText("F - Switch between free cam and locked cam");
+		ImGui::BulletText("L - Toggle overhead lock on locked cam");
+		ImGui::BulletText("P - Toggle physics simulation");
+		ImGui::BulletText("[ / ] - Increment up / down celestial bodies");
+		ImGui::BulletText("G - Snap to current target");
+		ImGui::BulletText("< / > - Adjust simulation speed");
+		ImGui::BulletText("Esc - Exit the program");
+
+		ImGui::Separator();
+
+		if (ImGui::Button("Close")) {
+			showWelcomeMenu = false;
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Open Settings")) {
+			showLockIndexMenu = true;
+		}
+		w1Size = ImGui::GetWindowSize();
+		w1Pos = ImGui::GetWindowPos();
+		ImGui::End();
+	}
+	else {
+		w1Pos = ImVec2(padding, 0.0f);
+	}
+
+	// target selector menu
+	if (showLockIndexMenu) {
+		ImGui::SetNextWindowPos(ImVec2(w1Pos.x, w1Pos.y + w1Size.y + padding));
+		ImGui::Begin("Camera Settings", &showLockIndexMenu, ImGuiWindowFlags_AlwaysAutoResize);
+
+		ImGui::Text("Select a body of interest:");
+
+		// user access to change camera's lockIndex
+		int index = (int)std::max((size_t)0, std::min(camera.lockIndex, frameBodies.size() - 1));
+		ImGui::SliderInt("ID", &index, 0, (int)frameBodies.size() - 1);
+		ImGui::InputInt("Manual Entry", &index);
+		
+		camera.lockIndex = std::max((size_t)0, std::min((size_t)index, frameBodies.size() - 1));
+
+		ImGui::Separator();
+
+		if (ImGui::Button("Close")) {
+			showLockIndexMenu = false;
+		}
+
+		ImGui::End();
+	}
+
+	// render dialogs
+	ImGui::EndFrame();
+	ImGui::UpdatePlatformWindows();
+	ImGui::Render();
+	ImDrawData* draw_data = ImGui::GetDrawData();
+	ImGui_ImplOpenGL3_RenderDrawData(draw_data);
+}
+
 void renderLoop() {
 	double lastFrameTime = glfwGetTime();
 	double currentTime = glfwGetTime();
 
-	starTex = importTexture("../../assets/star.png", true);
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
 
 	while (!glfwWindowShouldClose(window)) {
 		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
@@ -545,7 +632,8 @@ void renderLoop() {
 				lock.unlock();
 			}
 
-			updateCamera(currentTime - lastFrameTime);
+			updateCamera(camera, currentTime - lastFrameTime);
+			updateCamera(pipCam, currentTime - lastFrameTime);
 
 			if (hasPhysics)
 				updateTrails();
@@ -559,10 +647,11 @@ void renderLoop() {
 			//}
 
 			renderPIP();
-
 			renderBillboards();
 
 			lastFrameTime = currentTime;
+
+			drawGUI(io);
 
 			glfwSwapBuffers(window);
 			glfwPollEvents();

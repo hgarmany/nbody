@@ -1,8 +1,9 @@
 #define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #include "surface.h"
 
-GLuint importTexture(const char* path, bool useInterpolation) {
-	GLuint texture;
+GLuint Surface::importTexture(const char* path, bool useInterpolation) {
+	GLuint texture = 0;
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
@@ -35,29 +36,23 @@ GLuint importTexture(const char* path, bool useInterpolation) {
 			internalFormat = format = GL_RGBA;
 			break;
 		default:
-			std::cerr << "Unsupported image format: " << numChannels << " channels.\n";
+			fprintf(stderr, "Unsupported image format: %u channels.\n", numChannels);
 		}
 		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 	}
 	else {
-		std::cerr << "Texture failed to load at path: " << path << "\n";
+		fprintf(stderr, "Texture failed to load at path: %s\n", path);
 	}
 
 	stbi_image_free(data);
-
 	return texture;
 }
 
 Surface::Surface(const char* path, glm::vec4 material, glm::vec3 color) {
 	this->material = material;
 	this->color = color;
-	texture = 0;
-	normal = 0;
-	/*textureFuture = std::make_shared<std::future<GLuint>>(
-		std::async(std::launch::async, [path]() {
-			return importTexture(path);
-	}));*/
 	texture = importTexture(path);
+	normal = 0;
 }
 
 Surface Surface::CubeMap(std::vector<std::string> faces) {
@@ -73,7 +68,7 @@ Surface Surface::CubeMap(std::vector<std::string> faces) {
 			stbi_image_free(data);
 		}
 		else {
-			std::cerr << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+			fprintf(stderr, "Cubemap texture failed to load at path: %s\n", faces[i].c_str());
 			stbi_image_free(data);
 		}
 	}
@@ -87,23 +82,22 @@ Surface Surface::CubeMap(std::vector<std::string> faces) {
 }
 
 void Surface::setNormal(const char* path) {
-	/*normalFuture = std::make_shared<std::future<GLuint>>(
-		std::async(std::launch::async, [path]() {
+	/*normalFuture = std::async(std::launch::async, [path]() {
 		return importTexture(path);
-	}));*/
+	});*/
 	normal = importTexture(path);
 }
 
 GLuint Surface::getTexture() {
-	/*if (texture == 0 && textureFuture && textureFuture->valid()) {
-		texture = textureFuture->get();
+	/*if (texture == 0 && assetManager && assetManager->textureFuture.valid()) {
+		texture = assetManager->textureFuture.get();
 	}*/
 	return texture;
 }
 
 GLuint Surface::getNormalMap() {
-	/*if (normal == 0 && normalFuture && normalFuture->valid()) {
-		normal = normalFuture->get();
+	/*if (normal == 0 && assetManager && assetManager->normalFuture.valid()) {
+		normal = assetManager->normalFuture.get();
 	}*/
 	return normal;
 }

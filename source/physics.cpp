@@ -15,22 +15,25 @@ void mergeNearBodies() {
 			// bodies within a medium distance are merged into one body
 			double minDist = fmax(bodies[i].radius, bodies[j].radius) / 5.0;
 			if (glm::distance(bodies[i].position, bodies[j].position) < minDist) {
+				GravityBody& a = bodies[i];
+				GravityBody& b = bodies[j];
+
 				// mass relative to the 2-body system
-				double m1 = bodies[i].mass / (bodies[i].mass + bodies[j].mass);
-				double m2 = bodies[j].mass / (bodies[i].mass + bodies[j].mass);
+				double m1 = a.mass / (a.mass + b.mass);
+				double m2 = b.mass / (a.mass + b.mass);
 				
 				// set mass-centered ballistic properties
-				glm::dvec3 center = bodies[i].position * m1 + bodies[j].position * m2;
-				glm::dvec3 vel = bodies[i].velocity * m1 + bodies[j].velocity * m2;
-				bodies[i].position = center;
-				bodies[i].velocity = vel;
-				bodies[i].mass += bodies[j].mass;
+				glm::dvec3 center = a.position * m1 + b.position * m2;
+				glm::dvec3 vel = a.velocity * m1 + b.velocity * m2;
+				a.position = center;
+				a.velocity = vel;
+				a.mass += b.mass;
 
 				// resize volume
-				double r1 = bodies[i].radius;
-				double r2 = bodies[j].radius;
-				bodies[i].radius = cbrt(r1 * r1 * r1 + r2 * r2 * r2);
-				bodies[i].scale = glm::dvec3(bodies[i].radius);
+				double r1 = a.radius;
+				double r2 = b.radius;
+				a.radius = cbrt(r1 * r1 * r1 + r2 * r2 * r2);
+				a.scale = glm::dvec3(a.radius);
 				bodies.erase(bodies.begin() + j);
 				j--;
 			}
@@ -83,16 +86,17 @@ void physicsLoop(GLFWwindow* window) {
 			if (hasPhysics)
 				updateBodies(deltaTime, bodies);
 
-			if (lockIndex != -1) {
+			if (camera.lockIndex != -1) {
+				GravityBody& body = bodies[camera.lockIndex];
 				// spin the subject body around
 				if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-					bodies[lockIndex].orientation.y += deltaTime;
+					body.orientation.y += deltaTime;
 				if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-					bodies[lockIndex].orientation.y -= deltaTime;
+					body.orientation.y -= deltaTime;
 				if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-					bodies[lockIndex].orientation.x += deltaTime;
+					body.orientation.x += deltaTime;
 				if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-					bodies[lockIndex].orientation.x -= deltaTime;
+					body.orientation.x -= deltaTime;
 			}
 
 			// data is ready for renderer to access

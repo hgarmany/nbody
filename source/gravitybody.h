@@ -64,6 +64,7 @@ class GravityBody : public Entity {
 public:
 	glm::float64 mass;
 	glm::float64 radius;
+	float oblateness;
 	Trail* trail;
 	size_t parentIndex;
 
@@ -72,6 +73,7 @@ public:
 		trail = nullptr;
 		this->mass = mass;
 		radius = 0.0;
+		oblateness = 0.0f;
 		position = glm::dvec3(0.0);
 		velocity = glm::dvec3(0.0);
 		acceleration = glm::dvec3(0.0);
@@ -127,15 +129,14 @@ public:
 			0.0f, 0.0f, 0.0f, 1.0f
 		);
 
-		/*
-		glm::mat4 rotate = glm::rotate(glm::mat4(1.0f), orbit.argPeriapsis, glm::vec3(0.0f, 1.0f, 0.0f));
-		rotate = glm::rotate(rotate, orbit.inclination, glm::vec3(1.0f, 0.0f, 0.0f));
-		rotate = glm::rotate(rotate, orbit.anLongitude, glm::vec3(0.0f, 1.0f, 0.0f));
-		*/
-
 		position = glm::dvec3((rotate * glm::dvec4(-positionInFrame.x, 0.0f, positionInFrame.y, 0.0f))) + orbit.parent->position;
 		prevPosition = position;
 		velocity = glm::dvec3((rotate * glm::dvec4(-velInFrame.x, 0.0f, velInFrame.y, 0.0f))) + orbit.parent->velocity;
+	}
 
+	void draw(Shader& shader, uint8_t mode) {
+		glUniform1f(shader.uniforms[OBJ_OBLATE], oblateness);
+
+		((Entity*)this)->draw(shader, mode);
 	}
 };

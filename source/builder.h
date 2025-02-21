@@ -64,10 +64,11 @@ public:
 		entity = std::make_shared<GravityBody>(mass, orbit, parentIndex);
 	}
 
-	void setRadius(float radius) {
+	void setRadius(float radius, float oblateness = 0.0f) {
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
 			body->radius = radius;
 			body->scale = glm::dvec3(radius);
+			body->oblateness = oblateness;
 		}
 	}
 

@@ -28,7 +28,7 @@ glm::dmat4 Entity::updateMatrix() {
 	return modelMatrix;
 }
 
-void Entity::draw(Shader shader, uint8_t mode) {
+void Entity::draw(Shader& shader, uint8_t mode) {
 	if (modelIndex == -1)
 		return; // cannot draw an object with no model
 

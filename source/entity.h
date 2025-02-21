@@ -38,7 +38,7 @@ public:
 
 	glm::dquat getRotationQuat();
 	glm::dmat4 updateMatrix();
-	void draw(Shader shader, uint8_t mode);
+	void draw(Shader& shader, uint8_t mode);
 
 	virtual ~Entity() {}
 };

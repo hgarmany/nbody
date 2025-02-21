@@ -11,7 +11,7 @@ void initPIP();
 void initShaders();
 void initTrails();
 void initStarBuffer();
-void cleanGL();
+void cleanup();
 
 void updateProjectionMatrix();
 void renderLoop();

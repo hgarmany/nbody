@@ -62,9 +62,10 @@ Shader initStandardShader() {
 		uniform mat4 model;
 		uniform mat4 view;
 		uniform mat4 projection;
+		uniform float oblateness;
 
 		void main() {
-			FragPos = vec3(model * vec4(aPos, 1.0));
+			FragPos = vec3(model * vec4(aPos.x, aPos.y * (1.0 - oblateness), aPos.z, 1.0));
 			Normal = mat3(transpose(inverse(model))) * aNormal;
 			Tangent = mat3(transpose(inverse(model))) * aTan;
 			Bitangent = mat3(transpose(inverse(model))) * aBitan;
@@ -148,6 +149,7 @@ Shader initStandardShader() {
 	shader.uniforms[LIGHT_COLOR] = glGetUniformLocation(shaderProgram, "lightColor");
 	shader.uniforms[OBJ_COLOR] = glGetUniformLocation(shaderProgram, "objectColor");
 	shader.uniforms[OBJ_MAT] = glGetUniformLocation(shaderProgram, "material");
+	shader.uniforms[OBJ_OBLATE] = glGetUniformLocation(shaderProgram, "oblateness");
 	shader.uniforms[VIEW_POS] = glGetUniformLocation(shaderProgram, "viewPos");
 	shader.uniforms[TEX_BOOL] = glGetUniformLocation(shaderProgram, "usesTexture");
 	shader.uniforms[NORM_BOOL] = glGetUniformLocation(shaderProgram, "usesNormalMap");
