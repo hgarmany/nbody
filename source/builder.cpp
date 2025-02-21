@@ -42,7 +42,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	// sun
 	init(1.9891e30f);
 	setModel(modelIndex);
-	setRadius(695.7f);
+	setRadius(695.7f, 5e-5f);
 	double spin = 2 * pi / 86400 / 27;
 	setMotion(glm::dvec3(0.0), glm::dvec3(0.0));
 	setSpin(spin);
@@ -54,7 +54,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	Orbit mercuryOrbit(&bodies[0], 5.790923e4, 0.20563593f, 1.351894f, 0.843531f, 0.1222599f, 2.207044f);
 	init(3.301e23, mercuryOrbit, 0);
 	setModel(modelIndex);
-	setRadius(2.4397f);
+	setRadius(2.4397f, 9e-4);
 	spin = 2 * pi / 86400 / 58.6;
 	setSpin(spin);
 	setOrientation(glm::dvec3(0.0005934119 + mercuryOrbit.inclination, 0, 0));
@@ -78,7 +78,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	Orbit earthOrbit(&bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, -0.043163f);
 	init(5.9722e24, earthOrbit, 0);
 	setModel(modelIndex);
-	setRadius(6.371f, 0.00335f);
+	setRadius(6.371f, 3.35e-3f);
 	spin = 2 * pi / 86400;
 	setSpin(spin);
 	setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
@@ -91,7 +91,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	Orbit moonOrbit(earthPtr, 384.399, 0.0549f, 0.0f, 0.0f, 0.08979719f, 0.0f);
 	init(5.9722e24, moonOrbit, 3);
 	setModel(modelIndex);
-	setRadius(1.7374f);
+	setRadius(1.7374f, 1.2e-3f);
 	spin = 2 * pi / 86400 / 27.321;
 	setSpin(spin);
 	setOrientation(glm::dvec3(0.02691996 + moonOrbit.inclination, 0, 0));
@@ -104,7 +104,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	Orbit marsOrbit(&bodies[0], 2.27956e5, 0.09339410f, -0.4178952f, 0.8649771f, 0.03228321f, -0.5265543f);
 	init(6.4169e23, marsOrbit, 0);
 	setModel(modelIndex);
-	setRadius(3.3895f, 0.00648f);
+	setRadius(3.3895f, 6.48e-3f);
 	spin = 2 * pi / 86400 / 1.029;
 	setSpin(spin);
 	setOrientation(glm::dvec3(0.4396484 + marsOrbit.inclination, 0, 0));

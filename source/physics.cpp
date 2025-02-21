@@ -8,6 +8,7 @@ std::vector<GravityBody> frameBodies;
 std::atomic<bool> running(true);
 std::condition_variable physicsCV;
 bool physicsUpdated = false;
+double elapsedTime = 0.0;
 
 void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -73,6 +74,8 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 		body.velocity += body.acceleration * halfDt;
 		body.orientation += body.rotVelocity * timeStep * deltaTime;
 	}
+
+	elapsedTime += deltaTime * timeStep;
 }
 
 void physicsLoop(GLFWwindow* window) {

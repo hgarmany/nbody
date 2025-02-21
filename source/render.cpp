@@ -124,7 +124,7 @@ void initStarBuffer() {
 }
 
 // grab star positions based on bodies in the system
-GLsizei updateStarPositions() {
+GLsizei updateStarPositions(Camera& camera) {
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
 
 	std::vector<glm::vec3> positions;
@@ -339,7 +339,7 @@ void drawQuad() {
 	glBindVertexArray(0);
 }
 
-void renderBillboards() {
+void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 	// configure shader
 	glUseProgram(spriteShader.index);
 
@@ -348,12 +348,11 @@ void renderBillboards() {
 	updateProjectionMatrix();
 
 	setPV(spriteShader, projection, view);
-	glm::ivec2 windowSize(windowWidth, windowHeight);
 	glUniform2iv(spriteShader.uniforms[WINDOW_SIZE], 1, &windowSize[0]);
 
 	// assign points in space for star billboards 
 	// and get the number of billboards to be rendered
-	GLsizei numStars = updateStarPositions();
+	GLsizei numStars = updateStarPositions(camera);
 
 	// load star sprite
 	glActiveTexture(GL_TEXTURE0);
@@ -396,89 +395,90 @@ void render(Camera& camera) {
 		}
 	}
 
-	// start trails
-
-	// set camera
 	glm::mat4 view = camera.viewMatrix();
-	setPV(shader, projection, view);
-	trailVertices.clear();
-	trailAlphas.clear();
 
-	glUseProgram(trailShader.index);
-	setPV(trailShader, projection, view);
-	for (GravityBody body : frameBodies) {
-		// axis
-		glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
-		axisOfRotation = body.getRotationQuat() * axisOfRotation;
+	// start trails
+	if (doTrails) {
+		// set camera
+		setPV(shader, projection, view);
+		trailVertices.clear();
+		trailAlphas.clear();
 
-		trailVertices.push_back(body.position + 2 * body.radius * axisOfRotation);
-		trailVertices.push_back(body.position - 2 * body.radius * axisOfRotation);
-		trailAlphas.push_back(1.0f);
-		trailAlphas.push_back(1.0f);
+		glUseProgram(trailShader.index);
+		setPV(trailShader, projection, view);
+		for (GravityBody body : frameBodies) {
+			// axis
+			glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
+			axisOfRotation = body.getRotationQuat() * axisOfRotation;
 
-		if (body.trail) {
-			// orbit
-			trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
-			for (size_t j = body.trail->size(); j > 0; j--) {
-				trailAlphas.push_back(1.0f);
+			trailVertices.push_back(body.position + 2 * body.radius * axisOfRotation);
+			trailVertices.push_back(body.position - 2 * body.radius * axisOfRotation);
+			trailAlphas.push_back(1.0f);
+			trailAlphas.push_back(1.0f);
+
+			if (body.trail) {
+				// orbit
+				trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
+				for (size_t j = body.trail->size(); j > 0; j--) {
+					trailAlphas.push_back(1.0f);
+				}
 			}
 		}
-	}
 
-	glBindVertexArray(trailVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
-	if (trailVertices.size() * sizeof(glm::vec3) > trailCapacity) {
-		glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
-		trailCapacity = (GLsizei)(trailVertices.size() * sizeof(glm::vec3));
-	}
-	glBufferSubData(GL_ARRAY_BUFFER, 0, trailVertices.size() * sizeof(glm::vec3), trailVertices.data());
+		glBindVertexArray(trailVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
+		if (trailVertices.size() * sizeof(glm::vec3) > trailCapacity) {
+			glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+			trailCapacity = (GLsizei)(trailVertices.size() * sizeof(glm::vec3));
+		}
+		glBufferSubData(GL_ARRAY_BUFFER, 0, trailVertices.size() * sizeof(glm::vec3), trailVertices.data());
 
-	glEnableVertexAttribArray(0); // Assuming location 0 for positions
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(0); // Assuming location 0 for positions
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, trailAlphaBuf);
-	glBufferData(GL_ARRAY_BUFFER, trailAlphas.size() * sizeof(float), trailAlphas.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, trailAlphaBuf);
+		glBufferData(GL_ARRAY_BUFFER, trailAlphas.size() * sizeof(float), trailAlphas.data(), GL_DYNAMIC_DRAW);
 
-	glEnableVertexAttribArray(1); // Assuming location 1 for alphas
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
+		glEnableVertexAttribArray(1); // Assuming location 1 for alphas
+		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
 
-	GLint offset = 0;
+		GLint offset = 0;
 
-	for (GravityBody body : frameBodies) {
-		glm::mat4 modelMatrix(1.0f);
-		glm::vec3 color(1.0f);
-		if (body.trail)
-			color = body.trail->color;
+		for (GravityBody body : frameBodies) {
+			glm::mat4 modelMatrix(1.0f);
+			glm::vec3 color(1.0f);
+			if (body.trail)
+				color = body.trail->color;
 
-		glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
+			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
 
-		// axis
-		glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
-		glDrawArrays(GL_LINE_STRIP, offset, 2);
-		offset += 2;
-
-		if (body.trail) {
-			size_t parentIndex = body.trail->parentIndex;
-
-			// orbit
-			if (body.parentIndex != -1) {
-				glm::mat4 rotate = relativeRotationalMatrix(&body, &frameBodies[parentIndex], true);
-
-				modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex].position);
-				modelMatrix *= rotate;
-			}
-
+			// axis
 			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+			glDrawArrays(GL_LINE_STRIP, offset, 2);
+			offset += 2;
 
-			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
-			offset += (GLint)body.trail->size();
+			if (body.trail) {
+				size_t parentIndex = body.trail->parentIndex;
+
+				// orbit
+				if (body.parentIndex != -1) {
+					glm::mat4 rotate = relativeRotationalMatrix(&body, &frameBodies[parentIndex], true);
+
+					modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex].position);
+					modelMatrix *= rotate;
+				}
+
+				glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+
+				glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
+				offset += (GLint)body.trail->size();
+			}
 		}
+
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+		glBindVertexArray(0); // Unbind VAO
 	}
-
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glBindVertexArray(0); // Unbind VAO
-
 	// end trails
 
 	glDepthFunc(GL_LEQUAL);
@@ -508,6 +508,7 @@ void renderPIP() {
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, pipDepthBuffer);
 
 	render(pipCam);
+	renderBillboards(pipCam, glm::ivec2(pipSize * windowWidth, pipSize * windowHeight));
 
 	// return to screen buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -549,12 +550,15 @@ void drawGUI(ImGuiIO& io) {
 		ImGui::BulletText("F - Switch between free cam and locked cam");
 		ImGui::BulletText("L - Toggle overhead lock on locked cam");
 		ImGui::BulletText("P - Toggle physics simulation");
+		ImGui::BulletText("T - Toggle trails");
 		ImGui::BulletText("[ / ] - Increment up / down celestial bodies");
 		ImGui::BulletText("G - Snap to current target");
 		ImGui::BulletText("< / > - Adjust simulation speed");
 		ImGui::BulletText("Esc - Exit the program");
 
 		ImGui::Separator();
+
+		ImGui::Text("\nElapsed time: %.1f yrs\n\n", elapsedTime / 86400 / 365.25);
 
 		if (ImGui::Button("Close")) {
 			showWelcomeMenu = false;
@@ -627,6 +631,15 @@ void renderLoop() {
 				physicsCV.wait(lock, [] { return physicsUpdated; });
 				physicsUpdated = false;
 
+				if (!doTrails && trailVertices.size() > 0) {
+					for (GravityBody body : bodies) {
+						if (body.trail) {
+							body.trail->queue.clear();
+						}
+					}
+					trailVertices = std::vector<glm::vec3>();
+					trailAlphas = std::vector<float>();
+				}
 				frameBodies = bodies;
 
 				lock.unlock();
@@ -635,7 +648,7 @@ void renderLoop() {
 			updateCamera(camera, currentTime - lastFrameTime);
 			updateCamera(pipCam, currentTime - lastFrameTime);
 
-			if (hasPhysics)
+			if (hasPhysics && doTrails)
 				updateTrails();
 
 			render(camera);
@@ -647,7 +660,7 @@ void renderLoop() {
 			//}
 
 			renderPIP();
-			renderBillboards();
+			renderBillboards(camera, glm::ivec2(windowWidth, windowHeight));
 
 			lastFrameTime = currentTime;
 

@@ -86,6 +86,7 @@ public:
 		trail = nullptr;
 		this->mass = mass;
 		radius = 0.0;
+		oblateness = 0.0f;
 		acceleration = glm::dvec3(0.0);
 		modelMatrix = glm::dmat4(0.0);
 

@@ -13,6 +13,7 @@ bool cursorDisabled = true;
 bool hasPhysics = false;
 bool cameraInertia = false;
 bool overheadLock = false;
+bool doTrails = true;
 
 glm::float64 pitch, yaw, roll;
 
@@ -40,6 +41,7 @@ std::map<keyMapName, int> keyMap = {
 	{ T_LOCK_PAGE_UP, GLFW_KEY_RIGHT_BRACKET },
 	{ T_LOCK_PAGE_DOWN, GLFW_KEY_LEFT_BRACKET },
 	{ T_LOCK_OVERHEAD, GLFW_KEY_L },
+	{ T_TRAILS, GLFW_KEY_T },
 	{ INCREASE_TIME_STEP, GLFW_KEY_PERIOD },
 	{ DECREASE_TIME_STEP, GLFW_KEY_COMMA },
 	{ SWAP_CAMERAS, GLFW_KEY_SPACE },
@@ -58,6 +60,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 		{keyMap[T_LOCK_PAGE_UP], []() { camera.lockIndex++; }},
 		{keyMap[T_LOCK_PAGE_DOWN], []() { camera.lockIndex--; }},
 		{keyMap[T_LOCK_OVERHEAD], []() { overheadLock = !overheadLock; }},
+		{keyMap[T_TRAILS], []() { doTrails = !doTrails; }},
 		{keyMap[INCREASE_TIME_STEP], []() { timeStep *= 1.1; }},
 		{keyMap[DECREASE_TIME_STEP], []() { timeStep *= 0.9; }},
 		{keyMap[SWAP_CAMERAS], []() {
