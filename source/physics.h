@@ -3,13 +3,14 @@
 #include <condition_variable>
 #include <thread>
 #include <vector>
+#include "camera.h"
 #include "gravitybody.h"
-#include "controls.h"
 
+extern Camera camera, pipCam;
 extern std::atomic<bool> running;
 extern std::condition_variable physicsCV;
-extern bool physicsUpdated;
-extern double elapsedTime;
+extern bool hasPhysics, physicsUpdated;
+extern double elapsedTime, timeStep;
 
 extern std::vector<GravityBody> bodies, frameBodies;
 

@@ -1,5 +1,6 @@
 #include "builder.h"
 #include "render.h"
+#include "controls.h"
 
 // Set this function as a callback to update projection matrix during window resizing
 void static window_size_callback(GLFWwindow* window, int width, int height) {
@@ -32,7 +33,9 @@ void static initWindow() {
 		exit(EXIT_FAILURE);
 	}
 
-	glfwSetWindowPos(window, 500, 500);
+	GLFWmonitor* screen = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(screen);
+	glfwSetWindowPos(window, (mode->width - windowWidth) / 2, (mode->height - windowHeight) / 2);
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
 		glViewport(0, 0, width, height);
@@ -40,13 +43,14 @@ void static initWindow() {
 
 	glewInit();
 
+	// GLFW interrupt response
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSetScrollCallback(window, scroll_callback); // Set scroll callback
+	glfwSetScrollCallback(window, scroll_callback);
 	glfwSetWindowSizeCallback(window, window_size_callback);
 	glfwSetKeyCallback(window, key_callback);
 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide and capture cursor initially
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 void static MessageCallback(GLenum source,

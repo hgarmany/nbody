@@ -1,19 +1,14 @@
 #include "controls.h"
+#include "physics.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-Camera camera;
-Camera pipCam(
-	glm::dvec3(0, 1e6, 0),
-	glm::dvec3(0, -1, 0),
-	glm::dvec3(1, 0, 0));
-
 bool firstMouse = true;
 bool cursorDisabled = true;
-bool hasPhysics = false;
-bool cameraInertia = false;
 bool overheadLock = false;
 bool doTrails = true;
+bool showWelcomeMenu = true;
+bool showLockIndexMenu = true;
 
 glm::float64 pitch, yaw, roll;
 
@@ -22,8 +17,10 @@ int windowWidth = 900, windowHeight = 600;
 double lastX = windowWidth / 2;
 double lastY = windowHeight / 2;
 
-bool isChoosingBody = true;
-double timeStep = 1e5;
+keyMapName mousePXAction = YAW_LEFT, mouseNXAction = YAW_RIGHT, mousePYAction = PITCH_UP, mouseNYAction = PITCH_DOWN;
+
+// Camera movement speed
+double cameraSpeed = 1e0;
 
 std::map<keyMapName, int> keyMap = {
 	{ MOVE_FORWARD, GLFW_KEY_W },
@@ -36,8 +33,9 @@ std::map<keyMapName, int> keyMap = {
 	{ YAW_RIGHT, -1 },
 	{ ROLL_LEFT, GLFW_KEY_Q },
 	{ ROLL_RIGHT, GLFW_KEY_E },
+	{ CYCLE_CAMERA_MODE, GLFW_KEY_C },
+	{ T_MENU, GLFW_KEY_F12 },
 	{ T_PHYSICS, GLFW_KEY_P },
-	{ T_LOCK_SELECT, GLFW_KEY_F },
 	{ T_LOCK_PAGE_UP, GLFW_KEY_RIGHT_BRACKET },
 	{ T_LOCK_PAGE_DOWN, GLFW_KEY_LEFT_BRACKET },
 	{ T_LOCK_OVERHEAD, GLFW_KEY_L },
@@ -51,30 +49,45 @@ std::map<keyMapName, int> keyMap = {
 
 // lambda library for all key-based controls
 std::unordered_map<int, std::function<void()>> keyActions = {
-		{keyMap[T_PHYSICS], []() { hasPhysics = !hasPhysics; }},
-		{keyMap[T_LOCK_SELECT], []() {
-			isChoosingBody = !isChoosingBody;
-			camera.mode = (camera.mode == LOCK_CAM) ? FREE_CAM : LOCK_CAM;
-			if (camera.mode == LOCK_CAM) camera.lockIndex = -1;
-		}},
-		{keyMap[T_LOCK_PAGE_UP], []() { camera.lockIndex++; }},
-		{keyMap[T_LOCK_PAGE_DOWN], []() { camera.lockIndex--; }},
-		{keyMap[T_LOCK_OVERHEAD], []() { overheadLock = !overheadLock; }},
-		{keyMap[T_TRAILS], []() { doTrails = !doTrails; }},
-		{keyMap[INCREASE_TIME_STEP], []() { timeStep *= 1.1; }},
-		{keyMap[DECREASE_TIME_STEP], []() { timeStep *= 0.9; }},
-		{keyMap[SWAP_CAMERAS], []() {
-			std::swap(camera, pipCam);
-			isChoosingBody = camera.mode == LOCK_CAM;
-		}},
-		{keyMap[SNAP_TO_TARGET], []() { camera.lockDistanceFactor = 5.0f; }},
-		{keyMap[QUIT], []() { glfwSetWindowShouldClose(glfwGetCurrentContext(), true); }}
+	{keyMap[T_MENU], []() {
+		showWelcomeMenu = !showWelcomeMenu;
+		showLockIndexMenu = showWelcomeMenu;
+	}},
+	{keyMap[T_PHYSICS], []() { hasPhysics = !hasPhysics; }},
+	{keyMap[T_LOCK_PAGE_UP], []() { camera.atIndex++; }},
+	{keyMap[T_LOCK_PAGE_DOWN], []() { camera.atIndex--; }},
+	{keyMap[T_LOCK_OVERHEAD], []() { overheadLock = !overheadLock; }},
+	{keyMap[T_TRAILS], []() { doTrails = !doTrails; }},
+	{keyMap[INCREASE_TIME_STEP], []() { timeStep *= 1.1; }},
+	{keyMap[DECREASE_TIME_STEP], []() { timeStep *= 0.9; }},
+	// camera cycles between modes in order
+	{keyMap[CYCLE_CAMERA_MODE], []() {
+		switch (camera.mode) {
+		case LOCK_CAM:
+			camera.mode = FREE_CAM;
+			break;
+		case FREE_CAM:
+			camera.mode = GRAV_CAM;
+			if (camera.atIndex == -1)
+				camera.atIndex = 0;
+			bodies[bodies.size() - 1].position = camera.position;
+			bodies[bodies.size() - 1].velocity = 1.0 *
+				glm::normalize(glm::cross(bodies[camera.atIndex].position - camera.position,
+					bodies[camera.atIndex].getRotationQuat() * glm::dvec3(0,1,0)));
+			camera.eyeIndex = bodies.size() - 1;
+			break;
+		case GRAV_CAM:
+			camera.mode = LOCK_CAM;
+			break;
+		}
+	}},
+	{keyMap[SWAP_CAMERAS], []() { std::swap(camera, pipCam); }},
+	{keyMap[SNAP_TO_TARGET], []() {
+		camera.lockDistanceFactor = 5.0f;
+		camera.eyeIndex = camera.atIndex;
+	}},
+	{keyMap[QUIT], []() { glfwSetWindowShouldClose(glfwGetCurrentContext(), true); }}
 };
-
-keyMapName mousePXAction = YAW_LEFT, mouseNXAction = YAW_RIGHT, mousePYAction = PITCH_UP, mouseNYAction = PITCH_DOWN;
-
-// Camera movement speed
-double cameraSpeed = 1e5;
 
 void setXY(GLFWwindow* window) {
 	glfwGetCursorPos(window, &lastX, &lastY);
@@ -82,7 +95,7 @@ void setXY(GLFWwindow* window) {
 
 // update the camera orientation based on mouse input
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-	if (cursorDisabled) {
+	if (cursorDisabled && (camera.atIndex == camera.eyeIndex || camera.mode != LOCK_CAM)) {
 		float xOffset = (float)(lastX - xpos);
 		float yOffset = (float)(lastY - ypos);
 
@@ -119,8 +132,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	lastY = ypos;
 }
 
-
-
 // process key presses and releases
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action != GLFW_PRESS) {
@@ -128,12 +139,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			keyActions[key]();
 
 		// handling for body index selection
-		if (isChoosingBody && key >= GLFW_KEY_0 && key <= GLFW_KEY_9)
-			camera.lockIndex = key - GLFW_KEY_0;
+		if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
+			if (camera.mode == LOCK_CAM) {
+				camera.eyeIndex = camera.atIndex = key - GLFW_KEY_0;
+			}
+			else if (camera.mode == GRAV_CAM) {
+				bodies[camera.eyeIndex].trail->parentIndex = key - GLFW_KEY_0;
+				bodies[camera.eyeIndex].parentIndex = key - GLFW_KEY_0;
+			}
+		}
 	}
 }
 
-void rollCamera(GLFWwindow* window, double deltaTime) {
+void rollCamera(Camera& camera, GLFWwindow* window, double deltaTime) {
 	if (glfwGetKey(window, keyMap[ROLL_LEFT]) == GLFW_PRESS)
 		camera.setOrientation(0.0f, 0.0f, -deltaTime * 1e3);
 	if (glfwGetKey(window, keyMap[ROLL_RIGHT]) == GLFW_PRESS)
@@ -144,10 +162,9 @@ void rollCamera(GLFWwindow* window, double deltaTime) {
 void flyCam(GLFWwindow* window, double deltaTime) {
 	glm::float64 speed = cameraSpeed * deltaTime;
 
-	if (cameraInertia == false)
-		camera.velocity = glm::dvec3(0.0);
+	camera.velocity = glm::dvec3(0.0);
 
-	rollCamera(window, deltaTime);
+	rollCamera(camera, window, deltaTime);
 
 	if (glfwGetKey(window, keyMap[PITCH_UP]) == GLFW_PRESS)
 		camera.setOrientation(deltaTime, 0.0f, 0.0f);
@@ -166,7 +183,7 @@ void flyCam(GLFWwindow* window, double deltaTime) {
 	if (glfwGetKey(window, keyMap[STRAFE_RIGHT]) == GLFW_PRESS)
 		camera.velocity += camera.right * speed;
 
-	camera.position += camera.velocity * deltaTime;
+	camera.position += camera.velocity * deltaTime * timeStep;
 }
 
 // toggle between usable cursor and mouse-controlled camera

@@ -68,8 +68,11 @@ void Entity::draw(Shader& shader, uint8_t mode) {
 	}
 
 	if (mode != MODE_CUBEMAP) {
+		glm::dvec3 temp = position;
+		position = glm::dvec3(0.0);
 		glm::mat4 M = updateMatrix();
 		glUniformMatrix4fv(shader.M, 1, GL_FALSE, &M[0][0]);
+		position = temp;
 	}
 
 	glDrawElements(GL_TRIANGLES, Model::modelLibrary[modelIndex].numFaces, GL_UNSIGNED_INT, 0);

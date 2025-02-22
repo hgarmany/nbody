@@ -1,14 +1,21 @@
 #include "physics.h"
-#include "controls.h"
 #include <vector>
 
 std::vector<GravityBody> bodies;
 std::vector<GravityBody> frameBodies;
 
+Camera camera;
+Camera pipCam(
+	glm::dvec3(0, 1e6, 0),
+	glm::dvec3(0, -1, 0),
+	glm::dvec3(1, 0, 0));
+
 std::atomic<bool> running(true);
 std::condition_variable physicsCV;
+bool hasPhysics = false;
 bool physicsUpdated = false;
 double elapsedTime = 0.0;
+double timeStep = 1e5;
 
 void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -50,8 +57,8 @@ glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b) {
 }
 
 void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
-	glm::float64 halfDt = deltaTime * timeStep * 0.5;
-	glm::float64 fullDt = deltaTime * timeStep;
+	glm::float64 fullDt = timeStep * deltaTime;
+	glm::float64 halfDt = fullDt * 0.5;
 
 	// Update velocities and positions by half-step, clear accelerations
 	for (GravityBody& body : bodies) {
@@ -89,8 +96,8 @@ void physicsLoop(GLFWwindow* window) {
 			if (hasPhysics)
 				updateBodies(deltaTime, bodies);
 
-			if (camera.lockIndex != -1) {
-				GravityBody& body = bodies[camera.lockIndex];
+			if (camera.atIndex != -1) {
+				GravityBody& body = bodies[camera.atIndex];
 				// spin the subject body around
 				if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 					body.orientation.y += deltaTime;
@@ -101,6 +108,8 @@ void physicsLoop(GLFWwindow* window) {
 				if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 					body.orientation.x -= deltaTime;
 			}
+			if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+				bodies[bodies.size() - 1].velocity = glm::dvec3(0.0);
 
 			// data is ready for renderer to access
 			physicsUpdated = true;

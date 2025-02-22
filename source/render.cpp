@@ -1,4 +1,5 @@
 #include "render.h"
+#include "controls.h"
 #include <mutex>
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -8,6 +9,8 @@ GLFWwindow* window;
 glm::mat4 projection;
 int screenSize = windowWidth;
 float pipSize = 0.35f;
+
+ImGuiStyle* style;
 
 std::mutex physicsMutex;
 
@@ -32,7 +35,7 @@ void initCamera() {
 		direction, up
 	);
 	camera.mode = LOCK_CAM;
-	camera.lockIndex = 0;
+	camera.atIndex = camera.eyeIndex = 0;
 
 	// obtain initial perspective information from relationship between window and screen
 	GLFWmonitor* screen = glfwGetPrimaryMonitor();
@@ -214,9 +217,11 @@ glm::dmat4 relativeRotationalMatrix(GravityBody* subject, GravityBody* reference
 	return rotate;
 }
 
-bool testObjectVisibility(Entity& entity, Camera& camera) {
-	double longestPossibleAxisLength = glm::length(entity.scale);
-	double angularSize = 2.0 * atan2(longestPossibleAxisLength, glm::distance(camera.position, entity.position));
+bool testObjectVisibility(size_t index, Camera& camera) {
+	if (camera.mode == LOCK_CAM && index == camera.eyeIndex && index != camera.atIndex)
+		return false;
+	double longestPossibleAxisLength = glm::length(frameBodies[index].scale);
+	double angularSize = 2.0 * atan2(longestPossibleAxisLength, glm::distance(camera.position, frameBodies[index].position));
 	if (windowHeight * angularSize / FOV < 0.5) {
 		return false;
 	}
@@ -284,37 +289,39 @@ void updateFreeCam(Camera& eye, double deltaTime) {
 }
 
 void updateLockCam(Camera& eye, double deltaTime) {
-	rollCamera(window, deltaTime);
+	rollCamera(eye, window, deltaTime);
 
-	if (eye.lockIndex >= frameBodies.size() && eye.lockIndex != -1)
-		eye.lockIndex = 0;
+	if (eye.atIndex >= frameBodies.size() && eye.atIndex != -1)
+		eye.atIndex = 0;
 
-	if (eye.lockIndex != -1) {
-		GravityBody* body = &frameBodies[eye.lockIndex];
-		if (body->parentIndex != -1 && overheadLock) {
-			eye.right = glm::normalize(body->position - frameBodies[body->parentIndex].position);
-			eye.up = glm::normalize(body->velocity - frameBodies[body->parentIndex].velocity);
-			eye.direction = glm::cross(eye.up, eye.right);
-			eye.right = glm::cross(eye.direction, eye.up);
+	if (eye.atIndex != -1) {
+		GravityBody* body = &frameBodies[eye.atIndex];
+		if (eye.eyeIndex == -1 || eye.eyeIndex == eye.atIndex) {
+			if (body->parentIndex != -1 && overheadLock) {
+				eye.right = glm::normalize(body->position - frameBodies[body->parentIndex].position);
+				eye.up = glm::normalize(body->velocity - frameBodies[body->parentIndex].velocity);
+				eye.direction = glm::cross(eye.up, eye.right);
+				eye.right = glm::cross(eye.direction, eye.up);
+			}
+			eye.position = body->position - eye.lockDistanceFactor * body->radius * eye.direction;
 		}
-		eye.position = body->position - eye.lockDistanceFactor * body->radius * eye.direction;
+		else {
+			eye.watchFrom(body, &frameBodies[eye.eyeIndex]);
+		}
 	}
 }
 
 void updateGravCam(Camera& eye, double deltaTime) {
 	if (hasPhysics) {
-		GravityBody* camBody = &frameBodies[frameBodies.size() - 1];
-		// bind camera to gravity-bound object
+		GravityBody* camBody = &bodies[eye.eyeIndex];
 		eye.position = camBody->position;
-		camBody->velocity += eye.velocity;
-		eye.velocity = glm::dvec3(0);
 
-		//// project camera object's future movement in the system
-		//std::vector<GravityBody> copy = bodies;
-		//for (int i = 0; i < cameraFutureTrailLength; i++) {
-		//	updateBodies(deltaTime, copy);
-		//	bodies[bodies.size() - 1].trail->push_back(copy[copy.size() - 1].position);
-		//}
+		if (&eye == &camera) {
+			flyCam(window, deltaTime);
+
+			bodies[eye.eyeIndex].position += eye.velocity * deltaTime;
+			bodies[eye.eyeIndex].velocity += eye.velocity;
+		}
 	}
 }
 
@@ -381,17 +388,14 @@ void render(Camera& camera) {
 	glUniform3fv(shader.uniforms[LIGHT_POS], 1, &lightPos[0]);
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
 
-	Camera copy = camera;
-	for (GravityBody body : frameBodies) {
-		if (testObjectVisibility(body, camera)) {
-			copy.position = camera.position - body.position;
-			glm::mat4 relativeView = copy.viewMatrix();
-			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(body.position))[0]);
+	// render gravity bodies
+	for (size_t i = 0; i < frameBodies.size(); i++) {
+		if (testObjectVisibility(i, camera)) {
+			glm::dvec3 bodyPos = frameBodies[i].position;
+			glm::mat4 relativeView = camera.viewMatrix(camera.position - bodyPos);
+			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(bodyPos))[0]);
 			setPV(shader, projection, relativeView);
-			glm::dvec3 bodyPos = body.position;
-			body.position = glm::dvec3(0.0);
-			body.draw(shader, MODE_TEX);
-			body.position = bodyPos;
+			frameBodies[i].draw(shader, MODE_TEX);
 		}
 	}
 
@@ -406,15 +410,19 @@ void render(Camera& camera) {
 
 		glUseProgram(trailShader.index);
 		setPV(trailShader, projection, view);
-		for (GravityBody body : frameBodies) {
-			// axis
-			glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
-			axisOfRotation = body.getRotationQuat() * axisOfRotation;
+		for (size_t i = 0; i < frameBodies.size(); i++) {
+			GravityBody& body = frameBodies[i];
 
-			trailVertices.push_back(body.position + 2 * body.radius * axisOfRotation);
-			trailVertices.push_back(body.position - 2 * body.radius * axisOfRotation);
-			trailAlphas.push_back(1.0f);
-			trailAlphas.push_back(1.0f);
+			// axis
+			if (testObjectVisibility(i, camera)) {
+				glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
+				axisOfRotation = body.getRotationQuat() * axisOfRotation;
+
+				trailVertices.push_back(body.position + 2 * body.radius * axisOfRotation);
+				trailVertices.push_back(body.position - 2 * body.radius * axisOfRotation);
+				trailAlphas.push_back(1.0f);
+				trailAlphas.push_back(1.0f);
+			}
 
 			if (body.trail) {
 				// orbit
@@ -444,7 +452,9 @@ void render(Camera& camera) {
 
 		GLint offset = 0;
 
-		for (GravityBody body : frameBodies) {
+		for (size_t i = 0; i < frameBodies.size(); i++) {
+			GravityBody& body = frameBodies[i];
+
 			glm::mat4 modelMatrix(1.0f);
 			glm::vec3 color(1.0f);
 			if (body.trail)
@@ -453,9 +463,11 @@ void render(Camera& camera) {
 			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
 
 			// axis
-			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
-			glDrawArrays(GL_LINE_STRIP, offset, 2);
-			offset += 2;
+			if (testObjectVisibility(i, camera)) {
+				glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+				glDrawArrays(GL_LINE_STRIP, offset, 2);
+				offset += 2;
+			}
 
 			if (body.trail) {
 				size_t parentIndex = body.trail->parentIndex;
@@ -527,10 +539,9 @@ void renderPIP() {
 	drawQuad();  // Assume a quad is already defined for rendering
 }
 
-static bool showWelcomeMenu = true;
-static bool showLockIndexMenu = true;
-
 void drawGUI(ImGuiIO& io) {
+	//io.ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
+
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 
@@ -538,6 +549,8 @@ void drawGUI(ImGuiIO& io) {
 	
 	float padding = 10.0f;
 	ImVec2 w1Size, w1Pos;
+	ImVec2 w2Size, w2Pos;
+
 	// control menu
 	if (showWelcomeMenu) {
 		ImGui::SetNextWindowPos(ImVec2(padding, padding));
@@ -547,18 +560,17 @@ void drawGUI(ImGuiIO& io) {
 		ImGui::BulletText("WASD - Move the camera through space");
 		ImGui::BulletText("Mouse - Pitch/yaw the camera");
 		ImGui::BulletText("Q/E - Roll the camera");
-		ImGui::BulletText("F - Switch between free cam and locked cam");
-		ImGui::BulletText("L - Toggle overhead lock on locked cam");
 		ImGui::BulletText("P - Toggle physics simulation");
+		ImGui::BulletText("< / > - Adjust simulation speed");
+		ImGui::BulletText("C - Cycle between locked, free, and grav cam");
+		ImGui::BulletText("L - Toggle overhead lock on locked cam");
 		ImGui::BulletText("T - Toggle trails");
 		ImGui::BulletText("[ / ] - Increment up / down celestial bodies");
 		ImGui::BulletText("G - Snap to current target");
-		ImGui::BulletText("< / > - Adjust simulation speed");
+		ImGui::BulletText("F12 - Toggle these menus");
 		ImGui::BulletText("Esc - Exit the program");
 
 		ImGui::Separator();
-
-		ImGui::Text("\nElapsed time: %.1f yrs\n\n", elapsedTime / 86400 / 365.25);
 
 		if (ImGui::Button("Close")) {
 			showWelcomeMenu = false;
@@ -580,16 +592,30 @@ void drawGUI(ImGuiIO& io) {
 	// target selector menu
 	if (showLockIndexMenu) {
 		ImGui::SetNextWindowPos(ImVec2(w1Pos.x, w1Pos.y + w1Size.y + padding));
-		ImGui::Begin("Camera Settings", &showLockIndexMenu, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Begin("Camera Settings", &showLockIndexMenu, ImGuiWindowFlags_NoResize);
 
-		ImGui::Text("Select a body of interest:");
+		if (camera.mode == LOCK_CAM) {
+			ImGui::Text("Select a body of interest:");
 
-		// user access to change camera's lockIndex
-		int index = (int)std::max((size_t)0, std::min(camera.lockIndex, frameBodies.size() - 1));
-		ImGui::SliderInt("ID", &index, 0, (int)frameBodies.size() - 1);
-		ImGui::InputInt("Manual Entry", &index);
-		
-		camera.lockIndex = std::max((size_t)0, std::min((size_t)index, frameBodies.size() - 1));
+			// user access to change a locked camera's position and target
+			int numBodies = (int)frameBodies.size() - 2;
+			int atIndex = std::max(0, std::min((int)camera.atIndex, numBodies));
+			int eyeIndex = std::max(0, std::min((int)camera.eyeIndex, numBodies));
+			ImGui::SliderInt("Target", &atIndex, 0, numBodies);
+			ImGui::SliderInt("Observer", &eyeIndex, 0, numBodies);
+
+			camera.atIndex = std::max(0, std::min(atIndex, numBodies));
+			camera.eyeIndex = std::max(0, std::min(eyeIndex, numBodies));
+		}
+		else if (camera.mode == FREE_CAM) {
+			ImGui::Text("Free Camera:\nX: %11.3e\nY: %11.3e\nZ: %11.3e", 
+				camera.position.x, camera.position.y, camera.position.y);
+		}
+		else if (camera.mode == GRAV_CAM) {
+			ImGui::Text("Gravity-Based Camera:\nX: %11.3e\nY: %11.3e\nZ: %11.3e\nVel: %11.3e", 
+				camera.position.x, camera.position.y, camera.position.y,
+				glm::length(frameBodies[camera.eyeIndex].velocity));
+		}
 
 		ImGui::Separator();
 
@@ -597,15 +623,36 @@ void drawGUI(ImGuiIO& io) {
 			showLockIndexMenu = false;
 		}
 
+		ImVec2 currentSize = ImGui::GetWindowSize();
+		ImGui::SetWindowSize(ImVec2(w1Size.x, currentSize.y));
+
+		w2Size = ImGui::GetWindowSize();
+		w2Pos = ImGui::GetWindowPos();
+
 		ImGui::End();
 	}
 
+	// time display
+	{
+		ImGui::SetNextWindowPos(ImVec2(padding, w2Pos.y + w2Size.y + padding));
+
+		ImGui::Begin("Elapsed Time Display", nullptr,
+			ImGuiWindowFlags_NoBackground |
+			ImGuiWindowFlags_NoResize | 
+			ImGuiWindowFlags_NoTitleBar);
+
+		ImGui::Text("Elapsed time: %.1f yrs", elapsedTime / 86400 / 365.25);
+
+		ImGui::End();
+	}
+	
 	// render dialogs
 	ImGui::EndFrame();
 	ImGui::UpdatePlatformWindows();
 	ImGui::Render();
-	ImDrawData* draw_data = ImGui::GetDrawData();
-	ImGui_ImplOpenGL3_RenderDrawData(draw_data);
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 }
 
 void renderLoop() {
@@ -616,11 +663,17 @@ void renderLoop() {
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 330");
+	style = &ImGui::GetStyle();
+	style->GrabRounding = 5.0f;
+	style->FrameRounding = 5.0f;
+	style->WindowRounding = 5.0f;
+	style->Colors[ImGuiCol_Text] = ImVec4(0.00f, 1.00f, 1.00f, 1.00f);
+	style->Colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 
 	while (!glfwWindowShouldClose(window)) {
 		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {

@@ -8,12 +8,9 @@ static const float SENSITIVITY = 0.002f; // control on mouse sensitivity
 
 class Camera {
 public:
-	glm::dvec3 position;
-	glm::dvec3 direction;
-	glm::dvec3 up;
-	glm::dvec3 velocity;
-	glm::dvec3 right;
-	size_t lockIndex;
+	glm::dvec3 position, velocity;
+	glm::dvec3 direction, up, right;
+	size_t eyeIndex, atIndex;
 	float lockDistanceFactor;
 	camera_mode mode;
 
@@ -28,12 +25,12 @@ public:
 
 		velocity = glm::dvec3(0.0);
 		right = glm::cross(direction, up);
-		lockIndex = -1;
+		eyeIndex = atIndex = -1;
 		lockDistanceFactor = 5.0f;
 		mode = FREE_CAM;
 	}
 
-	glm::dmat4 viewMatrix() {
+	glm::dmat4 viewMatrix(glm::dvec3 position) {
 		return glm::dmat4(
 			right.x, up.x, -direction.x, 0.0,
 			right.y, up.y, -direction.y, 0.0,
@@ -42,12 +39,17 @@ public:
 		);
 	}
 
-	// place camera in front of observer, facing in the direction of movement
-	void watchFrom(Entity& observer)	{
-		position = observer.position + observer.scale * glm::normalize(observer.velocity);
-		direction = glm::normalize(observer.velocity);
-		up = glm::dvec3(0.0, 1.0, 0.0);
-		right = glm::cross(direction, up);
+	glm::dmat4 viewMatrix() {
+		return viewMatrix(position);
+	}
+
+	// watch one entity from the position of another
+	void watchFrom(Entity* at, Entity* eye)	{
+		position = eye->position;
+		direction = glm::normalize(at->position - position);
+		position += eye->scale.x * direction;
+		right = glm::normalize(glm::cross(direction, up));
+		up = glm::cross(right, direction);
 	}
 
 	// perform local relative rotations in order: yaw, pitch, roll
