@@ -16,6 +16,8 @@ extern std::vector<GravityBody> bodies, frameBodies;
 
 const float MAX_PHYSICS_TIME = 500.0f;
 
+glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter);
+
 glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b);
 void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies);
 void physicsLoop(GLFWwindow* window);

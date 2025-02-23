@@ -4,7 +4,7 @@
 #include <map>
 #include <GLFW/glfw3.h>
 
-extern bool overheadLock, doTrails, showWelcomeMenu, showLockIndexMenu;
+extern bool overheadLock, doTrails, showWelcomeMenu, showLockIndexMenu, showSettingsMenu;
 extern int windowWidth, windowHeight;
 extern double lastX, lastY;
 

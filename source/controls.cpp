@@ -9,6 +9,7 @@ bool overheadLock = false;
 bool doTrails = true;
 bool showWelcomeMenu = true;
 bool showLockIndexMenu = true;
+bool showSettingsMenu = false;
 
 glm::float64 pitch, yaw, roll;
 
@@ -71,9 +72,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 			if (camera.atIndex == -1)
 				camera.atIndex = 0;
 			bodies[bodies.size() - 1].position = camera.position;
-			bodies[bodies.size() - 1].velocity = 1.0 *
-				glm::normalize(glm::cross(bodies[camera.atIndex].position - camera.position,
-					bodies[camera.atIndex].getRotationQuat() * glm::dvec3(0,1,0)));
+			bodies[bodies.size() - 1].velocity = orbitalVelocity(camera.atIndex, bodies.size() - 1);
 			camera.eyeIndex = bodies.size() - 1;
 			break;
 		case GRAV_CAM:

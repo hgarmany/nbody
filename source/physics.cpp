@@ -49,6 +49,13 @@ void mergeNearBodies() {
 	}
 }
 
+glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter) {
+	glm::dvec3 gravitation = bodies[parent].position - bodies[orbiter].position;
+	double distance = glm::length(gravitation);
+	double magnitude = sqrt(G * bodies[parent].mass / distance);
+	return magnitude * glm::normalize(glm::cross(glm::dvec3(0, 1, 0), gravitation));
+}
+
 glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b) {
 	glm::dvec3 direction = b.position - a.position;
 	glm::float64 distance = glm::length(direction);

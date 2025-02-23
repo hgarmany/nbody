@@ -1,4 +1,4 @@
-#include "render.h"
+﻿#include "render.h"
 #include "controls.h"
 #include <mutex>
 #include "imgui.h"
@@ -19,7 +19,8 @@ size_t cameraFutureTrailLength = 2500;
 GLsizei starCapacity = 20;
 GLsizei trailCapacity = 0;
 
-GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex;
+GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex, settingsIcon;
+ImFont *defaultFont, *largeFont;
 Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
 
 std::vector<glm::vec3> trailVertices;
@@ -231,7 +232,7 @@ bool testObjectVisibility(size_t index, Camera& camera) {
 void updateTrails() {
 	for (GravityBody body : frameBodies) {
 		Trail* trail = body.trail;
-		if (trail && (body.mass > 1.0 || camera.mode == GRAV_CAM)) {
+		if (trail) {
 			size_t parentIndex = body.trail->parentIndex;
 
 			// trail relative to parent body
@@ -578,7 +579,7 @@ void drawGUI(ImGuiIO& io) {
 
 		ImGui::SameLine();
 
-		if (ImGui::Button("Open Settings")) {
+		if (ImGui::Button("Open Camera Controls")) {
 			showLockIndexMenu = true;
 		}
 		w1Size = ImGui::GetWindowSize();
@@ -592,7 +593,28 @@ void drawGUI(ImGuiIO& io) {
 	// target selector menu
 	if (showLockIndexMenu) {
 		ImGui::SetNextWindowPos(ImVec2(w1Pos.x, w1Pos.y + w1Size.y + padding));
-		ImGui::Begin("Camera Settings", &showLockIndexMenu, ImGuiWindowFlags_NoResize);
+
+		const char* windowTitle;
+		switch (camera.mode) {
+		case LOCK_CAM:
+			windowTitle = "Locked Camera";
+			break;
+		case FREE_CAM:
+			windowTitle = "Free Camera";
+			break;
+		case GRAV_CAM:
+			windowTitle = "Gravity-Based Camera";
+			break;
+		default:
+			windowTitle = "";
+		}
+
+		ImVec2 titleSize = ImGui::CalcTextSize(windowTitle);
+		ImGui::SetNextWindowSize(ImVec2(fmax(w1Size.x, 400.0f), w2Size.y));
+
+		ImGui::Begin(windowTitle, &showLockIndexMenu, 
+			ImGuiWindowFlags_NoResize | 
+			ImGuiWindowFlags_AlwaysAutoResize);
 
 		if (camera.mode == LOCK_CAM) {
 			ImGui::Text("Select a body of interest:");
@@ -608,11 +630,11 @@ void drawGUI(ImGuiIO& io) {
 			camera.eyeIndex = std::max(0, std::min(eyeIndex, numBodies));
 		}
 		else if (camera.mode == FREE_CAM) {
-			ImGui::Text("Free Camera:\nX: %11.3e\nY: %11.3e\nZ: %11.3e", 
+			ImGui::Text("X: %11.3e\nY: %11.3e\nZ: %11.3e", 
 				camera.position.x, camera.position.y, camera.position.y);
 		}
 		else if (camera.mode == GRAV_CAM) {
-			ImGui::Text("Gravity-Based Camera:\nX: %11.3e\nY: %11.3e\nZ: %11.3e\nVel: %11.3e", 
+			ImGui::Text("X: %11.3e\nY: %11.3e\nZ: %11.3e\nVel: %11.3e", 
 				camera.position.x, camera.position.y, camera.position.y,
 				glm::length(frameBodies[camera.eyeIndex].velocity));
 		}
@@ -622,9 +644,6 @@ void drawGUI(ImGuiIO& io) {
 		if (ImGui::Button("Close")) {
 			showLockIndexMenu = false;
 		}
-
-		ImVec2 currentSize = ImGui::GetWindowSize();
-		ImGui::SetWindowSize(ImVec2(w1Size.x, currentSize.y));
 
 		w2Size = ImGui::GetWindowSize();
 		w2Pos = ImGui::GetWindowPos();
@@ -639,6 +658,7 @@ void drawGUI(ImGuiIO& io) {
 		ImGui::Begin("Elapsed Time Display", nullptr,
 			ImGuiWindowFlags_NoBackground |
 			ImGuiWindowFlags_NoResize | 
+			ImGuiWindowFlags_AlwaysAutoResize |
 			ImGuiWindowFlags_NoTitleBar);
 
 		ImGui::Text("Elapsed time: %.1f yrs", elapsedTime / 86400 / 365.25);
@@ -646,6 +666,55 @@ void drawGUI(ImGuiIO& io) {
 		ImGui::End();
 	}
 	
+	// settings controller
+	if (showSettingsMenu) {
+		ImGui::Begin("Settings", &showSettingsMenu, 
+			ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_AlwaysAutoResize);
+
+		float timeStepLog = (float)log10(timeStep);
+
+		ImGui::Checkbox("Physics", &hasPhysics);
+		ImGui::Text("Time Step (Logarithmic)");
+		ImGui::SliderFloat("", &timeStepLog, 0, 10);
+		ImGui::Checkbox("Trails", &doTrails);
+
+		ImGui::SetWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x - padding, padding), ImGuiCond_Always);
+
+		ImGui::End();
+
+		timeStep = pow(10.0, (double)timeStepLog);
+	}
+	else {
+		ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 50 - padding, padding), ImGuiCond_Always);
+
+		ImGui::PushFont(largeFont);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+		// Create a window without a title or background, to act as a button container
+		ImGui::Begin("Settings Button", nullptr, 
+			ImGuiWindowFlags_NoTitleBar | 
+			ImGuiWindowFlags_NoResize | 
+			ImGuiWindowFlags_NoMove | 
+			ImGuiWindowFlags_NoDecoration);
+
+		const char* settingsIcon = "\xE2\x9A\x99";  // UTF-8 encoding for ⚙
+
+		if (ImGui::Button(settingsIcon, ImVec2(50,50))) {
+			showSettingsMenu = true;
+		}
+
+		ImGui::SetWindowSize(ImVec2(50, 50));
+
+		ImGui::End();
+
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+		ImGui::PopStyleColor();
+	}
+
 	// render dialogs
 	ImGui::EndFrame();
 	ImGui::UpdatePlatformWindows();
@@ -662,6 +731,20 @@ void renderLoop() {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
+
+	const char* fontPath = "../../assets/DejaVuSansMono.ttf";
+
+	ImVector<ImWchar> ranges;
+	ImFontGlyphRangesBuilder builder;
+	builder.AddRanges(io.Fonts->GetGlyphRangesDefault());                        // Add a string (here "Hello world" contains 7 unique characters)
+	builder.AddChar(0x2699);                               // Add a specific character
+	builder.BuildRanges(&ranges);                          // Build the final result (ordered ranges with all the unique characters submitted)
+
+	defaultFont = io.Fonts->AddFontFromFileTTF(fontPath, 16.0f, nullptr, ranges.Data);
+	largeFont = io.Fonts->AddFontFromFileTTF(fontPath, 32.0f, nullptr, ranges.Data);
+
+	settingsIcon = Surface::importTexture("../../assets/settings.png");
+
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
