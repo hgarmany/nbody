@@ -9,8 +9,9 @@
 extern Camera camera, pipCam;
 extern std::atomic<bool> running;
 extern std::condition_variable physicsCV;
-extern bool hasPhysics, physicsUpdated;
+extern bool hasPhysics, physicsUpdated, doTrails;
 extern double elapsedTime, timeStep;
+extern uint8_t targetRotation;
 
 extern std::vector<GravityBody> bodies, frameBodies;
 
@@ -20,4 +21,6 @@ glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter);
 
 glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b);
 void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies);
-void physicsLoop(GLFWwindow* window);
+void updateTrails(std::vector<GravityBody>& bodies);
+glm::dmat4 relativeRotationalMatrix(std::vector<GravityBody>& list, size_t subjectIndex, size_t referenceIndex, bool detranslate = false);
+void physicsLoop();

@@ -14,17 +14,85 @@ ImGuiStyle* style;
 
 std::mutex physicsMutex;
 
-size_t maxTrailLength = 2500;
 size_t cameraFutureTrailLength = 2500;
 GLsizei starCapacity = 20;
 GLsizei trailCapacity = 0;
 
-GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex, settingsIcon;
+GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex;
 ImFont *defaultFont, *largeFont;
 Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
 
 std::vector<glm::vec3> trailVertices;
 std::vector<float> trailAlphas;
+
+void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
+	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
+	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
+}
+
+// update projection matrix based on window size
+void updateProjectionMatrix(GLFWwindow* window) {
+	int width, height;
+	glfwGetFramebufferSize(window, &width, &height);
+
+	if (height == 0) height = 1; // prevent division by zero
+
+	float aspect = (float)width / (float)height;
+	projection = glm::perspective(FOV * height / screenSize, aspect, 1e-1f, 1e9f);
+}
+
+void initWindow() {
+	if (!glfwInit()) {
+		fprintf(stderr, "GLFW initialization failed!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	glfwWindowHint(GLFW_DEPTH_BITS, 32);
+
+	// multisample buffer for antialiasing
+	glfwWindowHint(GLFW_SAMPLES, 4);
+
+	window = glfwCreateWindow(windowWidth, windowHeight, "N-Body Simulator", nullptr, nullptr);
+
+	if (!window) {
+		fprintf(stderr, "Window creation failed!\n");
+		glfwTerminate();
+		exit(EXIT_FAILURE);
+	}
+
+	GLFWmonitor* screen = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(screen);
+	glfwSetWindowPos(window, (mode->width - windowWidth) / 2, (mode->height - windowHeight) / 2);
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
+		glViewport(0, 0, width, height);
+		});
+
+	glewInit();
+
+	// GLFW interrupt response
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
+	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetWindowSizeCallback(window, window_size_callback);
+	glfwSetKeyCallback(window, key_callback);
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	setXY(window);
+}
+
+// Set this function as a callback to update projection matrix during window resizing
+void static window_size_callback(GLFWwindow* window, int width, int height) {
+	glViewport(0, 0, width, height);  // Set the OpenGL viewport to match the new window size
+	windowWidth = width;
+	windowHeight = height;
+	updateProjectionMatrix(window);  // Update the projection matrix with the new size
+}
 
 void initCamera() {
 	glm::dvec3 direction = glm::normalize(bodies[bodies.size() - 1].position - bodies[0].position);
@@ -180,44 +248,6 @@ void cleanup() {
 	glfwTerminate();
 }
 
-void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
-	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
-	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
-}
-
-// update projection matrix based on window size
-void updateProjectionMatrix() {
-	int width, height;
-	glfwGetFramebufferSize(window, &width, &height);
-
-	if (height == 0) height = 1; // prevent division by zero
-
-	float aspect = (float)width / (float)height;
-	projection = glm::perspective(FOV * height / screenSize, aspect, 1e-1f, 1e9f);
-}
-
-glm::dmat4 relativeRotationalMatrix(GravityBody* subject, GravityBody* reference, bool detranslate = false) {
-	// develops a rotational matrix to transform subject coordinates to a reference frame in which the reference body and its parent both lie along the x axis
-	glm::dmat4 rotate(1.0);
-	if (reference != &frameBodies[subject->parentIndex]) {
-		size_t aParentIndex = reference->parentIndex;
-		glm::dvec3 a = glm::normalize(reference->position - frameBodies[aParentIndex].position);
-		glm::dvec3 b(1.0, 0.0, 0.0);
-		glm::dvec3 n = glm::cross(a, reference->velocity);
-
-		double angle = acos(glm::dot(a, b));
-		if (glm::dot(n, glm::cross(a, b)) < 0)
-			angle *= -1;
-
-		// shaders will detranslate spatial adjustments
-		if (detranslate)
-			rotate = glm::rotate(rotate, -angle, n);
-		else
-			rotate = glm::rotate(rotate, angle, n);
-	}
-	return rotate;
-}
-
 bool testObjectVisibility(size_t index, Camera& camera) {
 	if (camera.mode == LOCK_CAM && index == camera.eyeIndex && index != camera.atIndex)
 		return false;
@@ -229,68 +259,13 @@ bool testObjectVisibility(size_t index, Camera& camera) {
 	return true;
 }
 
-void updateTrails() {
-	for (GravityBody body : frameBodies) {
-		Trail* trail = body.trail;
-		if (trail) {
-			size_t parentIndex = body.trail->parentIndex;
-
-			// trail relative to parent body
-			if (parentIndex != -1) {
-				if (trail->size() > 1) {
-					bool doLoop = true;
-
-					// remove any trail points behind the body's position
-					while (doLoop &&
-						parentIndex == body.parentIndex) {
-						glm::dvec3 a = glm::normalize(trail->front());
-						glm::dvec3 b = glm::normalize(trail->back());
-
-						glm::dvec3 n = glm::cross(b, body.position - frameBodies[parentIndex].position);
-
-						// get angle between the last point added to the trail and the start of the trail
-						double angle = acos(glm::dot(a, b));
-						if (glm::dot(n, glm::cross(a, b)) < 0)
-							angle *= -1;
-
-						// get angle between the body's current position and the start of the trail
-						b = glm::normalize(body.position - frameBodies[parentIndex].position);
-						double angle2 = acos(glm::dot(a, b));
-						if (glm::dot(n, glm::cross(a, b)) < 0)
-							angle2 *= -1;
-
-						if (angle < 0 && angle2 >= 0 || std::isnan(angle) || std::isnan(angle2))
-							trail->pop();
-						else
-							doLoop = false;
-					}
-				}
-				
-				glm::dvec3 relativePosition = 
-					glm::dmat3(relativeRotationalMatrix(&body, &frameBodies[parentIndex])) *
-					glm::dvec3(body.position - frameBodies[body.parentIndex].position);
-					//glm::dvec3(body.position);
-
-				trail->push(relativePosition);
-			}
-			// trail relative to world space
-			else {
-				trail->push(body.position);
-				while (trail->size() > maxTrailLength) {
-					trail->pop();
-				}
-			}
-		}
-	}
-}
-
-void updateFreeCam(Camera& eye, double deltaTime) {
+void updateFreeCam(Camera& eye) {
 	if (&eye == &camera)
-		flyCam(window, deltaTime);
+		flyCam(window);
 }
 
-void updateLockCam(Camera& eye, double deltaTime) {
-	rollCamera(eye, window, deltaTime);
+void updateLockCam(Camera& eye) {
+	rollCamera(eye, window);
 
 	if (eye.atIndex >= frameBodies.size() && eye.atIndex != -1)
 		eye.atIndex = 0;
@@ -312,13 +287,13 @@ void updateLockCam(Camera& eye, double deltaTime) {
 	}
 }
 
-void updateGravCam(Camera& eye, double deltaTime) {
+void updateGravCam(Camera& eye) {
 	if (hasPhysics) {
 		GravityBody* camBody = &bodies[eye.eyeIndex];
 		eye.position = camBody->position;
 
 		if (&eye == &camera) {
-			flyCam(window, deltaTime);
+			flyCam(window);
 
 			bodies[eye.eyeIndex].position += eye.velocity * deltaTime;
 			bodies[eye.eyeIndex].velocity += eye.velocity;
@@ -326,16 +301,16 @@ void updateGravCam(Camera& eye, double deltaTime) {
 	}
 }
 
-void updateCamera(Camera& eye, double deltaTime) {
+void updateCamera(Camera& eye) {
 	switch (eye.mode) {
 	case FREE_CAM:
-		updateFreeCam(eye, deltaTime);
+		updateFreeCam(eye);
 		break;
 	case LOCK_CAM:
-		updateLockCam(eye, deltaTime);
+		updateLockCam(eye);
 		break;
 	case GRAV_CAM:
-		updateGravCam(eye, deltaTime);
+		updateGravCam(eye);
 		break;
 	}
 }
@@ -353,7 +328,7 @@ void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 
 	// update camera
 	glm::mat4 view = glm::mat4(glm::mat3(camera.viewMatrix()));
-	updateProjectionMatrix();
+	updateProjectionMatrix(window);
 
 	setPV(spriteShader, projection, view);
 	glUniform2iv(spriteShader.uniforms[WINDOW_SIZE], 1, &windowSize[0]);
@@ -475,7 +450,7 @@ void render(Camera& camera) {
 
 				// orbit
 				if (body.parentIndex != -1) {
-					glm::mat4 rotate = relativeRotationalMatrix(&body, &frameBodies[parentIndex], true);
+					glm::mat4 rotate = relativeRotationalMatrix(frameBodies, i, parentIndex, true);
 
 					modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex].position);
 					modelMatrix *= rotate;
@@ -526,7 +501,7 @@ void renderPIP() {
 	// return to screen buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, windowWidth, windowHeight);
-	updateProjectionMatrix();
+	updateProjectionMatrix(window);
 
 	// render frame buffer contents to the screen
 	glUseProgram(frameShader.index);
@@ -677,7 +652,7 @@ void drawGUI(ImGuiIO& io) {
 
 		ImGui::Checkbox("Physics", &hasPhysics);
 		ImGui::Text("Time Step (Logarithmic)");
-		ImGui::SliderFloat("", &timeStepLog, 0, 10);
+		ImGui::SliderFloat("##timestep", &timeStepLog, 0, 10);
 		ImGui::Checkbox("Trails", &doTrails);
 
 		ImGui::SetWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x - padding, padding), ImGuiCond_Always);
@@ -741,9 +716,7 @@ void renderLoop() {
 	builder.BuildRanges(&ranges);                          // Build the final result (ordered ranges with all the unique characters submitted)
 
 	defaultFont = io.Fonts->AddFontFromFileTTF(fontPath, 16.0f, nullptr, ranges.Data);
-	largeFont = io.Fonts->AddFontFromFileTTF(fontPath, 32.0f, nullptr, ranges.Data);
-
-	settingsIcon = Surface::importTexture("../../assets/settings.png");
+	largeFont = io.Fonts->AddFontFromFileTTF(fontPath, 32.0f, nullptr, ranges.Data);\
 
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -781,12 +754,12 @@ void renderLoop() {
 				lock.unlock();
 			}
 
-			updateCamera(camera, currentTime - lastFrameTime);
-			updateCamera(pipCam, currentTime - lastFrameTime);
+			deltaTime = currentTime - lastFrameTime;
+			updateCamera(camera);
+			updateCamera(pipCam);
 
 			if (hasPhysics && doTrails)
-				updateTrails();
-
+				updateTrails(frameBodies);
 			render(camera);
 
 			//if (hasPhysics && camera.mode == GRAV_CAM) {

@@ -6,7 +6,6 @@
 bool firstMouse = true;
 bool cursorDisabled = true;
 bool overheadLock = false;
-bool doTrails = true;
 bool showWelcomeMenu = true;
 bool showLockIndexMenu = true;
 bool showSettingsMenu = false;
@@ -17,6 +16,16 @@ int windowWidth = 900, windowHeight = 600;
 
 double lastX = windowWidth / 2;
 double lastY = windowHeight / 2;
+double deltaTime;
+
+enum keyMapName : uint8_t {
+	MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
+	PITCH_UP, PITCH_DOWN, YAW_LEFT, YAW_RIGHT, ROLL_LEFT, ROLL_RIGHT, CYCLE_CAMERA_MODE,
+	T_MENU, T_PHYSICS, T_LOCK_PAGE_UP, T_LOCK_PAGE_DOWN, T_LOCK_OVERHEAD, T_TRAILS,
+	INCREASE_TIME_STEP, DECREASE_TIME_STEP, SWAP_CAMERAS, SNAP_TO_TARGET,
+	TARGET_ROTATE_UP, TARGET_ROTATE_DOWN, TARGET_ROTATE_LEFT, TARGET_ROTATE_RIGHT,
+	QUIT
+};
 
 keyMapName mousePXAction = YAW_LEFT, mouseNXAction = YAW_RIGHT, mousePYAction = PITCH_UP, mouseNYAction = PITCH_DOWN;
 
@@ -34,6 +43,10 @@ std::map<keyMapName, int> keyMap = {
 	{ YAW_RIGHT, -1 },
 	{ ROLL_LEFT, GLFW_KEY_Q },
 	{ ROLL_RIGHT, GLFW_KEY_E },
+	{ TARGET_ROTATE_UP, GLFW_KEY_UP },
+	{ TARGET_ROTATE_DOWN, GLFW_KEY_DOWN },
+	{ TARGET_ROTATE_LEFT, GLFW_KEY_LEFT },
+	{ TARGET_ROTATE_RIGHT, GLFW_KEY_RIGHT },
 	{ CYCLE_CAMERA_MODE, GLFW_KEY_C },
 	{ T_MENU, GLFW_KEY_F12 },
 	{ T_PHYSICS, GLFW_KEY_P },
@@ -147,10 +160,35 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				bodies[camera.eyeIndex].parentIndex = key - GLFW_KEY_0;
 			}
 		}
+
+		if (camera.atIndex != -1) {
+			GravityBody& body = bodies[camera.atIndex];
+			// spin the subject body around
+			if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+				body.orientation.y += deltaTime;
+			if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+				body.orientation.y -= deltaTime;
+			if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+				body.orientation.x += deltaTime;
+			if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+				body.orientation.x -= deltaTime;
+		}
+
+		if (key == keyMap[TARGET_ROTATE_UP])
+			targetRotation = action == GLFW_PRESS ? targetRotation | 0x01 : targetRotation & 0xFE;
+		if (key == keyMap[TARGET_ROTATE_DOWN])
+			targetRotation = action == GLFW_PRESS ? targetRotation | 0x02 : targetRotation & 0xFD;
+		if (key == keyMap[TARGET_ROTATE_LEFT])
+			targetRotation = action == GLFW_PRESS ? targetRotation | 0x04 : targetRotation & 0xFB;
+		if (key == keyMap[TARGET_ROTATE_RIGHT])
+			targetRotation = action == GLFW_PRESS ? targetRotation | 0x08 : targetRotation & 0xF7;
+
+		if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+			bodies[bodies.size() - 1].velocity = glm::dvec3(0.0);
 	}
 }
 
-void rollCamera(Camera& camera, GLFWwindow* window, double deltaTime) {
+void rollCamera(Camera& camera, GLFWwindow* window) {
 	if (glfwGetKey(window, keyMap[ROLL_LEFT]) == GLFW_PRESS)
 		camera.setOrientation(0.0f, 0.0f, -deltaTime * 1e3);
 	if (glfwGetKey(window, keyMap[ROLL_RIGHT]) == GLFW_PRESS)
@@ -158,12 +196,12 @@ void rollCamera(Camera& camera, GLFWwindow* window, double deltaTime) {
 }
 
 // Function to move the camera based on keyboard input
-void flyCam(GLFWwindow* window, double deltaTime) {
+void flyCam(GLFWwindow* window) {
 	glm::float64 speed = cameraSpeed * deltaTime;
 
 	camera.velocity = glm::dvec3(0.0);
 
-	rollCamera(camera, window, deltaTime);
+	rollCamera(camera, window);
 
 	if (glfwGetKey(window, keyMap[PITCH_UP]) == GLFW_PRESS)
 		camera.setOrientation(deltaTime, 0.0f, 0.0f);

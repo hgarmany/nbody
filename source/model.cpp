@@ -1,8 +1,23 @@
 #include "model.h"
 #include <unordered_map>
 #include <string>
+#include <fstream>
 
 std::vector<Model> Model::modelLibrary;
+
+void toOBJ(std::vector<GLfloat>& vertices, std::vector<GLuint>& faces) {
+	FILE* out;
+	fopen_s(&out, "test.obj", "w");
+
+	for (size_t i = 0; i < vertices.size(); i += 3) {
+		fprintf(out, "v %.4f %.4f %.4f\n", vertices[i], vertices[i + 1], vertices[i + 2]);
+	}
+	for (size_t i = 0; i < faces.size(); i += 3) {
+		fprintf(out, "f %u %u %u\n", faces[i] + 1, faces[i + 1] + 1, faces[i + 2] + 1);
+	}
+
+	fclose(out);
+}
 
 Model::Model(
 	std::vector<GLfloat>& verts, std::vector<GLuint>& indices,
@@ -72,7 +87,6 @@ Model::Model(
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &NorBuf);
-	glGenBuffers(1, &TexBuf);
 	glGenBuffers(1, &EBO);
 
 	glBindVertexArray(VAO);
@@ -91,10 +105,13 @@ Model::Model(
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); // Normals
 
-	glBindBuffer(GL_ARRAY_BUFFER, TexBuf);
-	glBufferData(GL_ARRAY_BUFFER, tex.size() *sizeof(GLfloat), tex.data(), GL_STATIC_DRAW);
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); // Texture coordinates
+	if (tex.size()) {
+		glGenBuffers(1, &TexBuf);
+		glBindBuffer(GL_ARRAY_BUFFER, TexBuf);
+		glBufferData(GL_ARRAY_BUFFER, tex.size() * sizeof(GLfloat), tex.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); // Texture coordinates
+	}
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
@@ -585,5 +602,52 @@ size_t Model::Icosphere(int subdivisions) {
 	}
 
 	modelLibrary.emplace_back(tempVer, tempInd, tempNor, tempTex, tempTan, tempBitan);
+	return modelLibrary.size() - 1;
+}
+
+size_t Model::Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, float majorRadius, float minorRadius) {
+	size_t n = crossSection.size() / 3;
+
+	std::vector<GLfloat> vertices;
+	vertices.reserve(n * subdivisions);
+	std::vector<GLfloat> crossSectionCopy;
+	crossSectionCopy.reserve(n);
+
+	for (size_t angleFraction = 0; angleFraction < subdivisions; angleFraction++) {
+		 crossSectionCopy = crossSection;
+		 for (size_t i = 0; i < crossSection.size(); i += 3) {
+			 float theta = pi * (2 * angleFraction) / subdivisions;
+			 crossSectionCopy[i] = crossSectionCopy[i] * minorRadius + majorRadius;
+			 crossSectionCopy[i + 1] *= minorRadius;
+
+			 crossSectionCopy[i + 2] = crossSectionCopy[i] * sinf(theta);
+			 crossSectionCopy[i] *= cosf(theta);
+		 }
+
+		 vertices.insert(vertices.end(), crossSectionCopy.begin(), crossSectionCopy.end());
+	}
+
+	std::vector<GLuint> faces;
+	faces.reserve(vertices.size());
+
+	for (size_t k = 0; k < subdivisions; k++) {
+		size_t l = k + 1 == subdivisions ? 0 : k + 1;
+		for (size_t i = 0; i < n; i++) {
+			size_t j = i + 1 == n ? 0 : i + 1;
+			faces.push_back(GLuint((i | (size_t)0x01) % n + l * n));
+			faces.push_back(GLuint(j + k * n));
+			faces.push_back(GLuint(i + k * n));
+
+			faces.push_back(GLuint(j + l * n));
+			faces.push_back(GLuint((j & ~(size_t)0x01) % n + k * n));
+			faces.push_back(GLuint(i + l * n));
+		}
+	}
+
+	std::vector<GLfloat> normals, tex;
+
+	toOBJ(vertices, faces);
+
+	modelLibrary.emplace_back(vertices, faces, normals, tex);
 	return modelLibrary.size() - 1;
 }

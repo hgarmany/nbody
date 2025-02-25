@@ -13,9 +13,12 @@ Camera pipCam(
 std::atomic<bool> running(true);
 std::condition_variable physicsCV;
 bool hasPhysics = false;
+bool doTrails = true;
 bool physicsUpdated = false;
 double elapsedTime = 0.0;
 double timeStep = 1e5;
+size_t maxTrailLength = 2500;
+uint8_t targetRotation = 0;
 
 void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -89,10 +92,99 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 		body.orientation += body.rotVelocity * timeStep * deltaTime;
 	}
 
+	// user input target rotation
+	if (targetRotation) {
+		printf("rotation\n");
+		bodies[camera.atIndex].orientation.y += ((targetRotation & 0x01) - ((targetRotation & 0x02) >> 1)) * deltaTime;
+		bodies[camera.atIndex].orientation.x += (((targetRotation & 0x04) >> 2) - ((targetRotation & 0x08) >> 3)) * deltaTime;
+	}
+
 	elapsedTime += deltaTime * timeStep;
 }
 
-void physicsLoop(GLFWwindow* window) {
+glm::dmat4 relativeRotationalMatrix(std::vector<GravityBody>& list, size_t subjectIndex, size_t referenceIndex, bool detranslate) {
+	GravityBody* subject = &list[subjectIndex];
+	GravityBody* reference = &list[referenceIndex];
+	
+	// develops a rotational matrix to transform subject coordinates to a reference frame 
+	// in which the reference body and its parent both lie along the x axis
+	glm::dmat4 rotate(1.0);
+	if (reference != &list[subject->parentIndex]) {
+		size_t aParentIndex = reference->parentIndex;
+		glm::dvec3 a = glm::normalize(reference->position - list[aParentIndex].position);
+		glm::dvec3 b(1.0, 0.0, 0.0);
+		glm::dvec3 n = glm::cross(a, reference->velocity);
+
+		double angle = acos(glm::dot(a, b));
+		if (glm::dot(n, glm::cross(a, b)) < 0)
+			angle *= -1;
+
+		// shaders will detranslate spatial adjustments
+		if (detranslate)
+			rotate = glm::rotate(rotate, -angle, n);
+		else
+			rotate = glm::rotate(rotate, angle, n);
+	}
+	return rotate;
+}
+
+void updateTrails(std::vector<GravityBody>& bodies) {
+	for (size_t i = 0; i < bodies.size(); i++) {
+		GravityBody& body = bodies[i];
+		Trail* trail = body.trail;
+		if (trail) {
+			size_t parentIndex = body.trail->parentIndex;
+
+			// trail relative to parent body
+			if (parentIndex != -1) {
+				if (trail->size() > 1) {
+					bool doLoop = true;
+
+					// remove any trail points behind the body's position
+					while (doLoop &&
+						parentIndex == body.parentIndex) {
+						glm::dvec3 a = glm::normalize(trail->front());
+						glm::dvec3 b = glm::normalize(trail->back());
+
+						glm::dvec3 n = glm::cross(b, body.position - bodies[parentIndex].position);
+
+						// get angle between the last point added to the trail and the start of the trail
+						double angle = acos(glm::dot(a, b));
+						if (glm::dot(n, glm::cross(a, b)) < 0)
+							angle *= -1;
+
+						// get angle between the body's current position and the start of the trail
+						b = glm::normalize(body.position - bodies[parentIndex].position);
+						double angle2 = acos(glm::dot(a, b));
+						if (glm::dot(n, glm::cross(a, b)) < 0)
+							angle2 *= -1;
+
+						if (angle < 0 && angle2 >= 0 || std::isnan(angle) || std::isnan(angle2))
+							trail->pop();
+						else
+							doLoop = false;
+					}
+				}
+
+				glm::dvec3 relativePosition =
+					glm::dmat3(relativeRotationalMatrix(bodies, i, parentIndex)) *
+					glm::dvec3(body.position - bodies[body.parentIndex].position);
+
+				trail->push(relativePosition);
+			}
+
+			// trail relative to world space
+			else {
+				trail->push(body.position);
+				while (trail->size() > maxTrailLength) {
+					trail->pop();
+				}
+			}
+		}
+	}
+}
+
+void physicsLoop() {
 	double lastLoopTime = glfwGetTime();
 	while (running) {
 		double currentTime = glfwGetTime();
@@ -100,23 +192,9 @@ void physicsLoop(GLFWwindow* window) {
 		lastLoopTime = currentTime;
 
 		if (deltaTime * timeStep < MAX_PHYSICS_TIME) {
-			if (hasPhysics)
+			if (hasPhysics) {
 				updateBodies(deltaTime, bodies);
-
-			if (camera.atIndex != -1) {
-				GravityBody& body = bodies[camera.atIndex];
-				// spin the subject body around
-				if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-					body.orientation.y += deltaTime;
-				if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-					body.orientation.y -= deltaTime;
-				if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-					body.orientation.x += deltaTime;
-				if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-					body.orientation.x -= deltaTime;
 			}
-			if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
-				bodies[bodies.size() - 1].velocity = glm::dvec3(0.0);
 
 			// data is ready for renderer to access
 			physicsUpdated = true;

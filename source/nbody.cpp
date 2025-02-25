@@ -2,57 +2,6 @@
 #include "render.h"
 #include "controls.h"
 
-// Set this function as a callback to update projection matrix during window resizing
-void static window_size_callback(GLFWwindow* window, int width, int height) {
-	glViewport(0, 0, width, height);  // Set the OpenGL viewport to match the new window size
-	windowWidth = width;
-	windowHeight = height;
-	updateProjectionMatrix();  // Update the projection matrix with the new size
-}
-
-void static initWindow() {
-	if (!glfwInit()) {
-		fprintf(stderr, "GLFW initialization failed!\n");
-		exit(EXIT_FAILURE);
-	}
-
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	glfwWindowHint(GLFW_DEPTH_BITS, 32);
-
-	// multisample buffer for antialiasing
-	glfwWindowHint(GLFW_SAMPLES, 4);
-
-	window = glfwCreateWindow(windowWidth, windowHeight, "N-Body Simulator", nullptr, nullptr);
-
-	if (!window) {
-		fprintf(stderr, "Window creation failed!\n");
-		glfwTerminate();
-		exit(EXIT_FAILURE);
-	}
-
-	GLFWmonitor* screen = glfwGetPrimaryMonitor();
-	const GLFWvidmode* mode = glfwGetVideoMode(screen);
-	glfwSetWindowPos(window, (mode->width - windowWidth) / 2, (mode->height - windowHeight) / 2);
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
-		glViewport(0, 0, width, height);
-		});
-
-	glewInit();
-
-	// GLFW interrupt response
-	glfwSetCursorPosCallback(window, mouse_callback);
-	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSetScrollCallback(window, scroll_callback);
-	glfwSetWindowSizeCallback(window, window_size_callback);
-	glfwSetKeyCallback(window, key_callback);
-
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-}
-
 void static MessageCallback(GLenum source,
 	GLenum type,
 	GLuint id,
@@ -68,11 +17,9 @@ void static MessageCallback(GLenum source,
 }
 
 void buildObjects() {
-	size_t cube, sphere;
-
 	// initialize models
-	cube = Model::Cube();
-	sphere = Model::Icosphere(5);
+	size_t cube = Model::Cube();
+	size_t sphere = Model::Icosphere(5);
 
 	GravityBodyBuilder builder;
 
@@ -89,6 +36,32 @@ void buildObjects() {
 	builder.setSurface(bodies[3].surface);
 	builder.addTrail(glm::vec3(0.9f, 0.9f, 0.9f), 3); // orbital trail w.r.t earth
 	bodies.push_back(builder.get());
+
+	std::vector<GLfloat> ringCut = {
+		-1.0f, 0.0f, 0.0f,
+		-0.87f, 0.5f, 0.0f,
+		-0.5f, 0.87f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.5f, 0.87f, 0.0f,
+		0.87f, 0.5f, 0.0f,
+		1.0f, 0.0f, 0.0f,
+		0.87f, -0.5f, 0.0f,
+		0.5f, -0.87f, 0.0f,
+		0.0f, -1.0f, 0.0f,
+		-0.5f, -0.87f, 0.0f,
+		-0.87f, -0.5f, 0.0f
+	};
+	size_t ring = Model::Ring(ringCut, 300, 50.0f, 3.0f);
+
+	// ring
+	Orbit ringOrbit(&bodies[0], 4.0e1, 0.2f, 0.0f, 0.0f, 0.05f, 0.0f);
+	builder.init(1e24f, ringOrbit, 0);
+	builder.setModel(ring);
+	builder.setRadius(15.0f);
+	builder.setOrientation(glm::dvec3(0.40910518 + ringOrbit.inclination, 0, 0));
+	builder.addTrail(glm::vec3(0.0f, 1.0f, 0.0f)); // orbital trail w.r.t earth
+	bodies.push_back(builder.get());
+
 
 	builder.buildSky(cube);
 
@@ -114,8 +87,6 @@ int main() {
 
 	initCamera();
 
-	setXY(window);
-
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -126,7 +97,7 @@ int main() {
 	initStarBuffer();
 
 	// entering work area: split program into physics and rendering threads
-	std::thread physicsThread(physicsLoop, window);
+	std::thread physicsThread(physicsLoop);
 	renderLoop();
 
 	// exiting work area: close threads and clean up data
