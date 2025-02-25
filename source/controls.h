@@ -7,6 +7,7 @@
 extern bool overheadLock, showWelcomeMenu, showLockIndexMenu, showSettingsMenu;
 extern int windowWidth, windowHeight;
 extern double lastX, lastY, deltaTime;
+extern float FOV;
 
 void setXY(GLFWwindow* window);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);

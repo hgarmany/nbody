@@ -10,6 +10,9 @@ bool showWelcomeMenu = true;
 bool showLockIndexMenu = true;
 bool showSettingsMenu = false;
 
+const float defaultFOV = glm::radians(45.0f);
+float FOV = defaultFOV;
+
 glm::float64 pitch, yaw, roll;
 
 int windowWidth = 900, windowHeight = 600;
@@ -115,25 +118,25 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 
 		switch (mousePXAction) {
 		case YAW_LEFT:
-			yaw += xOffset;
+			yaw += xOffset * FOV / defaultFOV;
 			break;
 		case YAW_RIGHT:
-			yaw -= xOffset;
+			yaw -= xOffset * FOV / defaultFOV;
 			break;
 		case ROLL_LEFT:
-			roll -= xOffset;
+			roll -= xOffset * FOV / defaultFOV;
 			break;
 		case ROLL_RIGHT:
-			roll += xOffset;
+			roll += xOffset * FOV / defaultFOV;
 			break;
 		}
 
 		switch (mousePYAction) {
 		case PITCH_UP:
-			pitch += yOffset;
+			pitch += yOffset * FOV / defaultFOV;
 			break;
 		case PITCH_DOWN:
-			pitch -= yOffset;
+			pitch -= yOffset * FOV / defaultFOV;
 			break;
 		}
 
@@ -144,9 +147,34 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	lastY = ypos;
 }
 
+void adjustTargetRotation(int key, int action) {
+	GravityBody& body = bodies[camera.atIndex];
+
+	if (action == GLFW_PRESS) {
+		if (key == keyMap[TARGET_ROTATE_UP])
+			targetRotation |= 0x01;
+		if (key == keyMap[TARGET_ROTATE_DOWN])
+			targetRotation |= 0x02;
+		if (key == keyMap[TARGET_ROTATE_LEFT])
+			targetRotation |= 0x04;
+		if (key == keyMap[TARGET_ROTATE_RIGHT])
+			targetRotation |= 0x08;
+	}
+	else if (action == GLFW_RELEASE) {
+		if (key == keyMap[TARGET_ROTATE_UP])
+			targetRotation &= 0xFE;
+		if (key == keyMap[TARGET_ROTATE_DOWN])
+			targetRotation &= 0xFD;
+		if (key == keyMap[TARGET_ROTATE_LEFT])
+			targetRotation &= 0xFB;
+		if (key == keyMap[TARGET_ROTATE_RIGHT])
+			targetRotation &= 0xF7;
+	}
+}
+
 // process key presses and releases
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (action != GLFW_PRESS) {
+	if (action == GLFW_PRESS) {
 		if (keyActions.find(key) != keyActions.end())
 			keyActions[key]();
 
@@ -161,31 +189,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			}
 		}
 
-		if (camera.atIndex != -1) {
-			GravityBody& body = bodies[camera.atIndex];
-			// spin the subject body around
-			if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-				body.orientation.y += deltaTime;
-			if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-				body.orientation.y -= deltaTime;
-			if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-				body.orientation.x += deltaTime;
-			if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-				body.orientation.x -= deltaTime;
-		}
-
-		if (key == keyMap[TARGET_ROTATE_UP])
-			targetRotation = action == GLFW_PRESS ? targetRotation | 0x01 : targetRotation & 0xFE;
-		if (key == keyMap[TARGET_ROTATE_DOWN])
-			targetRotation = action == GLFW_PRESS ? targetRotation | 0x02 : targetRotation & 0xFD;
-		if (key == keyMap[TARGET_ROTATE_LEFT])
-			targetRotation = action == GLFW_PRESS ? targetRotation | 0x04 : targetRotation & 0xFB;
-		if (key == keyMap[TARGET_ROTATE_RIGHT])
-			targetRotation = action == GLFW_PRESS ? targetRotation | 0x08 : targetRotation & 0xF7;
-
-		if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+		if (key == GLFW_KEY_Z)
 			bodies[bodies.size() - 1].velocity = glm::dvec3(0.0);
 	}
+
+	if (camera.atIndex != -1)
+		adjustTargetRotation(key, action);
 }
 
 void rollCamera(Camera& camera, GLFWwindow* window) {
@@ -237,16 +246,12 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 // mouse scroll processing
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-	if (yoffset > 0) {
-		if (camera.mode == LOCK_CAM)
-			camera.lockDistanceFactor *= 0.9f; // zoom in
-		else
-			cameraSpeed *= 0.8f; // decrease speed when scrolling up
-	}
-	else {
-		if (camera.mode == LOCK_CAM)
-			camera.lockDistanceFactor *= 1.1f; // zoom out
-		else
-			cameraSpeed *= 1.2f; // increase speed when scrolling down
-	}
+	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+		FOV = yoffset > 0 ? 0.9f * FOV : fmin(1.1f * FOV, pi);
+	else if (camera.mode == LOCK_CAM)
+		camera.lockDistanceFactor *= yoffset > 0 ? 0.9f : 1.1f;
+	else
+		cameraSpeed *= yoffset > 0 ? 0.8f : 1.2f;
+
+	printf("%.3f\n", FOV);
 }

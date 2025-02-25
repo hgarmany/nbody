@@ -4,6 +4,8 @@
 std::vector<GravityBody> bodies;
 std::vector<GravityBody> frameBodies;
 
+uint8_t targetRotation = 0;
+
 Camera camera;
 Camera pipCam(
 	glm::dvec3(0, 1e6, 0),
@@ -18,7 +20,6 @@ bool physicsUpdated = false;
 double elapsedTime = 0.0;
 double timeStep = 1e5;
 size_t maxTrailLength = 2500;
-uint8_t targetRotation = 0;
 
 void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -90,13 +91,6 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 	for (GravityBody& body : bodies) {
 		body.velocity += body.acceleration * halfDt;
 		body.orientation += body.rotVelocity * timeStep * deltaTime;
-	}
-
-	// user input target rotation
-	if (targetRotation) {
-		printf("rotation\n");
-		bodies[camera.atIndex].orientation.y += ((targetRotation & 0x01) - ((targetRotation & 0x02) >> 1)) * deltaTime;
-		bodies[camera.atIndex].orientation.x += (((targetRotation & 0x04) >> 2) - ((targetRotation & 0x08) >> 3)) * deltaTime;
 	}
 
 	elapsedTime += deltaTime * timeStep;
@@ -194,6 +188,11 @@ void physicsLoop() {
 		if (deltaTime * timeStep < MAX_PHYSICS_TIME) {
 			if (hasPhysics) {
 				updateBodies(deltaTime, bodies);
+			}
+
+			if (targetRotation) {
+				bodies[camera.atIndex].orientation.x += ((targetRotation & 0x01) - ((targetRotation & 0x02) >> 1)) * deltaTime;
+				bodies[camera.atIndex].orientation.y += (((targetRotation & 0x04) >> 2) - ((targetRotation & 0x08) >> 3)) * deltaTime;
 			}
 
 			// data is ready for renderer to access
