@@ -605,7 +605,7 @@ size_t Model::Icosphere(int subdivisions) {
 	return modelLibrary.size() - 1;
 }
 
-size_t Model::Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, float majorRadius, float minorRadius) {
+size_t Model::Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, float fullness) {
 	size_t n = crossSection.size() / 3;
 
 	std::vector<GLfloat> vertices;
@@ -617,11 +617,11 @@ size_t Model::Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, floa
 		 crossSectionCopy = crossSection;
 		 for (size_t i = 0; i < crossSection.size(); i += 3) {
 			 float theta = pi * (2 * angleFraction) / subdivisions;
-			 crossSectionCopy[i] = crossSectionCopy[i] * minorRadius + majorRadius;
-			 crossSectionCopy[i + 1] *= minorRadius;
+			 float r0 = (crossSectionCopy[i] - 0.5f) * fullness + 1;
+			 crossSectionCopy[i + 1] *= fullness;
 
-			 crossSectionCopy[i + 2] = crossSectionCopy[i] * sinf(theta);
-			 crossSectionCopy[i] *= cosf(theta);
+			 crossSectionCopy[i + 2] = r0 * sinf(theta);
+			 crossSectionCopy[i] = r0 * cosf(theta);
 		 }
 
 		 vertices.insert(vertices.end(), crossSectionCopy.begin(), crossSectionCopy.end());

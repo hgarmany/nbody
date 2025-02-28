@@ -3,7 +3,7 @@
 #include "model.h"
 #include "shader.h"
 #include "surface.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include <gtc/matrix_transform.hpp>
 #include <memory>
 
 class Entity {

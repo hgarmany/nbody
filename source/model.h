@@ -3,7 +3,7 @@
 #include <GL/glew.h>
 #include <vector>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
+#include <glm.hpp>
 #include "util.h"
 
 class Model {
@@ -29,7 +29,7 @@ public:
 	static size_t Cube();
 	static size_t Sphere();
 	static size_t Icosphere(int subdivisions = 0);
-	static size_t Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, float majorRadius, float minorRadius = 1.0f);
+	static size_t Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, float fullness);
 
 
 	Model(const Model&) = delete;

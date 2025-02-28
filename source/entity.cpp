@@ -1,5 +1,5 @@
 ﻿#include "entity.h"
-#include <glm/gtc/quaternion.hpp>
+#include <gtc/quaternion.hpp>
 
 Entity Entity::skybox;
 

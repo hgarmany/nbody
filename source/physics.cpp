@@ -53,53 +53,10 @@ void mergeNearBodies() {
 	}
 }
 
-glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter) {
-	glm::dvec3 gravitation = bodies[parent].position - bodies[orbiter].position;
-	double distance = glm::length(gravitation);
-	double magnitude = sqrt(G * bodies[parent].mass / distance);
-	return magnitude * glm::normalize(glm::cross(glm::dvec3(0, 1, 0), gravitation));
-}
-
-glm::dvec3 gravitationalForce(const GravityBody& a, const GravityBody& b) {
-	glm::dvec3 direction = b.position - a.position;
-	glm::float64 distance = glm::length(direction);
-	glm::float64 forceMagnitude = (G * a.mass * b.mass) / (distance * distance);
-	return forceMagnitude * glm::normalize(direction);
-}
-
-void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
-	glm::float64 fullDt = timeStep * deltaTime;
-	glm::float64 halfDt = fullDt * 0.5;
-
-	// Update velocities and positions by half-step, clear accelerations
-	for (GravityBody& body : bodies) {
-		body.velocity += body.acceleration * halfDt;
-		body.position += body.velocity * fullDt;
-		body.acceleration = glm::dvec3(0.0);
-	}
-
-	// Compute forces between particles
-	for (size_t i = 0; i < bodies.size(); ++i) {
-		for (size_t j = i + 1; j < bodies.size(); ++j) {
-			glm::dvec3 force = gravitationalForce(bodies[i], bodies[j]);
-			bodies[i].acceleration += force / bodies[i].mass;
-			bodies[j].acceleration -= force / bodies[j].mass;
-		}
-	}
-
-	// Update velocities to full-step using the new accelerations
-	for (GravityBody& body : bodies) {
-		body.velocity += body.acceleration * halfDt;
-		body.orientation += body.rotVelocity * timeStep * deltaTime;
-	}
-
-	elapsedTime += deltaTime * timeStep;
-}
-
 glm::dmat4 relativeRotationalMatrix(std::vector<GravityBody>& list, size_t subjectIndex, size_t referenceIndex, bool detranslate) {
 	GravityBody* subject = &list[subjectIndex];
 	GravityBody* reference = &list[referenceIndex];
-	
+
 	// develops a rotational matrix to transform subject coordinates to a reference frame 
 	// in which the reference body and its parent both lie along the x axis
 	glm::dmat4 rotate(1.0);
@@ -120,6 +77,72 @@ glm::dmat4 relativeRotationalMatrix(std::vector<GravityBody>& list, size_t subje
 			rotate = glm::rotate(rotate, angle, n);
 	}
 	return rotate;
+}
+
+glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter) {
+	glm::dvec3 gravitation = bodies[parent].position - bodies[orbiter].position;
+	double distance = glm::length(gravitation);
+	double magnitude = sqrt(G * bodies[parent].mass / distance);
+	return magnitude * glm::normalize(glm::cross(glm::dvec3(0, 1, 0), gravitation));
+}
+
+void gravitationalForce(GravityBody& a, GravityBody& b) {
+	glm::dvec3 displacement = b.position - a.position;
+	glm::float64 distance = glm::length(displacement);
+	glm::dvec3 direction = glm::normalize(displacement);
+	glm::dvec3 fieldLine = (G * direction) / (distance * distance);
+	glm::dvec3 accelerationA = b.mass * fieldLine;
+
+	// oblate perturbations on a by b, using MacCullagh's formula
+	if (b.gravityType == OBLATE_SPHERE) {
+		glm::dvec3 axisOfRotation = b.getRotationQuat() * glm::dvec3(0.0, 1.0, 0.0);
+		double sinTheta = glm::dot(direction, axisOfRotation);
+		double radiusOverDistance = b.radius / distance;
+		accelerationA *= 1 - 3.0 * b.j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
+	}
+
+	glm::dvec3 accelerationB = -a.mass * fieldLine;
+
+	// oblate perturbations on b by a, using MacCullagh's formula
+	if (a.gravityType == OBLATE_SPHERE) {
+		glm::dvec3 axisOfRotation = a.getRotationQuat() * glm::dvec3(0.0, 1.0, 0.0);
+		double sinTheta = glm::dot(direction, axisOfRotation);
+		double radiusOverDistance = a.radius / distance;
+		accelerationB *= 1 - 3.0 * a.j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
+	}
+
+	a.acceleration += accelerationA;
+	b.acceleration += accelerationB;
+}
+
+void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
+	glm::float64 fullDt = timeStep * deltaTime;
+	glm::float64 halfDt = fullDt * 0.5;
+
+	// Update velocities and positions by half-step, clear accelerations
+	for (GravityBody& body : bodies) {
+		body.velocity += body.acceleration * halfDt;
+		body.position += body.velocity * fullDt;
+		body.acceleration = glm::dvec3(0.0);
+
+		if (body.j2 == 0.0 && body.gravityType == OBLATE_SPHERE)
+			body.initJ2();
+	}
+
+	// Compute forces between particles
+	for (size_t i = 0; i < bodies.size(); ++i) {
+		for (size_t j = i + 1; j < bodies.size(); ++j) {
+			gravitationalForce(bodies[i], bodies[j]);
+		}
+	}
+
+	// Update velocities to full-step using the new accelerations
+	for (GravityBody& body : bodies) {
+		body.velocity += body.acceleration * halfDt;
+		body.orientation += body.rotVelocity * timeStep * deltaTime;
+	}
+
+	elapsedTime += deltaTime * timeStep;
 }
 
 void updateTrails(std::vector<GravityBody>& bodies) {

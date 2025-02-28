@@ -69,6 +69,8 @@ public:
 			body->radius = radius;
 			body->scale = glm::dvec3(radius);
 			body->oblateness = oblateness;
+			if (oblateness != 0.0f)
+				body->gravityType = OBLATE_SPHERE;
 		}
 	}
 

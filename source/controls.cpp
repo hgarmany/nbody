@@ -1,7 +1,7 @@
 #include "controls.h"
 #include "physics.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <glm.hpp>
+#include <gtc/quaternion.hpp>
 
 bool firstMouse = true;
 bool cursorDisabled = true;

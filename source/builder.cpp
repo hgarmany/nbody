@@ -78,7 +78,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	Orbit earthOrbit(&bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, -0.043163f);
 	init(5.9722e24, earthOrbit, 0);
 	setModel(modelIndex);
-	setRadius(6.371f, 3.35e-3f);
+	setRadius(6.378137f, 3.35e-3f);
 	spin = 2 * pi / 86400;
 	setSpin(spin);
 	setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
