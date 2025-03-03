@@ -99,6 +99,11 @@ void gravitationalForce(GravityBody& a, GravityBody& b) {
 		double sinTheta = glm::dot(direction, axisOfRotation);
 		double radiusOverDistance = b.radius / distance;
 		accelerationA *= 1 - 3.0 * b.j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
+
+
+		// torque
+		double cosTheta = cos(asin(sinTheta));
+		double torqueMagnitude = 3.0 * G * a.mass * b.mass * b.j2 * radiusOverDistance * radiusOverDistance / b.radius * sinTheta * cosTheta;
 	}
 
 	glm::dvec3 accelerationB = -a.mass * fieldLine;
@@ -109,6 +114,11 @@ void gravitationalForce(GravityBody& a, GravityBody& b) {
 		double sinTheta = glm::dot(direction, axisOfRotation);
 		double radiusOverDistance = a.radius / distance;
 		accelerationB *= 1 - 3.0 * a.j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
+
+
+		// torque
+		double cosTheta = cos(asin(sinTheta));
+		double torqueMagnitude = 3.0 * G * a.mass * b.mass * a.j2 * radiusOverDistance * radiusOverDistance / a.radius * sinTheta * cosTheta;
 	}
 
 	a.acceleration += accelerationA;
@@ -122,11 +132,19 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 	// Update velocities and positions by half-step, clear accelerations
 	for (GravityBody& body : bodies) {
 		body.velocity += body.acceleration * halfDt;
-		body.position += body.velocity * fullDt;
-		body.acceleration = glm::dvec3(0.0);
+		//body.rotVelocity += body.torque / body.momentOfInertia * halfDt;
 
-		if (body.j2 == 0.0 && body.gravityType == OBLATE_SPHERE)
-			body.initJ2();
+		body.position += body.velocity * fullDt;
+		body.orientation += body.rotVelocity * fullDt;
+
+		body.acceleration = body.torque = glm::dvec3(0.0);
+
+		if (body.gravityType == OBLATE_SPHERE) {
+			if (body.j2 == 0.0)
+				body.initJ2();
+			if (body.momentOfInertia == glm::dvec3(0.0))
+				body.initI();
+		}
 	}
 
 	// Compute forces between particles
@@ -139,10 +157,10 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 	// Update velocities to full-step using the new accelerations
 	for (GravityBody& body : bodies) {
 		body.velocity += body.acceleration * halfDt;
-		body.orientation += body.rotVelocity * timeStep * deltaTime;
+		//body.rotVelocity += body.torque / body.momentOfInertia * halfDt;
 	}
 
-	elapsedTime += deltaTime * timeStep;
+	elapsedTime += fullDt;
 }
 
 void updateTrails(std::vector<GravityBody>& bodies) {

@@ -12,22 +12,16 @@ public:
 
 	glm::dmat4 modelMatrix;
 	Surface surface;
-	glm::dvec3 position;
-	glm::dvec3 prevPosition;
-	glm::dvec3 velocity;
-	glm::dvec3 rotVelocity;
-	glm::dvec3 acceleration;
-	glm::dvec3 orientation;
+	glm::dvec3 position, prevPosition, velocity, acceleration;
+	glm::dvec3 orientation, rotVelocity;
 	glm::dvec3 scale;
 	size_t modelIndex;
 
 	Entity() {
 		modelMatrix = glm::dmat4(1.0f);
 
-		position = glm::dvec3(0.0f);
-		prevPosition = position;
-		velocity = glm::dvec3(0.0f);
-		rotVelocity = glm::dvec3(0.0f);
+		position = prevPosition = glm::dvec3(0.0f);
+		velocity = rotVelocity =glm::dvec3(0.0f);
 		acceleration = glm::dvec3(0.0f);
 		orientation = glm::dvec3(0.0f, 0.0f, 0.0f);
 		scale = glm::dvec3(1.0f);

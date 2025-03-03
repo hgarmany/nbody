@@ -7,11 +7,7 @@ GravityBody::GravityBody(glm::float64 mass) {
 	gravityType = POINT;
 	radius = j2 = 0.0;
 	oblateness = 0.0f;
-	position = glm::dvec3(0.0);
-	velocity = glm::dvec3(0.0);
-	acceleration = glm::dvec3(0.0);
-
-	modelMatrix = glm::dmat4(0.0);
+	momentOfInertia = torque = glm::dvec3(0.0);
 }
 
 GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
@@ -21,8 +17,7 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 	gravityType = POINT;
 	radius = j2 = 0.0;
 	oblateness = 0.0f;
-	acceleration = glm::dvec3(0.0);
-	modelMatrix = glm::dmat4(0.0);
+	momentOfInertia = torque = glm::dvec3(0.0);
 
 	// equations sourced from René Schwarz "Keplerian Orbit Elements -> Cartesian State Vectors"
 	float eccentricAnomaly = rootSolver<float>(orbit.func, orbit.derivFunc, 0.0f);
@@ -71,6 +66,13 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 
 void GravityBody::initJ2() {
 	j2 = (2 * oblateness - ((radius * radius * radius * rotVelocity.y * rotVelocity.y) / (G * mass))) / 3.0;
+}
+
+void GravityBody::initI() {
+	glm::float64 polarRadius = radius * (1 - oblateness);
+	glm::float64 equatorialMoment = 0.2 * mass * (radius * radius + polarRadius * polarRadius);
+	glm::float64 polarMoment = 0.4 * mass * radius * radius;
+	momentOfInertia = glm::dvec3(equatorialMoment, polarMoment, equatorialMoment);
 }
 
 void GravityBody::draw(Shader& shader, uint8_t mode) {

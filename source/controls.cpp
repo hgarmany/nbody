@@ -247,7 +247,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 // mouse scroll processing
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-		FOV = yoffset > 0 ? 0.9f * FOV : fmin(1.1f * FOV, pi);
+		FOV = yoffset > 0 ? 0.9f * FOV : fmin(1.1f * FOV, pi_f);
 	else if (camera.mode == LOCK_CAM)
 		camera.lockDistanceFactor *= yoffset > 0 ? 0.9f : 1.1f;
 	else

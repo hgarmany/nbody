@@ -473,8 +473,8 @@ size_t Model::Icosphere(int subdivisions) {
 		normalize(tempVer[i], tempVer[i + 1], tempVer[i + 2]);
 
 		// assign longitude and latitude for texture mapping
-		tempTex.push_back(0.5f - atan2(tempVer[i], -tempVer[i + 2]) / (2.0f * pi));
-		tempTex.push_back(0.5f - asin(tempVer[i + 1]) / pi);
+		tempTex.push_back(0.5f - atan2(tempVer[i], -tempVer[i + 2]) / (2.0f * pi_f));
+		tempTex.push_back(0.5f - asin(tempVer[i + 1]) / pi_f);
 	}
 
 	// normals all point directly away from the origin, and so are identical to the vertex information
@@ -616,7 +616,7 @@ size_t Model::Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, floa
 	for (size_t angleFraction = 0; angleFraction < subdivisions; angleFraction++) {
 		 crossSectionCopy = crossSection;
 		 for (size_t i = 0; i < crossSection.size(); i += 3) {
-			 float theta = pi * (2 * angleFraction) / subdivisions;
+			 float theta = pi_f * (2 * angleFraction) / subdivisions;
 			 float r0 = (crossSectionCopy[i] - 0.5f) * fullness + 1;
 			 crossSectionCopy[i + 1] *= fullness;
 

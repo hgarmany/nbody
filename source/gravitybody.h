@@ -68,15 +68,17 @@ public:
 
 class GravityBody : public Entity {
 public:
-	glm::float64 mass, radius, j2;
-	float oblateness;
+	glm::dvec3 momentOfInertia, torque;
 	Trail* trail;
 	size_t parentIndex;
+	glm::float64 mass, radius, j2;
+	float oblateness;
 	gravType gravityType;
 
 	GravityBody(glm::float64 mass = DBL_MIN);
 	GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex);
 
 	void initJ2();
+	void initI();
 	void draw(Shader& shader, uint8_t mode);
 };

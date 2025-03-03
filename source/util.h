@@ -2,7 +2,8 @@
 
 #include <functional>
 
-const float pi = 3.141592653589793f;
+const double pi = 3.141592653589793;
+const float pi_f = 3.141592653589793f;
 const float MIN_FRAME_TIME = 1.0f / 60.0f;
 
 // units : space in Mm, time in s

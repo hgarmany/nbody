@@ -127,7 +127,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	init(5.9722e24, moonOrbit, 3);
 	setModel(modelIndex);
 	setRadius(1.7374f, 1.2e-3f);
-	spin = 2 * pi / 86400 / 27.321;
+	spin = 2 * pi / 86400 / 27.321661;
 	setSpin(spin);
 	setOrientation(glm::dvec3(0.02691996 + moonOrbit.inclination, 0, 0));
 	setSurface(moon);
