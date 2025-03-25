@@ -392,7 +392,7 @@ void render(Camera& camera) {
 			// axis
 			if (testObjectVisibility(i, camera)) {
 				glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
-				axisOfRotation = body.getRotationQuat() * axisOfRotation;
+				axisOfRotation = body.rotQuat * axisOfRotation;
 
 				trailVertices.push_back(body.position + 2 * body.radius * axisOfRotation);
 				trailVertices.push_back(body.position - 2 * body.radius * axisOfRotation);
@@ -637,6 +637,7 @@ void drawGUI(ImGuiIO& io) {
 			ImGuiWindowFlags_NoTitleBar);
 
 		ImGui::Text("Elapsed time: %.1f yrs", elapsedTime / 86400 / 365.25);
+		//ImGui::Text("Earth angular velocity: %.3e\t%.3e\t%.3e", bodies[3].rotVelocity.x, bodies[3].rotVelocity.y, bodies[3].rotVelocity.z);
 
 		ImGui::End();
 	}

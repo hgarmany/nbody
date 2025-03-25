@@ -5,6 +5,7 @@
 
 enum gravType : uint8_t {
 	POINT,
+	CUBOID,
 	OBLATE_SPHERE,
 	RING
 };
@@ -68,7 +69,7 @@ public:
 
 class GravityBody : public Entity {
 public:
-	glm::dvec3 momentOfInertia, torque;
+	glm::dvec3 inertialTensor, angularMomentum, torque;
 	Trail* trail;
 	size_t parentIndex;
 	glm::float64 mass, radius, j2;
@@ -80,5 +81,8 @@ public:
 
 	void initJ2();
 	void initI();
+	
+	glm::dvec3 getRotVelocity();
+	
 	void draw(Shader& shader, uint8_t mode);
 };

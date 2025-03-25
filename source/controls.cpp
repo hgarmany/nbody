@@ -252,6 +252,4 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 		camera.lockDistanceFactor *= yoffset > 0 ? 0.9f : 1.1f;
 	else
 		cameraSpeed *= yoffset > 0 ? 0.8f : 1.2f;
-
-	printf("%.3f\n", FOV);
 }

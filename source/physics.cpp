@@ -93,32 +93,34 @@ void gravitationalForce(GravityBody& a, GravityBody& b) {
 	glm::dvec3 fieldLine = (G * direction) / (distance * distance);
 	glm::dvec3 accelerationA = b.mass * fieldLine;
 
-	// oblate perturbations on a by b, using MacCullagh's formula
 	if (b.gravityType == OBLATE_SPHERE) {
-		glm::dvec3 axisOfRotation = b.getRotationQuat() * glm::dvec3(0.0, 1.0, 0.0);
+		// oblate perturbations on a by b, using MacCullagh's formula
+		glm::dvec3 axisOfRotation = b.rotQuat * glm::dvec3(0.0, 1.0, 0.0);
 		double sinTheta = glm::dot(direction, axisOfRotation);
 		double radiusOverDistance = b.radius / distance;
 		accelerationA *= 1 - 3.0 * b.j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
 
-
 		// torque
-		double cosTheta = cos(asin(sinTheta));
+		double cosTheta = sqrt(1 - sinTheta * sinTheta);
 		double torqueMagnitude = 3.0 * G * a.mass * b.mass * b.j2 * radiusOverDistance * radiusOverDistance / b.radius * sinTheta * cosTheta;
+
+		b.torque += torqueMagnitude * glm::normalize(glm::cross(direction, axisOfRotation));
 	}
 
 	glm::dvec3 accelerationB = -a.mass * fieldLine;
 
-	// oblate perturbations on b by a, using MacCullagh's formula
 	if (a.gravityType == OBLATE_SPHERE) {
-		glm::dvec3 axisOfRotation = a.getRotationQuat() * glm::dvec3(0.0, 1.0, 0.0);
+		// oblate perturbations on b by a, using MacCullagh's formula
+		glm::dvec3 axisOfRotation = a.rotQuat * glm::dvec3(0.0, 1.0, 0.0);
 		double sinTheta = glm::dot(direction, axisOfRotation);
 		double radiusOverDistance = a.radius / distance;
 		accelerationB *= 1 - 3.0 * a.j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
 
-
 		// torque
-		double cosTheta = cos(asin(sinTheta));
+		double cosTheta = sqrt(1 - sinTheta * sinTheta);
 		double torqueMagnitude = 3.0 * G * a.mass * b.mass * a.j2 * radiusOverDistance * radiusOverDistance / a.radius * sinTheta * cosTheta;
+
+		a.torque += torqueMagnitude * glm::normalize(glm::cross(axisOfRotation, direction));
 	}
 
 	a.acceleration += accelerationA;
@@ -132,19 +134,27 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 	// Update velocities and positions by half-step, clear accelerations
 	for (GravityBody& body : bodies) {
 		body.velocity += body.acceleration * halfDt;
-		//body.rotVelocity += body.torque / body.momentOfInertia * halfDt;
+		body.angularMomentum += body.torque * halfDt;
 
 		body.position += body.velocity * fullDt;
-		body.orientation += body.rotVelocity * fullDt;
+		
+		if (body.inertialTensor != glm::dvec3(0.0)) {
+			// blackedout01: 3D rigid body physics
+			glm::dmat3 inertiaMatrix(
+				1.0 / body.inertialTensor.x, 0.0, 0.0,
+				0.0, 1.0 / body.inertialTensor.y, 0.0,
+				0.0, 0.0, 1.0 / body.inertialTensor.z
+			);
+
+			glm::dmat3 rotMatrix = glm::mat3_cast(body.rotQuat);
+			glm::dvec3 omega = rotMatrix * inertiaMatrix * glm::transpose(rotMatrix) * body.angularMomentum;
+			glm::dquat omegaQuat(0.0, omega.x, omega.y, omega.z);
+
+			body.rotQuat += fullDt * omegaQuat * body.rotQuat;
+			body.rotQuat = glm::normalize(body.rotQuat);
+		}
 
 		body.acceleration = body.torque = glm::dvec3(0.0);
-
-		if (body.gravityType == OBLATE_SPHERE) {
-			if (body.j2 == 0.0)
-				body.initJ2();
-			if (body.momentOfInertia == glm::dvec3(0.0))
-				body.initI();
-		}
 	}
 
 	// Compute forces between particles
@@ -157,7 +167,7 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies) {
 	// Update velocities to full-step using the new accelerations
 	for (GravityBody& body : bodies) {
 		body.velocity += body.acceleration * halfDt;
-		//body.rotVelocity += body.torque / body.momentOfInertia * halfDt;
+		body.angularMomentum += body.torque * halfDt;
 	}
 
 	elapsedTime += fullDt;
@@ -172,33 +182,31 @@ void updateTrails(std::vector<GravityBody>& bodies) {
 
 			// trail relative to parent body
 			if (parentIndex != -1) {
-				if (trail->size() > 1) {
-					bool doLoop = true;
+				bool doLoop = true;
 
-					// remove any trail points behind the body's position
-					while (doLoop &&
-						parentIndex == body.parentIndex) {
-						glm::dvec3 a = glm::normalize(trail->front());
-						glm::dvec3 b = glm::normalize(trail->back());
+				// remove any trail points behind the body's position
+				while (doLoop && trail->size() > 1 &&
+					parentIndex == body.parentIndex) {
+					glm::dvec3 a = glm::normalize(trail->front());
+					glm::dvec3 b = glm::normalize(trail->back());
 
-						glm::dvec3 n = glm::cross(b, body.position - bodies[parentIndex].position);
+					glm::dvec3 n = glm::cross(b, body.position - bodies[parentIndex].position);
 
-						// get angle between the last point added to the trail and the start of the trail
-						double angle = acos(glm::dot(a, b));
-						if (glm::dot(n, glm::cross(a, b)) < 0)
-							angle *= -1;
+					// get angle between the last point added to the trail and the start of the trail
+					double angle = acos(glm::dot(a, b));
+					if (glm::dot(n, glm::cross(a, b)) < 0)
+						angle *= -1;
 
-						// get angle between the body's current position and the start of the trail
-						b = glm::normalize(body.position - bodies[parentIndex].position);
-						double angle2 = acos(glm::dot(a, b));
-						if (glm::dot(n, glm::cross(a, b)) < 0)
-							angle2 *= -1;
+					// get angle between the body's current position and the start of the trail
+					b = glm::normalize(body.position - bodies[parentIndex].position);
+					double angle2 = acos(glm::dot(a, b));
+					if (glm::dot(n, glm::cross(a, b)) < 0)
+						angle2 *= -1;
 
-						if (angle < 0 && angle2 >= 0 || std::isnan(angle) || std::isnan(angle2))
-							trail->pop();
-						else
-							doLoop = false;
-					}
+					if (angle < 0 && angle2 >= 0 || std::isnan(angle) || std::isnan(angle2))
+						trail->pop();
+					else
+						doLoop = false;
 				}
 
 				glm::dvec3 relativePosition =
@@ -231,10 +239,10 @@ void physicsLoop() {
 				updateBodies(deltaTime, bodies);
 			}
 
-			if (targetRotation) {
+			/*if (targetRotation) {
 				bodies[camera.atIndex].orientation.x += ((targetRotation & 0x01) - ((targetRotation & 0x02) >> 1)) * deltaTime;
 				bodies[camera.atIndex].orientation.y += (((targetRotation & 0x04) >> 2) - ((targetRotation & 0x08) >> 3)) * deltaTime;
-			}
+			}*/
 
 			// data is ready for renderer to access
 			physicsUpdated = true;

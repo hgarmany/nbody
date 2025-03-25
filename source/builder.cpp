@@ -45,8 +45,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRadius(695.7f, 5e-5f);
 	double spin = 2 * pi / 86400 / 27;
 	setMotion(glm::dvec3(0.0), glm::dvec3(0.0));
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.126, 0, 0));
+	setRotation(glm::dvec3(0.126, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(sun);
 	bodies.push_back(get());
 
@@ -56,8 +55,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(2.4397f, 9e-4f);
 	spin = 2 * pi / 86400 / 58.6;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.0005934119 + mercuryOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.0005934119 + mercuryOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(mercury);
 	addTrail(glm::vec3(1.0f, 0.0f, 1.0f));
 	bodies.push_back(get());
@@ -68,8 +66,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(6.0518f);
 	spin = 2 * pi / 86400 / 243;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.04607669 + venusOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.04607669 + venusOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(venus);
 	addTrail(glm::vec3(1.0f, 1.0f, 0.0f));
 	bodies.push_back(get());
@@ -80,20 +77,18 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(6.378137f, 3.35e-3f);
 	spin = 2 * pi / 86400;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(earth);
 	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
 	bodies.push_back(get());
-
+	
 	// mars
 	Orbit marsOrbit(&bodies[0], 2.27956e5, 0.09339410f, -0.4178952f, 0.8649771f, 0.03228321f, -0.5265543f);
 	init(6.4169e23, marsOrbit, 0);
 	setModel(modelIndex);
 	setRadius(3.3895f, 6.48e-3f);
 	spin = 2 * pi / 86400 / 1.029;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.4396484 + marsOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.4396484 + marsOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(mars);
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
 	bodies.push_back(get());
@@ -104,8 +99,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(69.911f, 0.06487f);
 	spin = 2 * pi / 86400 / 0.415;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.05462881 + jupiterOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.05462881 + jupiterOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(jupiter);
 	addTrail(glm::vec3(1.0f, 0.5f, 0.0f));
 	bodies.push_back(get());
@@ -116,8 +110,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(60.268f, 0.09796f);
 	spin = 2 * pi / 86400 / 0.444;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.4665265 + saturnOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.4665265 + saturnOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(saturn);
 	addTrail(glm::vec3(0.7f, 0.8f, 0.1f));
 	bodies.push_back(get());
@@ -128,11 +121,9 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(1.7374f, 1.2e-3f);
 	spin = 2 * pi / 86400 / 27.321661;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.02691996 + moonOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.02691996 + moonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(moon);
 	addTrail();
-
 	bodies.push_back(get());
 
 	// io
@@ -141,8 +132,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(1.8215f);
 	spin = 2 * pi / 86400 / 1.769;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.0006981317 + ioOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.0006981317 + ioOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(io);
 	addTrail(glm::vec3(1.0f, 0.8f, 0.2f));
 	bodies.push_back(get());
@@ -153,8 +143,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(1.5608f);
 	spin = 2 * pi / 86400 / 3.551;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.001745329 + europaOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.001745329 + europaOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(europa);
 	addTrail(glm::vec3(0.4f, 0.7f, 0.7f));
 	bodies.push_back(get());
@@ -165,8 +154,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(2.634f);
 	spin = 2 * pi / 86400 / 7.155;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0.005759587 + ganymedeOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0.005759587 + ganymedeOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(ganymede);
 	addTrail(glm::vec3(0.0f, 0.4f, 0.8f));
 	bodies.push_back(get());
@@ -177,8 +165,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(2.410f);
 	spin = 2 * pi / 86400 / 16.689;
-	setSpin(spin);
-	setOrientation(glm::dvec3(0 + callistoOrbit.inclination, 0, 0));
+	setRotation(glm::dvec3(0 + callistoOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(callisto);
 	addTrail(glm::vec3(0.6f, 0.6f, 0.8f));
 	bodies.push_back(get());

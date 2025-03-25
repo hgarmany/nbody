@@ -31,8 +31,7 @@ void buildObjects() {
 	builder.setModel(sphere);
 	builder.setRadius(6.371f);
 	double spin = 2 * pi / 86400;
-	builder.setSpin(spin);
-	builder.setOrientation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0));
+	builder.setRotation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	builder.setSurface(bodies[3].surface);
 	builder.addTrail(glm::vec3(0.9f, 0.9f, 0.9f), 3); // orbital trail w.r.t earth
 	bodies.push_back(builder.get());
@@ -72,17 +71,17 @@ void buildObjects() {
 	builder.setModel(ring);
 	builder.setRadius(1.0f);
 	builder.setSurface(Surface(glm::vec4(0.1f, 1.0f, 0.2f, 0.0f), glm::vec3(0.9f, 0.2f, 0.05f)));
-	builder.setOrientation(glm::dvec3(0.40910518 + ringOrbit.inclination, 0, 0));
+	builder.setRotation(glm::dvec3(0.40910518 + ringOrbit.inclination, 0, 0));
 	builder.addTrail(glm::vec3(0.0f, 1.0f, 0.0f)); // orbital trail w.r.t earth
 	bodies.push_back(builder.get());
-
-	builder.buildSky(cube);
 
 	// camera
 	builder.init();
 	builder.setMotion(bodies[0].position + glm::dvec3(0, 0, bodies[0].radius * 5), bodies[0].velocity * 1.1);
 	builder.addTrail(glm::vec3(1.0f, 1.0f, 0.0f));
 	bodies.push_back(builder.get());
+
+	builder.buildSky(cube);
 }
 
 int main() {

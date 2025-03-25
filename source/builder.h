@@ -19,21 +19,32 @@ public:
 
 	void setMotion(
 		glm::dvec3 position,
-		glm::dvec3 velocity = glm::dvec3(0.0f),
-		glm::dvec3 rotVelocity = glm::dvec3(0.0f)
+		glm::dvec3 velocity = glm::dvec3(0.0f)
 	) {
 		entity->position = position;
 		entity->prevPosition = position;
 		entity->velocity = velocity;
-		entity->rotVelocity = rotVelocity;
 	}
 
-	void setOrientation(glm::dvec3 orientation) {
-		entity->orientation = orientation;
+	void setRotation(
+		glm::dvec3 orientation,
+		glm::dvec3 rotVelocity = glm::dvec3(0.0f)
+	) {
+		entity->rotQuat = glm::dquat(orientation);
+		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
+			body->initI();
+			if (body->gravityType == OBLATE_SPHERE)
+				body->initJ2();
+			body->angularMomentum = body->rotQuat * (body->inertialTensor * rotVelocity);
+		}
 	}
 
 	void setScale(glm::dvec3 scale) {
 		entity->scale = scale;
+		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
+			body->gravityType = CUBOID;
+			body->radius = std::min({ scale.x, scale.y, scale.z });
+		}
 	}
 
 	void setSurface(Surface surface) {
@@ -69,14 +80,9 @@ public:
 			body->radius = radius;
 			body->scale = glm::dvec3(radius);
 			body->oblateness = oblateness;
-			if (oblateness != 0.0f)
+			if (oblateness != 0.0f) {
 				body->gravityType = OBLATE_SPHERE;
-		}
-	}
-
-	void setSpin(double spin) {
-		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
-			body->rotVelocity.y = spin;
+			}
 		}
 	}
 

@@ -21,7 +21,7 @@ enum camera_mode : uint8_t {
 	GRAV_CAM
 };
 
-inline void printMatrix(glm::mat4& A) {
+inline void printMatrix(const glm::dmat4& A) {
 	printf("%.2e\t%.2e\t%.2e\t%.2e\n"
 		"%.2e\t%.2e\t%.2e\t%.2e\n"
 		"%.2e\t%.2e\t%.2e\t%.2e\n"
