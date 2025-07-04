@@ -11,6 +11,7 @@ public:
 	glm::dvec3 position, velocity;
 	glm::dvec3 direction, up, right;
 	size_t eyeIndex, atIndex;
+	float FOV;
 	float lockDistanceFactor;
 	camera_mode mode;
 
@@ -26,6 +27,7 @@ public:
 		velocity = glm::dvec3(0.0);
 		right = glm::cross(direction, up);
 		eyeIndex = atIndex = -1;
+		FOV = glm::radians(45.0f);
 		lockDistanceFactor = 5.0f;
 		mode = FREE_CAM;
 	}

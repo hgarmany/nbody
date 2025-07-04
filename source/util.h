@@ -21,6 +21,17 @@ enum camera_mode : uint8_t {
 	GRAV_CAM
 };
 
+enum astronomical_data : uint8_t {
+	SEMI_MAJOR_AXIS,
+	ECCENTRICITY,
+	ARGUMENT_PERIAPSIS,
+	ASCENDING_NODE_LONGITUDE,
+	INCLINATION,
+	MEAN_ANOMALY,
+	MASS,
+	RADIUS
+};
+
 inline void printMatrix(const glm::dmat4& A) {
 	printf("%.2e\t%.2e\t%.2e\t%.2e\n"
 		"%.2e\t%.2e\t%.2e\t%.2e\n"

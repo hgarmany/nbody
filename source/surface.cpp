@@ -31,16 +31,15 @@ GLuint Surface::importTexture(const char* path, bool useInterpolation) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-		if (useInterpolation) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		}
-		else {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		}
-
 		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+
+		glGenerateMipmap(GL_TEXTURE_2D);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+
+		if (useInterpolation)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		else
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	}
 	else {
 		fprintf(stderr, "%s:\tcould not find texture\n", path);
@@ -84,22 +83,13 @@ Surface Surface::CubeMap(std::vector<std::string> faces) {
 }
 
 void Surface::setNormal(const char* path) {
-	/*normalFuture = std::async(std::launch::async, [path]() {
-		return importTexture(path);
-	});*/
 	normal = importTexture(path);
 }
 
 GLuint Surface::getTexture() {
-	/*if (texture == 0 && assetManager && assetManager->textureFuture.valid()) {
-		texture = assetManager->textureFuture.get();
-	}*/
 	return texture;
 }
 
 GLuint Surface::getNormalMap() {
-	/*if (normal == 0 && assetManager && assetManager->normalFuture.valid()) {
-		normal = assetManager->normalFuture.get();
-	}*/
 	return normal;
 }

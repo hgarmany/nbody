@@ -17,7 +17,7 @@ public:
 
 	Surface(const char* path, glm::vec4 material = glm::vec4(0.0f), glm::vec3 color = glm::vec3(1.0f));
 	
-	static GLuint importTexture(const char* path, bool useInterpolation = false);
+	static GLuint importTexture(const char* path, bool useInterpolation = true);
 	static Surface CubeMap(std::vector<std::string> faces);
 
 	void setNormal(const char* path);

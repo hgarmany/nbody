@@ -11,7 +11,6 @@ bool showLockIndexMenu = true;
 bool showSettingsMenu = false;
 
 const float defaultFOV = glm::radians(45.0f);
-float FOV = defaultFOV;
 
 glm::float64 pitch, yaw, roll;
 
@@ -95,6 +94,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 			camera.mode = LOCK_CAM;
 			break;
 		}
+		camera.FOV = defaultFOV;
 	}},
 	{keyMap[SWAP_CAMERAS], []() { std::swap(camera, pipCam); }},
 	{keyMap[SNAP_TO_TARGET], []() {
@@ -118,25 +118,25 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 
 		switch (mousePXAction) {
 		case YAW_LEFT:
-			yaw += xOffset * FOV / defaultFOV;
+			yaw += xOffset * camera.FOV / defaultFOV;
 			break;
 		case YAW_RIGHT:
-			yaw -= xOffset * FOV / defaultFOV;
+			yaw -= xOffset * camera.FOV / defaultFOV;
 			break;
 		case ROLL_LEFT:
-			roll -= xOffset * FOV / defaultFOV;
+			roll -= xOffset * camera.FOV / defaultFOV;
 			break;
 		case ROLL_RIGHT:
-			roll += xOffset * FOV / defaultFOV;
+			roll += xOffset * camera.FOV / defaultFOV;
 			break;
 		}
 
 		switch (mousePYAction) {
 		case PITCH_UP:
-			pitch += yOffset * FOV / defaultFOV;
+			pitch += yOffset * camera.FOV / defaultFOV;
 			break;
 		case PITCH_DOWN:
-			pitch -= yOffset * FOV / defaultFOV;
+			pitch -= yOffset * camera.FOV / defaultFOV;
 			break;
 		}
 
@@ -247,7 +247,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 // mouse scroll processing
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-		FOV = yoffset > 0 ? 0.9f * FOV : fmin(1.1f * FOV, pi_f);
+		camera.FOV = yoffset > 0 ? 0.9f * camera.FOV : fmin(1.1f * camera.FOV, pi_f);
 	else if (camera.mode == LOCK_CAM)
 		camera.lockDistanceFactor *= yoffset > 0 ? 0.9f : 1.1f;
 	else

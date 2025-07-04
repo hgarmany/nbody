@@ -12,7 +12,7 @@ public:
 	static Entity skybox;
 
 	glm::dmat4 modelMatrix;
-	glm::dquat rotQuat;
+	glm::dquat rotQuat; // quaternion representation of orientation
 	Surface surface;
 	glm::dvec3 position, prevPosition, velocity, acceleration;
 	glm::dvec3 scale;
@@ -29,6 +29,7 @@ public:
 		modelIndex = -1;
 	}
 
+	//glm::dvec3 updateRotationMatrix();
 	glm::dmat4 updateMatrix();
 	void draw(Shader& shader, uint8_t mode);
 

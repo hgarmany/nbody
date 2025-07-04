@@ -66,9 +66,11 @@ Shader initStandardShader() {
 
 		void main() {
 			FragPos = vec3(model * vec4(aPos.x, aPos.y * (1.0 - oblateness), aPos.z, 1.0));
-			Normal = mat3(transpose(inverse(model))) * aNormal;
-			Tangent = mat3(transpose(inverse(model))) * aTan;
-			Bitangent = mat3(transpose(inverse(model))) * aBitan;
+
+			Tangent = normalize(vec3(model * vec4(aTan, 0.0)));
+			Bitangent = normalize(vec3(model * vec4(aBitan, 0.0)));
+			Normal = normalize(vec3(model * vec4(aNormal, 0.0)));
+
 			TexCoords = aTex;
 			gl_Position = vec4(projection * view * vec4(FragPos, 1.0));
 			float depth = 2.0 * log(1.0 + gl_Position.w) / log(1e9 + 1.0) - 1.0;

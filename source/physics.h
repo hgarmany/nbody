@@ -10,7 +10,7 @@ extern Camera camera, pipCam;
 extern std::atomic<bool> running;
 extern std::condition_variable physicsCV;
 extern bool hasPhysics, physicsUpdated, doTrails;
-extern double elapsedTime, timeStep;
+extern double elapsedTime, timeStep, frameTime;
 extern uint8_t targetRotation;
 
 extern std::vector<GravityBody> bodies, frameBodies;

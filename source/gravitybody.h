@@ -69,7 +69,7 @@ public:
 
 class GravityBody : public Entity {
 public:
-	glm::dvec3 inertialTensor, angularMomentum, torque;
+	glm::dvec3 momentOfInertia, angularMomentum, torque;
 	Trail* trail;
 	size_t parentIndex;
 	glm::float64 mass, radius, j2;
@@ -83,6 +83,11 @@ public:
 	void initI();
 	
 	glm::dvec3 getRotVelocity();
+	void constantRotationOverTime(glm::float64 time);
 	
 	void draw(Shader& shader, uint8_t mode);
+
+	void rotateRK4(double dt);
+private:
+	glm::dquat rotateDeriv(const glm::dquat& orientation, const glm::dvec3& momentum);
 };

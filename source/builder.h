@@ -33,9 +33,9 @@ public:
 		entity->rotQuat = glm::dquat(orientation);
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
 			body->initI();
+			body->angularMomentum = body->rotQuat * (body->momentOfInertia * rotVelocity);
 			if (body->gravityType == OBLATE_SPHERE)
 				body->initJ2();
-			body->angularMomentum = body->rotQuat * (body->inertialTensor * rotVelocity);
 		}
 	}
 
@@ -68,6 +68,8 @@ public:
 	}
 
 	void init(double mass = DBL_MIN) {
+		if (entity)
+			entity.reset();
 		entity = std::make_shared<GravityBody>(mass);
 	}
 

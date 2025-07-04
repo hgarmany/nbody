@@ -31,14 +31,14 @@ void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
 }
 
 // update projection matrix based on window size
-void updateProjectionMatrix(GLFWwindow* window) {
+void updateProjectionMatrix(Camera& camera, GLFWwindow* window) {
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
 
 	if (height == 0) height = 1; // prevent division by zero
 
 	float aspect = (float)width / (float)height;
-	projection = glm::perspective(FOV * height / screenSize, aspect, 1e-1f, 1e9f);
+	projection = glm::perspective(camera.FOV * height / screenSize, aspect, 1e-1f, 1e9f);
 }
 
 void initWindow() {
@@ -91,7 +91,7 @@ void static window_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);  // Set the OpenGL viewport to match the new window size
 	windowWidth = width;
 	windowHeight = height;
-	updateProjectionMatrix(window);  // Update the projection matrix with the new size
+	updateProjectionMatrix(camera, window);  // Update the projection matrix with the new size
 }
 
 void initCamera() {
@@ -110,7 +110,7 @@ void initCamera() {
 	GLFWmonitor* screen = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(screen);
 	screenSize = mode->height;
-	projection = glm::perspective(FOV * windowHeight / screenSize, (float)windowWidth / windowHeight, 1e-1f, 1e9f);
+	projection = glm::perspective(camera.FOV * windowHeight / screenSize, (float)windowWidth / windowHeight, 1e-1f, 1e9f);
 }
 
 // setup for the simple display quad
@@ -253,7 +253,7 @@ bool testObjectVisibility(size_t index, Camera& camera) {
 		return false;
 	double longestPossibleAxisLength = glm::length(frameBodies[index].scale);
 	double angularSize = 2.0 * atan2(longestPossibleAxisLength, glm::distance(camera.position, frameBodies[index].position));
-	if (windowHeight * angularSize / FOV < 0.5) {
+	if (windowHeight * angularSize / camera.FOV < 0.5) {
 		return false;
 	}
 	return true;
@@ -328,7 +328,7 @@ void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 
 	// update camera
 	glm::mat4 view = glm::mat4(glm::mat3(camera.viewMatrix()));
-	updateProjectionMatrix(window);
+	updateProjectionMatrix(camera, window);
 
 	setPV(spriteShader, projection, view);
 	glUniform2iv(spriteShader.uniforms[WINDOW_SIZE], 1, &windowSize[0]);
@@ -495,13 +495,13 @@ void renderPIP() {
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, pipWidth, pipHeight);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, pipDepthBuffer);
 
+	updateProjectionMatrix(pipCam, window);
 	render(pipCam);
 	renderBillboards(pipCam, glm::ivec2(pipSize * windowWidth, pipSize * windowHeight));
 
 	// return to screen buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, windowWidth, windowHeight);
-	updateProjectionMatrix(window);
 
 	// render frame buffer contents to the screen
 	glUseProgram(frameShader.index);
@@ -637,6 +637,7 @@ void drawGUI(ImGuiIO& io) {
 			ImGuiWindowFlags_NoTitleBar);
 
 		ImGui::Text("Elapsed time: %.1f yrs", elapsedTime / 86400 / 365.25);
+		ImGui::Text("Time Step: %.3f s", frameTime);
 		//ImGui::Text("Earth angular velocity: %.3e\t%.3e\t%.3e", bodies[3].rotVelocity.x, bodies[3].rotVelocity.y, bodies[3].rotVelocity.z);
 
 		ImGui::End();
@@ -732,54 +733,59 @@ void renderLoop() {
 	style->Colors[ImGuiCol_Text] = ImVec4(0.00f, 1.00f, 1.00f, 1.00f);
 	style->Colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 
-	while (!glfwWindowShouldClose(window)) {
-		if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
-			// capture physics results when they are ready
-			{
-				std::unique_lock<std::mutex> lock(physicsMutex);
+	try {
+		while (!glfwWindowShouldClose(window)) {
+			if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
+				// capture physics results when they are ready
+				{
+					std::unique_lock<std::mutex> lock(physicsMutex);
 
-				physicsCV.wait(lock, [] { return physicsUpdated; });
-				physicsUpdated = false;
+					physicsCV.wait(lock, [] { return physicsUpdated; });
+					physicsUpdated = false;
 
-				if (!doTrails && trailVertices.size() > 0) {
-					for (GravityBody body : bodies) {
-						if (body.trail) {
-							body.trail->queue.clear();
+					if (!doTrails && trailVertices.size() > 0) {
+						for (GravityBody body : bodies) {
+							if (body.trail) {
+								body.trail->queue.clear();
+							}
 						}
+						trailVertices = std::vector<glm::vec3>();
+						trailAlphas = std::vector<float>();
 					}
-					trailVertices = std::vector<glm::vec3>();
-					trailAlphas = std::vector<float>();
-				}
-				frameBodies = bodies;
+					frameBodies = bodies;
 
-				lock.unlock();
+					lock.unlock();
+				}
+
+				deltaTime = currentTime - lastFrameTime;
+				updateCamera(camera);
+				updateCamera(pipCam);
+
+				if (hasPhysics && doTrails)
+					updateTrails(frameBodies);
+				render(camera);
+
+				//if (hasPhysics && camera.mode == GRAV_CAM) {
+				//	// clean up future trail
+				//	for (int i = 0; i < cameraFutureTrailLength; i++)
+				//		bodies[bodies.size() - 1].trail->pop_back();
+				//}
+
+				renderPIP();
+				renderBillboards(camera, glm::ivec2(windowWidth, windowHeight));
+
+				lastFrameTime = currentTime;
+
+				drawGUI(io);
+
+				glfwSwapBuffers(window);
+				glfwPollEvents();
 			}
 
-			deltaTime = currentTime - lastFrameTime;
-			updateCamera(camera);
-			updateCamera(pipCam);
-
-			if (hasPhysics && doTrails)
-				updateTrails(frameBodies);
-			render(camera);
-
-			//if (hasPhysics && camera.mode == GRAV_CAM) {
-			//	// clean up future trail
-			//	for (int i = 0; i < cameraFutureTrailLength; i++)
-			//		bodies[bodies.size() - 1].trail->pop_back();
-			//}
-
-			renderPIP();
-			renderBillboards(camera, glm::ivec2(windowWidth, windowHeight));
-
-			lastFrameTime = currentTime;
-
-			drawGUI(io);
-
-			glfwSwapBuffers(window);
-			glfwPollEvents();
+			currentTime = glfwGetTime();
 		}
-
-		currentTime = glfwGetTime();
+	}
+	catch (std::exception e) {
+		printf("Render err\n");
 	}
 }
