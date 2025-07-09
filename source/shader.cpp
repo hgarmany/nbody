@@ -58,6 +58,7 @@ Shader initStandardShader() {
 		out vec3 Tangent;
 		out vec3 Bitangent;
 		out vec2 TexCoords;
+		out float logDepth;
 
 		uniform mat4 model;
 		uniform mat4 view;
@@ -66,15 +67,21 @@ Shader initStandardShader() {
 
 		void main() {
 			FragPos = vec3(model * vec4(aPos.x, aPos.y * (1.0 - oblateness), aPos.z, 1.0));
-
+			vec4 ViewPos = view * vec4(FragPos, 1.0);
+			
 			Tangent = normalize(vec3(model * vec4(aTan, 0.0)));
 			Bitangent = normalize(vec3(model * vec4(aBitan, 0.0)));
 			Normal = normalize(vec3(model * vec4(aNormal, 0.0)));
 
 			TexCoords = aTex;
-			gl_Position = vec4(projection * view * vec4(FragPos, 1.0));
-			float depth = 2.0 * log(1.0 + gl_Position.w) / log(1e9 + 1.0) - 1.0;
-			gl_Position.z = depth * gl_Position.w;
+			gl_Position = vec4(projection * ViewPos);
+			
+			if (ViewPos.z < 0) {
+				logDepth = log(1.0 - ViewPos.z) / log(1e9 + 1.0);
+			}
+			else {
+				logDepth = 0.0;
+			}
 		}
 	)";
 
@@ -85,6 +92,7 @@ Shader initStandardShader() {
 		in vec3 Tangent;
 		in vec3 Bitangent;
 		in vec2 TexCoords;
+		in float logDepth;
 
 		out vec4 FragColor;
 
@@ -99,6 +107,8 @@ Shader initStandardShader() {
 		uniform int usesNormalMap;
 
 		void main() {
+			gl_FragDepth = logDepth;
+
 			vec4 texColor = texture(textureMap, TexCoords);
 
 			// Ambient

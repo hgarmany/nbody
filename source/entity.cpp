@@ -1,16 +1,20 @@
 ﻿#include "entity.h"
 
-Entity Entity::skybox;
+std::shared_ptr<Entity> Entity::skybox;
 
-glm::dmat4 Entity::updateMatrix() {
-	modelMatrix = glm::translate(glm::dmat4(1.0), position);
+std::vector<std::shared_ptr<Entity>> entities;
+
+glm::dmat4 Entity::updateMatrix(bool doScale) {
+	modelMatrix = glm::dmat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, position);
 	modelMatrix *= glm::dmat4(rotQuat);
-	modelMatrix = glm::scale(modelMatrix, scale);
+	if (doScale)
+		modelMatrix = glm::scale(modelMatrix, scale);
 
 	return modelMatrix;
 }
 
-void Entity::draw(Shader& shader, uint8_t mode) {
+void Entity::draw(Shader& shader, uint8_t mode, glm::dmat4 rootMatrix) {
 	if (modelIndex == -1)
 		return; // cannot draw an object with no model
 
@@ -52,11 +56,11 @@ void Entity::draw(Shader& shader, uint8_t mode) {
 	if (mode != MODE_CUBEMAP) {
 		glm::dvec3 temp = position;
 		position = glm::dvec3(0.0);
-		glm::mat4 M = updateMatrix();
+		glm::mat4 M = updateMatrix() * rootMatrix;
 		glUniformMatrix4fv(shader.M, 1, GL_FALSE, &M[0][0]);
 		position = temp;
 	}
-
+	
 	glDrawElements(GL_TRIANGLES, Model::modelLibrary[modelIndex].numFaces, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }

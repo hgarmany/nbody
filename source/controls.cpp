@@ -86,8 +86,8 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 			camera.mode = GRAV_CAM;
 			if (camera.atIndex == -1)
 				camera.atIndex = 0;
-			bodies[bodies.size() - 1].position = camera.position;
-			bodies[bodies.size() - 1].velocity = orbitalVelocity(camera.atIndex, bodies.size() - 1);
+			bodies[bodies.size() - 1]->position = camera.position;
+			bodies[bodies.size() - 1]->velocity = orbitalVelocity(camera.atIndex, bodies.size() - 1);
 			camera.eyeIndex = bodies.size() - 1;
 			break;
 		case GRAV_CAM:
@@ -148,8 +148,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 }
 
 void adjustTargetRotation(int key, int action) {
-	GravityBody& body = bodies[camera.atIndex];
-
 	if (action == GLFW_PRESS) {
 		if (key == keyMap[TARGET_ROTATE_UP])
 			targetRotation |= 0x01;
@@ -184,13 +182,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				camera.eyeIndex = camera.atIndex = key - GLFW_KEY_0;
 			}
 			else if (camera.mode == GRAV_CAM) {
-				bodies[camera.eyeIndex].trail->parentIndex = key - GLFW_KEY_0;
-				bodies[camera.eyeIndex].parentIndex = key - GLFW_KEY_0;
+				bodies[camera.eyeIndex]->trail->parentIndex = key - GLFW_KEY_0;
+				bodies[camera.eyeIndex]->parentIndex = key - GLFW_KEY_0;
 			}
 		}
 
 		if (key == GLFW_KEY_Z)
-			bodies[bodies.size() - 1].velocity = glm::dvec3(0.0);
+			bodies[bodies.size() - 1]->velocity = glm::dvec3(0.0);
 	}
 
 	if (camera.atIndex != -1)

@@ -50,7 +50,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 	
 	// mercury
-	Orbit mercuryOrbit(&bodies[0], 5.790923e4, 0.20563593f, 1.351894f, 0.843531f, 0.1222599f, 2.207044f);
+	Orbit mercuryOrbit(bodies[0], 5.790923e4, 0.20563593f, 1.351894f, 0.843531f, 0.1222599f, 2.207044f);
 	init(3.301e23, mercuryOrbit, 0);
 	setModel(modelIndex);
 	setRadius(2.4397f, 9e-4f);
@@ -61,7 +61,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 
 	// venus
-	Orbit venusOrbit(&bodies[0], 1.082095e5, 0.00677672f, 2.296896f, 3.176134f, 0.05924827f, -0.4618222f);
+	Orbit venusOrbit(bodies[0], 1.082095e5, 0.00677672f, 2.296896f, 3.176134f, 0.05924827f, -0.4618222f);
 	init(4.867e24, venusOrbit, 0);
 	setModel(modelIndex);
 	setRadius(6.0518f);
@@ -72,7 +72,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 	
 	// earth
-	Orbit earthOrbit(&bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, -0.043163f);
+	Orbit earthOrbit(bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, -0.043163f);
 	init(5.9722e24, earthOrbit, 0);
 	setModel(modelIndex);
 	setRadius(6.378137f, 3.35e-3f);
@@ -83,7 +83,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 	
 	// mars
-	Orbit marsOrbit(&bodies[0], 2.27956e5, 0.09339410f, -0.4178952f, 0.8649771f, 0.03228321f, -0.5265543f);
+	Orbit marsOrbit(bodies[0], 2.27956e5, 0.09339410f, -0.4178952f, 0.8649771f, 0.03228321f, -0.5265543f);
 	init(6.4169e23, marsOrbit, 0);
 	setModel(modelIndex);
 	setRadius(3.3895f, 6.48e-3f);
@@ -94,7 +94,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 
 	// jupiter
-	Orbit jupiterOrbit(&bodies[0], 7.783408e5, 0.04838624f, 0.2570605f, 1.753601f, 0.02276602f, -1.412069f);
+	Orbit jupiterOrbit(bodies[0], 7.783408e5, 0.04838624f, 0.2570605f, 1.753601f, 0.02276602f, -1.412069f);
 	init(1.898e27, jupiterOrbit, 0);
 	setModel(modelIndex);
 	setRadius(69.911f, 0.06487f);
@@ -105,7 +105,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 
 	// saturn
-	Orbit saturnOrbit(&bodies[0], 1.432041e6, 0.05415060f, 1.613242f, 0.8716928f, 0.04336201f, -2.726251f);
+	Orbit saturnOrbit(bodies[0], 1.432041e6, 0.05415060f, 1.613242f, 0.8716928f, 0.04336201f, -2.726251f);
 	init(5.6832e26, saturnOrbit, 0);
 	setModel(modelIndex);
 	setRadius(60.268f, 0.09796f);
@@ -114,9 +114,21 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setSurface(saturn);
 	addTrail(glm::vec3(0.7f, 0.8f, 0.1f));
 	bodies.push_back(get());
+
+	// saturn rings
+	size_t square = Model::Square();
+	glm::vec4 ambMat(1.0f, 0.0f, 0.0f, 0.0f);
+	Surface saturn_rings = Surface("../../assets/sol/saturn_rings.png", ambMat);
+	EntityBuilder eBuilder;
+	eBuilder.init();
+	eBuilder.setModel(square);
+	eBuilder.setScale(glm::dvec3(139.826));
+	eBuilder.setSurface(saturn_rings);
+	eBuilder.setRoot(bodies[6]);
+	entities.push_back(eBuilder.get());
 	
 	// moon
-	Orbit moonOrbit(&bodies[3], 384.399, 0.0549f, 0.0f, 0.0f, 0.08979719f, 0.0f);
+	Orbit moonOrbit(bodies[3], 384.399, 0.0549f, 0.0f, 0.0f, 0.08979719f, 0.0f);
 	init(7.346e22, moonOrbit, 3);
 	setModel(modelIndex);
 	setRadius(1.7381f, 1.24e-3f);
@@ -125,10 +137,10 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setSurface(moon);
 	addTrail();
 	bodies.push_back(get());
-	bodies[bodies.size()].j2 = 2.034e-4; // non-standard j2
+	bodies[bodies.size() - 1]->j2 = 2.034e-4; // non-standard j2
 	
 	// io
-	Orbit ioOrbit(&bodies[5], 421.7, 0.0041f, 1.705798f, 5.462549f, 8.726646e-4f, -5.305661f);
+	Orbit ioOrbit(bodies[5], 421.7, 0.0041f, 1.705798f, 5.462549f, 8.726646e-4f, -5.305661f);
 	init(8.932e22, ioOrbit, 5);
 	setModel(modelIndex);
 	setRadius(1.8215f);
@@ -139,7 +151,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 
 	// europa
-	Orbit europaOrbit(&bodies[5], 670.9, 0.0101f, 2.714196f, 3.078359f, 0.008203047f, -1.400138f);
+	Orbit europaOrbit(bodies[5], 670.9, 0.0101f, 2.714196f, 3.078359f, 0.008203047f, -1.400138f);
 	init(4.800e22, europaOrbit, 5);
 	setModel(modelIndex);
 	setRadius(1.5608f);
@@ -150,7 +162,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 
 	// ganymede
-	Orbit ganymedeOrbit(&bodies[5], 1070, 0.0015f, 3.295723f, 2.09162f, 0.003403392f, -3.271899f);
+	Orbit ganymedeOrbit(bodies[5], 1070, 0.0015f, 3.295723f, 2.09162f, 0.003403392f, -3.271899f);
 	init(1.4819e23, ganymedeOrbit, 5);
 	setModel(modelIndex);
 	setRadius(2.634f);
@@ -161,7 +173,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	bodies.push_back(get());
 
 	// callisto
-	Orbit callistoOrbit(&bodies[5], 1883, 0.007f, 5.863137f, 5.642039f, 0.004904375f, 2.720846f);
+	Orbit callistoOrbit(bodies[5], 1883, 0.007f, 5.863137f, 5.642039f, 0.004904375f, 2.720846f);
 	init(1.0759e23, callistoOrbit, 5);
 	setModel(modelIndex);
 	setRadius(2.410f);

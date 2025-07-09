@@ -79,7 +79,7 @@ void buildObjects() {
 
 	// camera
 	builder.init();
-	builder.setMotion(bodies[0].position + glm::dvec3(0, 0, bodies[0].radius * 5), bodies[0].velocity * 1.1);
+	builder.setMotion(bodies[0]->position + glm::dvec3(0, 0, bodies[0]->radius * 5), bodies[0]->velocity * 1.1);
 	builder.addTrail(glm::vec3(1.0f, 1.0f, 0.0f));
 	bodies.push_back(builder.get());
 
@@ -103,8 +103,9 @@ int main() {
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
 	initShaders();
 	initTrails();

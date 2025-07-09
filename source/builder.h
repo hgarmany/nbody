@@ -51,11 +51,13 @@ public:
 		entity->surface = surface;
 	}
 
-	Entity get() {
+	void setRoot(std::shared_ptr<Entity> root) {
+		entity->root = root;
+	}
+
+	std::shared_ptr<Entity> get() {
 		entity->updateMatrix();
-		Entity temp = *entity;
-		entity.reset();
-		return temp;
+		return entity;
 	}
 
 	void buildSky(size_t modelIndex);
@@ -97,14 +99,12 @@ public:
 		}
 	}
 
-	GravityBody get() {
+	std::shared_ptr<GravityBody> get() {
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
 			body->updateMatrix();
-			GravityBody temp = *body;
-			entity.reset();
-			return temp;
+			return body;
 		}
-		return GravityBody(0.0);
+		return nullptr;
 	}
 
 	void buildSolarSystem(size_t modelIndex);

@@ -25,6 +25,8 @@ Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
 std::vector<glm::vec3> trailVertices;
 std::vector<float> trailAlphas;
 
+std::vector<std::shared_ptr<Entity>> frameEntities;
+
 void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
 	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
 	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
@@ -95,12 +97,12 @@ void static window_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 void initCamera() {
-	glm::dvec3 direction = glm::normalize(bodies[bodies.size() - 1].position - bodies[0].position);
+	glm::dvec3 direction = glm::normalize(bodies[bodies.size() - 1]->position - bodies[0]->position);
 	glm::dvec3 right(1.0, 0.0, 0.0);
 	glm::dvec3 up = glm::cross(right, direction);
 
 	camera = Camera(
-		bodies[bodies.size() - 1].position,
+		bodies[bodies.size() - 1]->position,
 		direction, up
 	);
 	camera.mode = LOCK_CAM;
@@ -201,9 +203,9 @@ GLsizei updateStarPositions(Camera& camera) {
 
 	std::vector<glm::vec3> positions;
 	positions.reserve(frameBodies.size());
-	for (GravityBody& body : frameBodies) {
-		if (body.mass > 1e5f)
-			positions.push_back(body.position - camera.position);
+	for (std::shared_ptr<GravityBody> body : frameBodies) {
+		if (body->mass > 1e5f)
+			positions.push_back(body->position - camera.position);
 	}
 	
 	GLsizei size = (GLsizei)positions.size();
@@ -236,9 +238,9 @@ void cleanup() {
 	glDeleteRenderbuffers(1, &pipDepthBuffer);
 	glDeleteFramebuffers(1, &pipFBO);
 
-	for (GravityBody& body : bodies) {
-		GLuint tex = body.surface.getTexture();
-		GLuint nor = body.surface.getNormalMap();
+	for (std::shared_ptr<GravityBody> body : bodies) {
+		GLuint tex = body->surface.getTexture();
+		GLuint nor = body->surface.getNormalMap();
 		if (tex)
 			glDeleteTextures(1, &tex);
 		if (nor)
@@ -251,8 +253,8 @@ void cleanup() {
 bool testObjectVisibility(size_t index, Camera& camera) {
 	if (camera.mode == LOCK_CAM && index == camera.eyeIndex && index != camera.atIndex)
 		return false;
-	double longestPossibleAxisLength = glm::length(frameBodies[index].scale);
-	double angularSize = 2.0 * atan2(longestPossibleAxisLength, glm::distance(camera.position, frameBodies[index].position));
+	double longestPossibleAxisLength = glm::length(frameBodies[index]->scale);
+	double angularSize = 2.0 * atan2(longestPossibleAxisLength, glm::distance(camera.position, frameBodies[index]->position));
 	if (windowHeight * angularSize / camera.FOV < 0.5) {
 		return false;
 	}
@@ -271,32 +273,32 @@ void updateLockCam(Camera& eye) {
 		eye.atIndex = 0;
 
 	if (eye.atIndex != -1) {
-		GravityBody* body = &frameBodies[eye.atIndex];
+		std::shared_ptr<GravityBody> body = frameBodies[eye.atIndex];
 		if (eye.eyeIndex == -1 || eye.eyeIndex == eye.atIndex) {
 			if (body->parentIndex != -1 && overheadLock) {
-				eye.right = glm::normalize(body->position - frameBodies[body->parentIndex].position);
-				eye.up = glm::normalize(body->velocity - frameBodies[body->parentIndex].velocity);
+				eye.right = glm::normalize(body->position - frameBodies[body->parentIndex]->position);
+				eye.up = glm::normalize(body->velocity - frameBodies[body->parentIndex]->velocity);
 				eye.direction = glm::cross(eye.up, eye.right);
 				eye.right = glm::cross(eye.direction, eye.up);
 			}
 			eye.position = body->position - eye.lockDistanceFactor * body->radius * eye.direction;
 		}
 		else {
-			eye.watchFrom(body, &frameBodies[eye.eyeIndex]);
+			eye.watchFrom(body, frameBodies[eye.eyeIndex]);
 		}
 	}
 }
 
 void updateGravCam(Camera& eye) {
 	if (hasPhysics) {
-		GravityBody* camBody = &bodies[eye.eyeIndex];
+		std::shared_ptr<GravityBody> camBody = bodies[eye.eyeIndex];
 		eye.position = camBody->position;
 
 		if (&eye == &camera) {
 			flyCam(window);
 
-			bodies[eye.eyeIndex].position += eye.velocity * deltaTime;
-			bodies[eye.eyeIndex].velocity += eye.velocity;
+			bodies[eye.eyeIndex]->position += eye.velocity * deltaTime;
+			bodies[eye.eyeIndex]->velocity += eye.velocity;
 		}
 	}
 }
@@ -357,9 +359,21 @@ void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 void render(Camera& camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	glDepthFunc(GL_LEQUAL);
+	glUseProgram(skyboxShader.index);
+
+	// set camera
+	glm::mat4 view = camera.viewMatrix();
+	
+	glm::mat4 infiniteView = glm::mat4(glm::mat3(view));
+	setPV(skyboxShader, projection, infiniteView);
+
+	Entity::skybox->draw(skyboxShader, MODE_CUBEMAP);
+	glDepthFunc(GL_LESS);
+
 	// Activate the shader program
 	glUseProgram(shader.index);
-	glm::vec3 lightPos = frameBodies[0].position;
+	glm::vec3 lightPos = frameBodies[0]->position;
 	glm::vec3 lightColor = glm::vec3(1.0f);
 	glUniform3fv(shader.uniforms[LIGHT_POS], 1, &lightPos[0]);
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
@@ -367,16 +381,38 @@ void render(Camera& camera) {
 	// render gravity bodies
 	for (size_t i = 0; i < frameBodies.size(); i++) {
 		if (testObjectVisibility(i, camera)) {
-			glm::dvec3 bodyPos = frameBodies[i].position;
+			glm::dvec3 bodyPos = frameBodies[i]->position;
 			glm::mat4 relativeView = camera.viewMatrix(camera.position - bodyPos);
 			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(bodyPos))[0]);
 			setPV(shader, projection, relativeView);
-			frameBodies[i].draw(shader, MODE_TEX);
+			frameBodies[i]->draw(shader, MODE_TEX);
 		}
 	}
+	
+	// get entities in order of increasing proximity to the camera
+	std::map<double, std::shared_ptr<Entity>> orderedEntities;
+	for (size_t i = 0; i < frameEntities.size(); i++) {
+		glm::dvec3 wPos = frameEntities[i]->position + frameEntities[i]->root->position;
+		double distance = glm::length(wPos - camera.position);
+		orderedEntities[distance] = frameEntities[i];
+	}
 
-	glm::mat4 view = camera.viewMatrix();
+	for (auto it = orderedEntities.rbegin(); it != orderedEntities.rend(); it++) {
+		std::shared_ptr<Entity> entity = it->second;
+		glm::dvec3 bodyPos = entity->position + entity->root->position;
+		
+		glm::mat4 relativeView = camera.viewMatrix(camera.position - bodyPos);
+		glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(bodyPos))[0]);
+		setPV(shader, projection, relativeView);
 
+		glm::dmat4 rootMatrix = glm::dmat4(1.0);
+		if (entity->root) {
+			rootMatrix = glm::dmat4(entity->root->rotQuat);
+		}
+
+		entity->draw(shader, MODE_TEX, rootMatrix);
+	}
+	
 	// start trails
 	if (doTrails) {
 		// set camera
@@ -387,7 +423,7 @@ void render(Camera& camera) {
 		glUseProgram(trailShader.index);
 		setPV(trailShader, projection, view);
 		for (size_t i = 0; i < frameBodies.size(); i++) {
-			GravityBody& body = frameBodies[i];
+			GravityBody body = *frameBodies[i];
 
 			// axis
 			if (testObjectVisibility(i, camera)) {
@@ -429,7 +465,7 @@ void render(Camera& camera) {
 		GLint offset = 0;
 
 		for (size_t i = 0; i < frameBodies.size(); i++) {
-			GravityBody& body = frameBodies[i];
+			GravityBody body = *frameBodies[i];
 
 			glm::mat4 modelMatrix(1.0f);
 			glm::vec3 color(1.0f);
@@ -452,7 +488,7 @@ void render(Camera& camera) {
 				if (body.parentIndex != -1) {
 					glm::mat4 rotate = relativeRotationalMatrix(frameBodies, i, parentIndex, true);
 
-					modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex].position);
+					modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex]->position);
 					modelMatrix *= rotate;
 				}
 
@@ -468,16 +504,6 @@ void render(Camera& camera) {
 		glBindVertexArray(0); // Unbind VAO
 	}
 	// end trails
-
-	glDepthFunc(GL_LEQUAL);
-	glUseProgram(skyboxShader.index);
-
-	// set camera
-	view = glm::mat4(glm::mat3(view));
-	setPV(skyboxShader, projection, view);
-
-	Entity::skybox.draw(skyboxShader, MODE_CUBEMAP);
-	glDepthFunc(GL_LESS);
 }
 
 void renderPIP() {
@@ -611,7 +637,7 @@ void drawGUI(ImGuiIO& io) {
 		else if (camera.mode == GRAV_CAM) {
 			ImGui::Text("X: %11.3e\nY: %11.3e\nZ: %11.3e\nVel: %11.3e", 
 				camera.position.x, camera.position.y, camera.position.y,
-				glm::length(frameBodies[camera.eyeIndex].velocity));
+				glm::length(frameBodies[camera.eyeIndex]->velocity));
 		}
 
 		ImGui::Separator();
@@ -744,15 +770,26 @@ void renderLoop() {
 					physicsUpdated = false;
 
 					if (!doTrails && trailVertices.size() > 0) {
-						for (GravityBody body : bodies) {
-							if (body.trail) {
-								body.trail->queue.clear();
+						for (std::shared_ptr<GravityBody> body : bodies) {
+							if (body->trail) {
+								body->trail->queue.clear();
 							}
 						}
 						trailVertices = std::vector<glm::vec3>();
 						trailAlphas = std::vector<float>();
 					}
-					frameBodies = bodies;
+
+					frameBodies.clear();
+					frameEntities.clear();
+					for (std::shared_ptr<GravityBody> body : bodies) {
+						frameBodies.push_back(std::make_shared<GravityBody>(*body));
+						for (std::shared_ptr<Entity> entity : entities) {
+							if (entity->root == body) {
+								frameEntities.push_back(std::make_shared<Entity>(*entity));
+								frameEntities[frameEntities.size() - 1]->root = frameBodies[frameBodies.size() - 1];
+							}
+						}
+					}
 
 					lock.unlock();
 				}

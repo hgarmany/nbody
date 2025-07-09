@@ -13,7 +13,7 @@ enum gravType : uint8_t {
 class GravityBody;
 
 typedef struct orbit {
-	GravityBody* parent;
+	std::shared_ptr<GravityBody> parent;
 	double semiMajorAxis;
 	float eccentricity;
 	float argPeriapsis;
@@ -30,7 +30,7 @@ typedef struct orbit {
 	};
 
 	orbit(
-		GravityBody* parent,
+		std::shared_ptr<GravityBody> parent,
 		double semiMajorAxis,
 		float eccentricity,
 		float argPeriapsis,
@@ -83,11 +83,9 @@ public:
 	void initI();
 	
 	glm::dvec3 getRotVelocity();
-	void constantRotationOverTime(glm::float64 time);
+	void rotateRK4(double dt);
 	
 	void draw(Shader& shader, uint8_t mode);
-
-	void rotateRK4(double dt);
 private:
 	glm::dquat rotateDeriv(const glm::dquat& orientation, const glm::dvec3& momentum);
 };

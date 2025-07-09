@@ -46,7 +46,7 @@ public:
 	}
 
 	// watch one entity from the position of another
-	void watchFrom(Entity* at, Entity* eye)	{
+	void watchFrom(std::shared_ptr<Entity> at, std::shared_ptr<Entity> eye)	{
 		position = eye->position;
 		direction = glm::normalize(at->position - position);
 		position += eye->scale.x * direction;

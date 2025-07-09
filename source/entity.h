@@ -9,14 +9,15 @@
 
 class Entity {
 public:
-	static Entity skybox;
+	static std::shared_ptr<Entity> skybox;
 
 	glm::dmat4 modelMatrix;
 	glm::dquat rotQuat; // quaternion representation of orientation
-	Surface surface;
 	glm::dvec3 position, prevPosition, velocity, acceleration;
 	glm::dvec3 scale;
 	size_t modelIndex;
+	std::shared_ptr<Entity> root;
+	Surface surface;
 
 	Entity() {
 		modelMatrix = glm::dmat4(1.0f);
@@ -27,11 +28,15 @@ public:
 
 		surface = Surface(glm::vec4(0.1f, 1.0f, 1.0f, 0.0f));
 		modelIndex = -1;
+
+		root = nullptr;
 	}
 
 	//glm::dvec3 updateRotationMatrix();
-	glm::dmat4 updateMatrix();
-	void draw(Shader& shader, uint8_t mode);
+	glm::dmat4 updateMatrix(bool doScale = true);
+	void draw(Shader& shader, uint8_t mode, glm::dmat4 rootMatrix = glm::dmat4(1.0));
 
 	virtual ~Entity() {}
 };
+
+extern std::vector<std::shared_ptr<Entity>> entities, frameEntities;

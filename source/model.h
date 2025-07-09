@@ -30,6 +30,7 @@ public:
 	static size_t Sphere();
 	static size_t Icosphere(int subdivisions = 0);
 	static size_t Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, float fullness);
+	static size_t Square();
 
 
 	Model(const Model&) = delete;

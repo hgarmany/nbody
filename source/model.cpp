@@ -9,14 +9,19 @@ void toOBJ(std::vector<GLfloat>& vertices, std::vector<GLuint>& faces) {
 	FILE* out;
 	fopen_s(&out, "test.obj", "w");
 
-	for (size_t i = 0; i < vertices.size(); i += 3) {
-		fprintf(out, "v %.4f %.4f %.4f\n", vertices[i], vertices[i + 1], vertices[i + 2]);
-	}
-	for (size_t i = 0; i < faces.size(); i += 3) {
-		fprintf(out, "f %u %u %u\n", faces[i] + 1, faces[i + 1] + 1, faces[i + 2] + 1);
-	}
+	if (out) {
+		for (size_t i = 0; i < vertices.size(); i += 3) {
+			fprintf(out, "v %.4f %.4f %.4f\n", vertices[i], vertices[i + 1], vertices[i + 2]);
+		}
+		for (size_t i = 0; i < faces.size(); i += 3) {
+			fprintf(out, "f %u %u %u\n", faces[i] + 1, faces[i + 1] + 1, faces[i + 2] + 1);
+		}
 
-	fclose(out);
+		fclose(out);
+	}
+	else {
+		perror("Could not open file for writing.\n");
+	}
 }
 
 Model::Model(
@@ -452,7 +457,7 @@ size_t Model::Icosphere(int subdivisions) {
 	}
 
 	std::vector<GLuint> meridian;
-	GLuint northPole, southPole;
+	GLuint northPole = 0, southPole = 0;
 	for (GLuint i = 0; i < tempVer.size(); i += 3) {
 		if (abs(tempVer[i]) < epsilon && tempVer[i + 2] >= 0.0f) {
 			meridian.push_back(i / 3);
@@ -647,6 +652,37 @@ size_t Model::Ring(std::vector<GLfloat>& crossSection, size_t subdivisions, floa
 	std::vector<GLfloat> normals, tex;
 
 	toOBJ(vertices, faces);
+
+	modelLibrary.emplace_back(vertices, faces, normals, tex);
+	return modelLibrary.size() - 1;
+}
+
+size_t Model::Square() {
+	std::vector<GLfloat> vertices = {
+		-1.0f, 0.0f, -1.0f,
+		1.0f, 0.0f, -1.0f,
+		-1.0f, 0.0f, 1.0f,
+		1.0f, 0.0f, 1.0f
+	};
+
+	std::vector<GLfloat> normals = {
+		0.0f, 1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f
+	};
+
+	std::vector<GLfloat> tex = {
+		0.0f, 0.0f,
+		1.0f, 0.0f,
+		0.0f, 1.0f,
+		1.0f, 1.0f
+	};
+
+	std::vector<GLuint> faces = {
+		0, 1, 2,
+		1, 3, 2
+	};
 
 	modelLibrary.emplace_back(vertices, faces, normals, tex);
 	return modelLibrary.size() - 1;
