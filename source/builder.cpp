@@ -183,3 +183,66 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	addTrail(glm::vec3(0.6f, 0.6f, 0.8f));
 	bodies.push_back(get());
 }
+
+void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
+	glm::vec4 diffuseMat(0.0f, 1.0f, 0.0f, 0.0f);
+	Surface sun = Surface("../../assets/sol/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	Surface world = Surface("../../assets/fiction/world.jpg", diffuseMat);
+	world.setNormal("../../assets/fiction/world_normal.jpg");
+
+	float siderealDay = 31.7791f * 3600.0f;
+
+	// sun
+	init(1.76999e30f);
+	setModel(modelIndex);
+	setRadius(690.45f);
+	double spin = 2 * pi / 86400 / 27;
+	setRotation(glm::dvec3(0.126, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(sun);
+	bodies.push_back(get());
+
+	// earth
+	//Orbit earthOrbit(bodies[0], 1.37019e5, 0.0673234f, 0.0f, 0.0f, 0.0f, 0.0f);
+	Orbit earthOrbit(bodies[0], 1.37019e5, 0.0373234f, 0.0f, 0.0f, 0.0f, 0.0f);
+	init(2.44536e25, earthOrbit, 0);
+	setModel(modelIndex);
+	setRadius(11.3453f, 3.363984e-3f);
+	spin = 2 * pi / siderealDay;
+	setRotation(glm::dvec3(0.4917866593 + earthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(world);
+	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
+	bodies.push_back(get());
+
+	// !earth
+	Orbit nearthOrbit(bodies[0], 1.35810e5, 0.0115530f, 0.506823f, 1.0653f, 0.045623f, float(pi));
+	init(1.66284e25, nearthOrbit, 0);
+	setModel(modelIndex);
+	setRadius(9.6055f);
+	spin = 2 * pi / 297826;
+	setRotation(glm::dvec3(0.1362159 + nearthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
+	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
+	bodies.push_back(get());
+
+	// moon
+	Orbit moonOrbit(bodies[1], 5.00245e2, 0.0233735f, 0.36812f, 1.77315f, 0.145046f, 2.46619f);
+	init(2.69171e23, moonOrbit, 1);
+	setModel(modelIndex);
+	setRadius(2.72034f);
+	spin = 2 * pi / 1730651;
+	setRotation(glm::dvec3(0.0541602 + moonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(Surface(diffuseMat, glm::vec3(0.35f, 0.35f, 0.4f)));
+	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
+	bodies.push_back(get());
+
+	// !moon
+	Orbit nmoonOrbit(bodies[2], 1.44966e2, 0.1337362f, 2.40028f, 0.55761f, 0.142635f, 1.66287f);
+	init(3.68863e24, nmoonOrbit, 2);
+	setModel(modelIndex);
+	setRadius(6.01158f);
+	spin = 2 * pi / 297826;
+	setRotation(glm::dvec3(0.1627101 + nmoonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(Surface(diffuseMat, glm::vec3(0.25f, 0.2f, 0.15f)));
+	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
+	bodies.push_back(get());
+}

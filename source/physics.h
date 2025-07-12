@@ -15,7 +15,7 @@ extern uint8_t targetRotation;
 
 extern std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
 
-const float MAX_PHYSICS_TIME = 500.0f;
+const float MAX_PHYSICS_TIME = 1000.0f;
 
 glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter);
 

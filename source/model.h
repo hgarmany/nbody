@@ -1,9 +1,9 @@
 #pragma once
 
-#include <GL/glew.h>
 #include <vector>
+#include <string>
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include <glm.hpp>
 #include "util.h"
 
 class Model {
@@ -24,7 +24,9 @@ public:
 		std::vector<GLfloat>& normals, std::vector<GLfloat>& tex
 	);
 
-	std::vector<GLfloat> generateNormals(std::vector<GLfloat>& verts, std::vector<GLuint>& indices);
+	static std::vector<GLfloat> generateNormals(std::vector<GLfloat>& verts, std::vector<GLuint>& indices);
+	
+	static size_t fromOBJ(std::string path);
 
 	static size_t Cube();
 	static size_t Sphere();

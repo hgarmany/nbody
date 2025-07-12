@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <glm.hpp>
 
 const double pi = 3.141592653589793;
 const float pi_f = 3.141592653589793f;
@@ -54,3 +55,6 @@ template <typename T> T rootSolver(
 
 	return x;
 }
+
+size_t getIntsFromString(const char* string, int* out, size_t n, char dem = ' ');
+size_t getFloatsFromString(const char* string, float* out, size_t n, char dem = ' ');

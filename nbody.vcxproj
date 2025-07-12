@@ -49,6 +49,7 @@
     <ClCompile Include="source\render.cpp" />
     <ClCompile Include="source\shader.cpp" />
     <ClCompile Include="source\surface.cpp" />
+    <ClCompile Include="source\util.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

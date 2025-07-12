@@ -382,9 +382,11 @@ void render(Camera& camera) {
 	for (size_t i = 0; i < frameBodies.size(); i++) {
 		if (testObjectVisibility(i, camera)) {
 			glm::dvec3 bodyPos = frameBodies[i]->position;
-			glm::mat4 relativeView = camera.viewMatrix(camera.position - bodyPos);
+			glm::mat4 relativeViewMat = camera.viewMatrix(camera.position - bodyPos);
+			glm::vec3 relativeViewPos = camera.position - bodyPos;
+			glUniform3fv(shader.uniforms[VIEW_POS], 1, &relativeViewPos[0]);
 			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(bodyPos))[0]);
-			setPV(shader, projection, relativeView);
+			setPV(shader, projection, relativeViewMat);
 			frameBodies[i]->draw(shader, MODE_TEX);
 		}
 	}
@@ -664,7 +666,7 @@ void drawGUI(ImGuiIO& io) {
 
 		ImGui::Text("Elapsed time: %.1f yrs", elapsedTime / 86400 / 365.25);
 		ImGui::Text("Time Step: %.3f s", frameTime);
-		//ImGui::Text("Earth angular velocity: %.3e\t%.3e\t%.3e", bodies[3].rotVelocity.x, bodies[3].rotVelocity.y, bodies[3].rotVelocity.z);
+		ImGui::Text("Earth dtp: %.3e", glm::distance(frameBodies[1]->position, frameBodies[0]->position));
 
 		ImGui::End();
 	}

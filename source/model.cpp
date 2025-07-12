@@ -179,6 +179,92 @@ std::vector<GLfloat> Model::generateNormals(std::vector<GLfloat>& verts, std::ve
 	return normals;
 }
 
+size_t Model::fromOBJ(std::string path) {
+	char buffer[100] = { 0 };
+
+	FILE* out;
+	fopen_s(&out, path.c_str(), "r");
+
+	std::vector<GLfloat> vertices, normals, uvs;
+	std::vector<GLuint> indices;
+
+	if (out) {
+		while (fgets(buffer, 100, out)) {
+			if (!strncmp(buffer, "vn ", 3)) {
+				float normal[3];
+				if (getFloatsFromString(buffer + 3, normal, 3) == 3)
+					normals.push_back(normal[0]);
+					normals.push_back(normal[1]);
+					normals.push_back(normal[2]);
+			}
+			else if (!strncmp(buffer, "vt ", 3)) {
+				float uv[2];
+				if (getFloatsFromString(buffer + 3, uv, 2) == 2)
+					uvs.push_back(uv[0]);
+					uvs.push_back(uv[1]);
+			}
+			else if (!strncmp(buffer, "v ", 2)) {
+				float vert[3];
+				if (getFloatsFromString(buffer + 2, vert, 3) == 3)
+					vertices.push_back(vert[0]);
+					vertices.push_back(vert[1]);
+					vertices.push_back(vert[2]);
+			}
+			else if (!strncmp(buffer, "f ", 2)) {
+				int face[3];
+				if (getIntsFromString(buffer + 2, face, 3) == 3)
+					indices.push_back(face[0] - 1);
+					indices.push_back(face[1] - 1);
+					indices.push_back(face[2] - 1);
+			}
+
+			for (size_t i = 0; i < 100 && buffer[i]; i++)
+				buffer[i] = 0;
+		}
+
+		fclose(out);
+
+		if (normals.size() < vertices.size()) {
+			normals = generateNormals(vertices, indices);
+		}
+
+		// resize mesh to fit within a unit cube
+		GLfloat maxX = -FLT_MAX, minX = FLT_MAX, maxY = -FLT_MAX, minY = FLT_MAX, maxZ = -FLT_MAX, minZ = FLT_MAX;
+		for (size_t i = 0; i < vertices.size(); i += 3) {
+			if (vertices[i] > maxX)
+				maxX = vertices[i];
+			else if (vertices[i] < minX)
+				minX = vertices[i];
+
+			if (vertices[i + 1] > maxY)
+				maxY = vertices[i + 1];
+			else if (vertices[i + 1] < minY)
+				minY = vertices[i + 1];
+
+			if (vertices[i + 2] > maxZ)
+				maxZ = vertices[i + 2];
+			else if (vertices[i + 2] < minZ)
+				minZ = vertices[i + 2];
+		}
+
+		GLfloat scale = 2.0f / glm::max(maxX - minX, glm::max(maxY - minY, maxZ - minZ));
+		GLfloat centerX = (maxX + minX) * 0.5f, centerY = (maxY + minY) * 0.5f, centerZ = (maxZ + minZ) * 0.5f;
+
+		for (size_t i = 0; i < vertices.size(); i += 3) {
+			vertices[i] = (vertices[i] - centerX) * scale;
+			vertices[i + 1] = (vertices[i + 1] - centerY) * scale;
+			vertices[i + 2] = (vertices[i + 2] - centerZ) * scale;
+		}
+
+		modelLibrary.emplace_back(vertices, indices, normals, uvs);
+		return modelLibrary.size() - 1;
+	}
+	else {
+		perror("Could not open file for reading.\n");
+		return -1;
+	}
+}
+
 size_t duplicatePoint(std::vector<GLfloat>& vertices, std::vector<GLfloat>& normals, std::vector<GLfloat>& tex, size_t index) {
 	size_t newIndex = vertices.size() / 3;
 

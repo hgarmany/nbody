@@ -101,5 +101,8 @@
     <ClCompile Include="source\gravitybody.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

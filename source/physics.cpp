@@ -5,7 +5,7 @@
 #include <iomanip>
 
 std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
-std::ofstream physicsLog;
+std::ofstream physicsLog1, physicsLog2;
 
 uint8_t targetRotation = 0;
 
@@ -221,7 +221,9 @@ void updateTrails(std::vector<std::shared_ptr<GravityBody>> bodies) {
 
 void physicsLoop() {
 	// log file test
-	physicsLog = std::ofstream("log.txt", std::ios::out);
+	std::ofstream timeLog = std::ofstream("time.txt", std::ios::out);
+	physicsLog1 = std::ofstream("log1.txt", std::ios::out);
+	physicsLog2 = std::ofstream("log2.txt", std::ios::out);
 	glm::dvec3 up = bodies[0]->rotQuat * glm::dvec3(0.0, 1.0, 0.0);
 	//glm::dvec3 coplanar = glm::normalize(bodies[3].position - bodies[0].position);
 	glm::dvec3 referenceDirection = glm::normalize(glm::dvec3(1.0, 0.0, 0.0)); // fixed vector
@@ -242,18 +244,25 @@ void physicsLoop() {
 				totalTimeElapsed += deltaTime * timeStep;
 
 				updateBodies(deltaTime, bodies);
-				
-				// log file test - entry
-				double last = glm::dot(glm::normalize(bodies[3]->prevPosition - bodies[0]->prevPosition), cross);
-				double next = glm::dot(glm::normalize(bodies[3]->position - bodies[0]->position), cross);
-				if (last < 0 && next > 0) {
-					physicsLog << "E1\t" << std::setprecision(10) << totalTimeElapsed / 31558150 << std::endl;
-				}
 
-				last = glm::dot(glm::normalize(bodies[12]->prevPosition - bodies[0]->prevPosition), cross);
-				next = glm::dot(glm::normalize(bodies[12]->position - bodies[0]->position), cross);
-				if (last < 0 && next > 0) {
-					physicsLog << "E2\t" << std::setprecision(10) << totalTimeElapsed / 31556926 << std::endl;
+				//// log file test - entry
+				//double last = glm::dot(glm::normalize(bodies[3]->prevPosition - bodies[0]->prevPosition), cross);
+				//double next = glm::dot(glm::normalize(bodies[3]->position - bodies[0]->position), cross);
+				//if (last < 0 && next > 0) {
+				//	physicsLog << "E1\t" << std::setprecision(10) << totalTimeElapsed / 31558150 << std::endl;
+				//}
+
+				//last = glm::dot(glm::normalize(bodies[12]->prevPosition - bodies[0]->prevPosition), cross);
+				//next = glm::dot(glm::normalize(bodies[12]->position - bodies[0]->position), cross);
+				//if (last < 0 && next > 0) {
+				//	physicsLog << "E2\t" << std::setprecision(10) << totalTimeElapsed / 31556926 << std::endl;
+				//}
+				//timeLog << std::setprecision(10) << totalTimeElapsed / 31556926 << std::endl;
+
+				if (totalTimeElapsed / 7889231 > 1) {
+					physicsLog1 << std::setprecision(10) << glm::distance(bodies[1]->position, bodies[0]->position) << std::endl;
+					physicsLog2 << std::setprecision(10) << glm::distance(bodies[2]->position, bodies[0]->position) << std::endl;
+					totalTimeElapsed -= 7889231;
 				}
 			}
 
@@ -270,5 +279,7 @@ void physicsLoop() {
 			printf("discarded physics frame: %.2f ms\n", deltaTime * 1000);
 	}
 
-	physicsLog.close();
+	timeLog.close();
+	physicsLog1.close();
+	physicsLog2.close();
 }

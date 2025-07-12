@@ -2,7 +2,6 @@
 
 #include <gtc/quaternion.hpp>
 #include "entity.h"
-#include "util.h"
 
 static const float SENSITIVITY = 0.002f; // control on mouse sensitivity
 

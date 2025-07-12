@@ -138,7 +138,7 @@ Shader initStandardShader() {
 			float emission = material.w;
 
 			// Final color
-			vec3 result = ((amb + diff + spec) * lightColor + emission) * objectColor;
+			vec3 result = (clamp(amb + diff + spec, 0.0, 1.0) * lightColor + emission) * objectColor;
 			if (usesTexture == 1) {
 				FragColor = texColor * vec4(result, 1.0);
 			}

@@ -56,6 +56,13 @@ public:
 	}
 
 	std::shared_ptr<Entity> get() {
+		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
+			if (body->momentOfInertia == glm::dvec3(0.0))
+				body->initI();
+			body->angularMomentum = body->rotQuat * (body->momentOfInertia * body->getRotVelocity());
+			if (body->gravityType == OBLATE_SPHERE && body->j2 == 0.0)
+				body->initJ2();
+		}
 		entity->updateMatrix();
 		return entity;
 	}
@@ -108,4 +115,5 @@ public:
 	}
 
 	void buildSolarSystem(size_t modelIndex);
+	void buildAlienSystem(size_t modelIndex);
 };
