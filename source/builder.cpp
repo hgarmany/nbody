@@ -186,6 +186,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 
 void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	glm::vec4 diffuseMat(0.0f, 1.0f, 0.0f, 0.0f);
+	glm::vec4 ambMat(1.0f, 0.0f, 0.0f, 0.0f);
 	Surface sun = Surface("../../assets/sol/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 	Surface world = Surface("../../assets/fiction/world.jpg", diffuseMat);
 	world.setNormal("../../assets/fiction/world_normal.jpg");
@@ -220,7 +221,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRadius(9.6055f);
 	spin = 2 * pi / 297826;
 	setRotation(glm::dvec3(0.1362159 + nearthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
-	setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
+	setSurface(Surface(ambMat, glm::vec3(0.1f, 0.5f, 1.0f)));
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
 	bodies.push_back(get());
 
@@ -244,5 +245,16 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.1627101 + nmoonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(Surface(diffuseMat, glm::vec3(0.25f, 0.2f, 0.15f)));
 	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
+	bodies.push_back(get());
+
+	// orbit tester
+	Orbit testOrbit(bodies[0], 4e4, 0.6f, 0.0f, 1.0f, 0.32f, 0.0f);
+	init(1e28, testOrbit, 0);
+	setModel(modelIndex);
+	setRadius(20.0f);
+	spin = 2 * pi / 297826;
+	setRotation(glm::dvec3(0.5 + testOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(Surface(diffuseMat));
+	addTrail(glm::vec3(0.0f, 1.0f, 0.0f));
 	bodies.push_back(get());
 }

@@ -81,7 +81,7 @@ public:
 
 	void initJ2();
 	void initI();
-	
+
 	glm::dvec3 getRotVelocity();
 	void rotateRK4(double dt);
 	

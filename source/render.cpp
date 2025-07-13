@@ -12,8 +12,6 @@ float pipSize = 0.35f;
 
 ImGuiStyle* style;
 
-std::mutex physicsMutex;
-
 size_t cameraFutureTrailLength = 2500;
 GLsizei starCapacity = 20;
 GLsizei trailCapacity = 0;
@@ -356,6 +354,99 @@ void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 	glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numStars);
 }
 
+void renderTrails(Camera& camera) {
+	// set camera
+	glm::mat4 view = camera.viewMatrix();
+	setPV(shader, projection, view);
+
+	glUseProgram(trailShader.index);
+	setPV(trailShader, projection, view);
+
+	// compile trail buffers if empty
+	if (trailVertices.size() == 0) {
+		for (size_t i = 0; i < frameBodies.size(); i++) {
+			std::shared_ptr<GravityBody> body = frameBodies[i];
+
+			// axis
+			if (testObjectVisibility(i, camera)) {
+				glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
+				axisOfRotation = body->rotQuat * axisOfRotation;
+
+				trailVertices.push_back(body->position + 2 * body->radius * axisOfRotation);
+				trailVertices.push_back(body->position - 2 * body->radius * axisOfRotation);
+				trailAlphas.push_back(1.0f);
+				trailAlphas.push_back(1.0f);
+			}
+
+			if (body->trail) {
+				// orbit
+				trailVertices.insert(trailVertices.end(), body->trail->begin(), body->trail->end());
+				for (size_t j = body->trail->size(); j > 0; j--) {
+					trailAlphas.push_back(1.0f);
+				}
+			}
+		}
+	}
+
+	glBindVertexArray(trailVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
+	if (trailVertices.size() * sizeof(glm::vec3) > trailCapacity) {
+		glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+		trailCapacity = (GLsizei)(trailVertices.size() * sizeof(glm::vec3));
+	}
+	glBufferSubData(GL_ARRAY_BUFFER, 0, trailVertices.size() * sizeof(glm::vec3), trailVertices.data());
+
+	glEnableVertexAttribArray(0); // Assuming location 0 for positions
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, trailAlphaBuf);
+	glBufferData(GL_ARRAY_BUFFER, trailAlphas.size() * sizeof(float), trailAlphas.data(), GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(1); // Assuming location 1 for alphas
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
+
+	GLint offset = 0;
+
+	for (size_t i = 0; i < frameBodies.size(); i++) {
+		GravityBody body = *frameBodies[i];
+
+		glm::mat4 modelMatrix(1.0f);
+		glm::vec3 color(1.0f);
+		if (body.trail)
+			color = body.trail->color;
+
+		glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
+
+		// axis
+		if (testObjectVisibility(i, camera)) {
+			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+			glDrawArrays(GL_LINE_STRIP, offset, 2);
+			offset += 2;
+		}
+
+		if (body.trail) {
+			size_t parentIndex = body.trail->parentIndex;
+
+			// orbit
+			if (body.parentIndex != -1) {
+				glm::mat4 rotate = relativeRotationalMatrix(frameBodies, i, parentIndex, true);
+
+				modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex]->position);
+				modelMatrix *= rotate;
+			}
+
+			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+
+			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
+			offset += (GLint)body.trail->size();
+		}
+	}
+
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glBindVertexArray(0); // Unbind VAO
+}
+
 void render(Camera& camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -415,97 +506,8 @@ void render(Camera& camera) {
 		entity->draw(shader, MODE_TEX, rootMatrix);
 	}
 	
-	// start trails
-	if (doTrails) {
-		// set camera
-		setPV(shader, projection, view);
-		trailVertices.clear();
-		trailAlphas.clear();
-
-		glUseProgram(trailShader.index);
-		setPV(trailShader, projection, view);
-		for (size_t i = 0; i < frameBodies.size(); i++) {
-			GravityBody body = *frameBodies[i];
-
-			// axis
-			if (testObjectVisibility(i, camera)) {
-				glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
-				axisOfRotation = body.rotQuat * axisOfRotation;
-
-				trailVertices.push_back(body.position + 2 * body.radius * axisOfRotation);
-				trailVertices.push_back(body.position - 2 * body.radius * axisOfRotation);
-				trailAlphas.push_back(1.0f);
-				trailAlphas.push_back(1.0f);
-			}
-
-			if (body.trail) {
-				// orbit
-				trailVertices.insert(trailVertices.end(), body.trail->begin(), body.trail->end());
-				for (size_t j = body.trail->size(); j > 0; j--) {
-					trailAlphas.push_back(1.0f);
-				}
-			}
-		}
-
-		glBindVertexArray(trailVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
-		if (trailVertices.size() * sizeof(glm::vec3) > trailCapacity) {
-			glBufferData(GL_ARRAY_BUFFER, trailVertices.size() * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
-			trailCapacity = (GLsizei)(trailVertices.size() * sizeof(glm::vec3));
-		}
-		glBufferSubData(GL_ARRAY_BUFFER, 0, trailVertices.size() * sizeof(glm::vec3), trailVertices.data());
-
-		glEnableVertexAttribArray(0); // Assuming location 0 for positions
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
-
-		glBindBuffer(GL_ARRAY_BUFFER, trailAlphaBuf);
-		glBufferData(GL_ARRAY_BUFFER, trailAlphas.size() * sizeof(float), trailAlphas.data(), GL_DYNAMIC_DRAW);
-
-		glEnableVertexAttribArray(1); // Assuming location 1 for alphas
-		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
-
-		GLint offset = 0;
-
-		for (size_t i = 0; i < frameBodies.size(); i++) {
-			GravityBody body = *frameBodies[i];
-
-			glm::mat4 modelMatrix(1.0f);
-			glm::vec3 color(1.0f);
-			if (body.trail)
-				color = body.trail->color;
-
-			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
-
-			// axis
-			if (testObjectVisibility(i, camera)) {
-				glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
-				glDrawArrays(GL_LINE_STRIP, offset, 2);
-				offset += 2;
-			}
-
-			if (body.trail) {
-				size_t parentIndex = body.trail->parentIndex;
-
-				// orbit
-				if (body.parentIndex != -1) {
-					glm::mat4 rotate = relativeRotationalMatrix(frameBodies, i, parentIndex, true);
-
-					modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex]->position);
-					modelMatrix *= rotate;
-				}
-
-				glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
-
-				glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
-				offset += (GLint)body.trail->size();
-			}
-		}
-
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
-		glBindVertexArray(0); // Unbind VAO
-	}
-	// end trails
+	if (doTrails)
+		renderTrails(camera);
 }
 
 void renderPIP() {
@@ -666,7 +668,7 @@ void drawGUI(ImGuiIO& io) {
 
 		ImGui::Text("Elapsed time: %.1f yrs", elapsedTime / 86400 / 365.25);
 		ImGui::Text("Time Step: %.3f s", frameTime);
-		ImGui::Text("Earth dtp: %.3e", glm::distance(frameBodies[1]->position, frameBodies[0]->position));
+		ImGui::Text("Frame Time: %.3f ms", deltaTime * 1000);
 
 		ImGui::End();
 	}
@@ -800,8 +802,13 @@ void renderLoop() {
 				updateCamera(camera);
 				updateCamera(pipCam);
 
-				if (hasPhysics && doTrails)
-					updateTrails(frameBodies);
+				if (doTrails) {
+					updateTrails(bodies);
+					// clean trail buffer
+					trailVertices.clear();
+					trailAlphas.clear();
+				}
+
 				render(camera);
 
 				//if (hasPhysics && camera.mode == GRAV_CAM) {

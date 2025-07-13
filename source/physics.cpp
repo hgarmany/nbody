@@ -1,8 +1,9 @@
-#include "physics.h"
+﻿#include "physics.h"
 #include <vector>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <omp.h>
 
 std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
 std::ofstream physicsLog1, physicsLog2;
@@ -24,6 +25,7 @@ double frameTime = 0.0;
 double elapsedTime = 0.0;
 double timeStep = 1e5;
 size_t maxTrailLength = 2500;
+std::mutex physicsMutex;
 
 void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -88,6 +90,20 @@ glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter) {
 	double distance = glm::length(gravitation);
 	double magnitude = sqrt(G * bodies[parent]->mass / distance);
 	return magnitude * glm::normalize(glm::cross(glm::dvec3(0, 1, 0), gravitation));
+}
+
+glm::vec3 eccentricityVector(size_t parent, size_t orbiter) {
+	glm::dvec3 position = bodies[orbiter]->position - bodies[parent]->position;
+	glm::dvec3 velocity = bodies[orbiter]->velocity - bodies[parent]->velocity;
+
+	glm::dvec3 orbitalMomentum = glm::cross(position, velocity);
+	return glm::cross(velocity, orbitalMomentum) / (G * bodies[parent]->mass) - position / glm::length(position);
+}
+
+double semiMajorAxis(size_t parent, size_t orbiter) {
+	glm::float64 distance = glm::distance(bodies[orbiter]->position, bodies[parent]->position);
+	glm::float64 speed = glm::distance(bodies[orbiter]->velocity, bodies[parent]->velocity);
+	return 1.0 / (2.0 / distance - speed * speed / (G * bodies[parent]->mass));
 }
 
 void gravitationalForce(std::shared_ptr<GravityBody> a, std::shared_ptr<GravityBody> b) {
@@ -165,6 +181,77 @@ void updateBodies(glm::float64 deltaTime, std::vector<std::shared_ptr<GravityBod
 	elapsedTime += fullDt;
 }
 
+void tracePath(size_t parent, size_t orbiter) {
+	bool doLoop = true;
+
+	// remove any trail points behind the body's position
+	while (doLoop && bodies[orbiter]->trail->size() > 1 &&
+		parent == bodies[orbiter]->parentIndex) {
+		glm::dvec3 a = glm::normalize(bodies[orbiter]->trail->front());
+		glm::dvec3 b = glm::normalize(bodies[orbiter]->trail->back());
+
+		glm::dvec3 n = glm::cross(b, bodies[orbiter]->position - bodies[parent]->position);
+
+		// get angle between the last point added to the trail and the start of the trail
+		double angle = acos(glm::dot(a, b));
+		if (glm::dot(n, glm::cross(a, b)) < 0)
+			angle *= -1;
+
+		// get angle between the body's current position and the start of the trail
+		b = glm::normalize(bodies[orbiter]->position - bodies[parent]->position);
+		double angle2 = acos(glm::dot(a, b));
+		if (glm::dot(n, glm::cross(a, b)) < 0)
+			angle2 *= -1;
+
+		if (angle < 0 && angle2 >= 0 || std::isnan(angle) || std::isnan(angle2))
+			bodies[orbiter]->trail->pop();
+		else
+			doLoop = false;
+	}
+
+	glm::dvec3 relativePosition =
+		glm::dmat3(relativeRotationalMatrix(bodies, orbiter, parent)) *
+		glm::dvec3(bodies[orbiter]->position - bodies[parent]->position);
+
+	if (bodies[orbiter]->trail->size() == 0 || glm::distance(bodies[orbiter]->trail->back(), relativePosition) * 2 > bodies[orbiter]->radius)
+		bodies[orbiter]->trail->push(relativePosition);
+}
+
+void ellipticalPath(size_t parent, size_t orbiter) {
+	glm::float64 m0 = bodies[parent]->mass;
+	glm::float64 m1 = bodies[orbiter]->mass;
+	glm::dvec3 r0 = bodies[parent]->position;
+	glm::dvec3 r1 = bodies[orbiter]->position;
+	glm::dvec3 centerOfMass = (m0 * r0 + m1 * r1) / (m0 + m1);
+	glm::float64 gravParam = G * (m0 + m1);
+
+	glm::dvec3 position = r1 - r0;
+	glm::dvec3 velocity = bodies[orbiter]->velocity - bodies[parent]->velocity;
+
+	glm::dvec3 orbitalMomentum = glm::cross(position, velocity);
+	glm::dvec3 h_hat = glm::normalize(orbitalMomentum);
+	glm::dvec3 eccVector = glm::cross(velocity, orbitalMomentum) / gravParam - position / glm::length(position);
+	glm::float64 eccentricity = glm::length(eccVector);
+	glm::dvec3 e_hat = glm::normalize(eccVector);
+	
+	glm::float64 distance = glm::length(position);
+	glm::float64 speed = glm::length(velocity);
+
+	glm::float64 semiMajorAxisLen = 1.0 / (2.0 / distance - speed * speed / gravParam);
+
+	bodies[orbiter]->trail->queue.clear();
+	double perimeter = ellipsePerimeter(semiMajorAxisLen, (float)eccentricity);
+	double thetaStep = std::min(pi * bodies[orbiter]->radius / perimeter, 0.005 * pi);
+
+	for (double theta = 0; theta <= 2 * pi; theta += thetaStep) {
+		// polar radius
+		double r = semiMajorAxisLen * (1 - eccentricity * eccentricity) / (1 + eccentricity * cos(theta));
+		glm::dvec3 trailPoint = e_hat * (r * cos(theta)) + glm::cross(h_hat, e_hat) * (r * sin(theta));
+		bodies[orbiter]->trail->push(trailPoint);
+	}
+	bodies[orbiter]->trail->push(bodies[orbiter]->trail->front());
+}
+
 void updateTrails(std::vector<std::shared_ptr<GravityBody>> bodies) {
 	for (size_t i = 0; i < bodies.size(); i++) {
 		std::shared_ptr<GravityBody> body = bodies[i];
@@ -174,45 +261,14 @@ void updateTrails(std::vector<std::shared_ptr<GravityBody>> bodies) {
 
 			// trail relative to parent body
 			if (parentIndex != -1) {
-				bool doLoop = true;
-
-				// remove any trail points behind the body's position
-				while (doLoop && trail->size() > 1 &&
-					parentIndex == body->parentIndex) {
-					glm::dvec3 a = glm::normalize(trail->front());
-					glm::dvec3 b = glm::normalize(trail->back());
-
-					glm::dvec3 n = glm::cross(b, body->position - bodies[parentIndex]->position);
-
-					// get angle between the last point added to the trail and the start of the trail
-					double angle = acos(glm::dot(a, b));
-					if (glm::dot(n, glm::cross(a, b)) < 0)
-						angle *= -1;
-
-					// get angle between the body's current position and the start of the trail
-					b = glm::normalize(body->position - bodies[parentIndex]->position);
-					double angle2 = acos(glm::dot(a, b));
-					if (glm::dot(n, glm::cross(a, b)) < 0)
-						angle2 *= -1;
-
-					if (angle < 0 && angle2 >= 0 || std::isnan(angle) || std::isnan(angle2))
-						trail->pop();
-					else
-						doLoop = false;
-				}
-
-				glm::dvec3 relativePosition =
-					glm::dmat3(relativeRotationalMatrix(bodies, i, parentIndex)) *
-					glm::dvec3(body->position - bodies[body->parentIndex]->position);
-
-				trail->push(relativePosition);
+				ellipticalPath(parentIndex, i);
 			}
 
 			// trail relative to world space
 			else {
 				trail->push(body->position);
 				while (trail->size() > maxTrailLength) {
-					trail->pop();
+					//trail->pop();
 				}
 			}
 		}
@@ -232,6 +288,9 @@ void physicsLoop() {
 	glm::dvec3 cross = glm::normalize(glm::cross(up, referenceDirection));
 	double totalTimeElapsed = 0.0;
 
+	int num_threads = 4;
+	omp_set_num_threads(num_threads);
+
 	double lastLoopTime = glfwGetTime();
 	while (running) {
 		double currentTime = glfwGetTime();
@@ -243,7 +302,11 @@ void physicsLoop() {
 				frameTime = deltaTime * timeStep;
 				totalTimeElapsed += deltaTime * timeStep;
 
-				updateBodies(deltaTime, bodies);
+				{
+					std::unique_lock<std::mutex> lock(physicsMutex);
+					updateBodies(deltaTime, bodies);
+					lock.unlock();
+				}
 
 				//// log file test - entry
 				//double last = glm::dot(glm::normalize(bodies[3]->prevPosition - bodies[0]->prevPosition), cross);
@@ -265,11 +328,6 @@ void physicsLoop() {
 					totalTimeElapsed -= 7889231;
 				}
 			}
-
-			/*if (targetRotation) {
-				bodies[camera.atIndex].orientation.x += ((targetRotation & 0x01) - ((targetRotation & 0x02) >> 1)) * deltaTime;
-				bodies[camera.atIndex].orientation.y += (((targetRotation & 0x04) >> 2) - ((targetRotation & 0x08) >> 3)) * deltaTime;
-			}*/
 
 			// data is ready for renderer to access
 			physicsUpdated = true;

@@ -29,3 +29,11 @@ size_t getFloatsFromString(const char* string, float* out, size_t n, char dem) {
 
 	return i;
 }
+
+double ellipsePerimeter(double semiMajorAxis, float eccentricity) {
+	double semiMinorAxis = semiMajorAxis * sqrt(1 - eccentricity * eccentricity);
+
+	// Ramanujan's first approximation
+	return pi * (3 * (semiMajorAxis + semiMinorAxis) 
+		- sqrt((3 * semiMajorAxis + semiMinorAxis) * (semiMajorAxis + 3 * semiMinorAxis)));
+}

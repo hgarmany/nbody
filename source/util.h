@@ -58,3 +58,4 @@ template <typename T> T rootSolver(
 
 size_t getIntsFromString(const char* string, int* out, size_t n, char dem = ' ');
 size_t getFloatsFromString(const char* string, float* out, size_t n, char dem = ' ');
+double ellipsePerimeter(double semiMajorAxis, float eccentricity);
