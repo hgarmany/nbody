@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
+#include <gtc/type_ptr.hpp>
 
 GLFWwindow* window;
 glm::mat4 projection;
@@ -16,7 +17,7 @@ size_t cameraFutureTrailLength = 2500;
 GLsizei starCapacity = 20;
 GLsizei trailCapacity = 0;
 
-GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex;
+GLuint trailVAO, trailVBO, trailAlphaBuf, quadVAO, quadVBO, pipFBO, pipTexture, pipDepthBuffer, instanceVBO, starTex, shadowMapFBO, shadowMapTexture;
 ImFont *defaultFont, *largeFont;
 Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
 
@@ -24,6 +25,8 @@ std::vector<glm::vec3> trailVertices;
 std::vector<float> trailAlphas;
 
 std::vector<std::shared_ptr<Entity>> frameEntities;
+
+std::mutex physicsMutex;
 
 void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
 	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
@@ -141,6 +144,25 @@ void initQuad() {
 	glEnableVertexAttribArray(1);
 }
 
+void initShadowMap() {
+	// shadow map configuration
+	glGenFramebuffers(1, &shadowMapFBO);
+
+	glGenTextures(1, &shadowMapTexture);
+	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F,
+		windowWidth, windowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowMapTexture, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+}
+
 // prepares an FBO for capturing renders
 void initPIP() {
 	glGenFramebuffers(1, &pipFBO);
@@ -178,6 +200,9 @@ void initTrails() {
 	glGenVertexArrays(1, &trailVAO);
 	glGenBuffers(1, &trailVBO);
 	glGenBuffers(1, &trailAlphaBuf);
+
+	// initialize orbits
+	updateTrails(bodies);
 }
 
 void initStarBuffer() {
@@ -355,6 +380,10 @@ void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 }
 
 void renderTrails(Camera& camera) {
+	// clean trail buffer
+	trailVertices.clear();
+	trailAlphas.clear();
+
 	// set camera
 	glm::mat4 view = camera.viewMatrix();
 	setPV(shader, projection, view);
@@ -459,15 +488,17 @@ void render(Camera& camera) {
 	glm::mat4 infiniteView = glm::mat4(glm::mat3(view));
 	setPV(skyboxShader, projection, infiniteView);
 
+	glDisable(GL_CULL_FACE);
 	Entity::skybox->draw(skyboxShader, MODE_CUBEMAP);
 	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
 
 	// Activate the shader program
 	glUseProgram(shader.index);
 	glm::vec3 lightPos = frameBodies[0]->position;
 	glm::vec3 lightColor = glm::vec3(1.0f);
-	glUniform3fv(shader.uniforms[LIGHT_POS], 1, &lightPos[0]);
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
+	glUniform1f(shader.uniforms[LIGHT_RADIUS], GLfloat(frameBodies[0]->radius));
 
 	// render gravity bodies
 	for (size_t i = 0; i < frameBodies.size(); i++) {
@@ -477,6 +508,27 @@ void render(Camera& camera) {
 			glm::vec3 relativeViewPos = camera.position - bodyPos;
 			glUniform3fv(shader.uniforms[VIEW_POS], 1, &relativeViewPos[0]);
 			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(bodyPos))[0]);
+			
+			// get possible eclipsing bodies
+			if (i != 0) {
+				std::vector<glm::vec4> occluders;
+				size_t parentIndex = frameBodies[i]->parentIndex;
+				if (parentIndex != 0 && parentIndex != -1)
+					occluders.emplace_back(frameBodies[parentIndex]->position, frameBodies[parentIndex]->radius);
+				for (size_t j = 0; j < frameBodies.size(); j++) {
+					if (frameBodies[j]->parentIndex == i)
+						occluders.emplace_back(frameBodies[j]->position, frameBodies[j]->radius);
+				}
+
+				GLuint numOccluders = (GLuint)occluders.size();
+
+				while (occluders.size() < 8)
+					occluders.emplace_back(0.0f);
+
+				glUniform4fv(shader.uniforms[OCCLUDERS], 8, glm::value_ptr(occluders[0]));
+				glUniform1i(shader.uniforms[NUM_OCCLUDERS], numOccluders);
+			}
+			
 			setPV(shader, projection, relativeViewMat);
 			frameBodies[i]->draw(shader, MODE_TEX);
 		}
@@ -508,6 +560,59 @@ void render(Camera& camera) {
 	
 	if (doTrails)
 		renderTrails(camera);
+}
+
+void renderShadowMap() {
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+	glEnable(GL_CULL_FACE);
+
+	// activate the shader program
+	glUseProgram(shader.index);
+	glm::vec3 lightPos = frameBodies[0]->position;
+	glm::vec3 lightColor = glm::vec3(1.0f);
+	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
+	glUniform1f(shader.uniforms[LIGHT_RADIUS], GLfloat(frameBodies[0]->radius));
+
+	glm::float64 near = FLT_MAX;
+	glm::float64 far = FLT_MIN;
+	for (size_t i = 1; i < frameBodies.size(); i++) {
+		if (testObjectVisibility(i, camera)) {
+			glm::float64 distance = glm::distance(frameBodies[0]->position, frameBodies[i]->position);
+			if (distance - frameBodies[i]->radius < near)
+				near = distance - frameBodies[i]->radius;
+			if (distance + frameBodies[i]->radius > far)
+				far = distance + frameBodies[i]->radius;
+		}
+	}
+
+	if (near == FLT_MAX)
+		return;
+
+	// set camera
+	Camera lightCam = Camera(lightPos, glm::dvec3(1, 0, 0), glm::dvec3(0, 1, 0));
+	glm::mat4 view = camera.viewMatrix();
+
+	glm::float64 fovy = 0, aspect = 0;
+	glm::mat4 infiniteView = glm::mat4(glm::mat3(view));
+	glm::mat4 narrowThrustum = glm::perspective(fovy, aspect, near, far);
+
+	setPV(shader, narrowThrustum, infiniteView);
+
+	// render gravity bodies
+	for (size_t i = 0; i < frameBodies.size(); i++) {
+		if (testObjectVisibility(i, camera)) {
+			glm::dvec3 bodyPos = frameBodies[i]->position;
+			glm::mat4 relativeViewMat = camera.viewMatrix(camera.position - bodyPos);
+			glm::vec3 relativeViewPos = camera.position - bodyPos;
+			glUniform3fv(shader.uniforms[VIEW_POS], 1, &relativeViewPos[0]);
+			glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(bodyPos))[0]);
+			setPV(shader, projection, relativeViewMat);
+			frameBodies[i]->draw(shader, MODE_TEX);
+		}
+	}
 }
 
 void renderPIP() {
@@ -801,22 +906,10 @@ void renderLoop() {
 				deltaTime = currentTime - lastFrameTime;
 				updateCamera(camera);
 				updateCamera(pipCam);
-
-				if (doTrails) {
-					updateTrails(bodies);
-					// clean trail buffer
-					trailVertices.clear();
-					trailAlphas.clear();
-				}
+				if (doTrails && hasPhysics)
+					updateTrails(frameBodies);
 
 				render(camera);
-
-				//if (hasPhysics && camera.mode == GRAV_CAM) {
-				//	// clean up future trail
-				//	for (int i = 0; i < cameraFutureTrailLength; i++)
-				//		bodies[bodies.size() - 1].trail->pop_back();
-				//}
-
 				renderPIP();
 				renderBillboards(camera, glm::ivec2(windowWidth, windowHeight));
 

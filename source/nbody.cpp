@@ -99,6 +99,7 @@ int main() {
 	//glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
 	initShaders();
+	initShadowMap();
 	initTrails();
 	initStarBuffer();
 

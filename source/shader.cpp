@@ -100,11 +100,53 @@ Shader initStandardShader() {
 		uniform vec4 material;
 		uniform vec3 lightColor;
 		uniform vec3 lightPos;
+		uniform float lightRadius;
 		uniform vec3 viewPos;
+		uniform vec4 occluders[8];
+		uniform int numOccluders;
 		uniform sampler2D textureMap;
 		uniform sampler2D normalMap;
 		uniform int usesTexture;
 		uniform int usesNormalMap;
+		
+		float PI = 3.141592653589793;
+
+		float eclipseFactor() {
+			float thetaLight = asin(lightRadius / length(lightPos - FragPos));
+			float areaLight = PI * thetaLight * thetaLight;
+			float totalOcclusion = 0.0;
+
+			for (int i = 0; i < numOccluders; i++) {
+				vec3 occluderPos = occluders[i].xyz;
+				float occluderRadius = occluders[i].w;
+
+				float thetaOccluder = asin(occluderRadius / length(occluderPos - FragPos));
+				float phi = acos(dot(normalize(lightPos - FragPos), normalize(occluderPos - FragPos)));
+
+				if (phi >= thetaLight + thetaOccluder)
+					continue; // no overlap
+
+				float A = 0.0;
+
+				if (phi <= abs(thetaLight - thetaOccluder)) {
+					A = PI * min(thetaLight, thetaOccluder) * min(thetaLight, thetaOccluder); // full occlusion
+				} else {
+					float r1 = thetaLight;
+					float r2 = thetaOccluder;
+					float d = phi;
+
+					float alpha = acos((d*d + r1*r1 - r2*r2) / (2.0 * d * r1));
+					float beta = acos((d*d + r2*r2 - r1*r1) / (2.0 * d * r2));
+					float segment = 0.5 * sqrt((-d + r1 + r2)*(d + r1 - r2)*(d - r1 + r2)*(d + r1 + r2));
+					A = r1*r1*alpha + r2*r2*beta - segment;
+				}
+
+				totalOcclusion += A;
+			}
+
+			float occlusionFraction = clamp(totalOcclusion / areaLight, 0.0, 1.0);
+			return 1.0 - occlusionFraction; // used to modulate lighting
+		}
 
 		void main() {
 			gl_FragDepth = logDepth;
@@ -140,7 +182,7 @@ Shader initStandardShader() {
 			// Final color
 			vec3 result = (clamp(amb + diff + spec, 0.0, 1.0) * lightColor + emission) * objectColor;
 			if (usesTexture == 1) {
-				FragColor = texColor * vec4(result, 1.0);
+				FragColor = texColor * vec4(result, 1.0) * eclipseFactor();
 			}
 			else {
 				FragColor = vec4(result, 1.0);
@@ -159,10 +201,13 @@ Shader initStandardShader() {
 
 	shader.uniforms[LIGHT_POS] = glGetUniformLocation(shaderProgram, "lightPos");
 	shader.uniforms[LIGHT_COLOR] = glGetUniformLocation(shaderProgram, "lightColor");
+	shader.uniforms[LIGHT_RADIUS] = glGetUniformLocation(shaderProgram, "lightRadius");
 	shader.uniforms[OBJ_COLOR] = glGetUniformLocation(shaderProgram, "objectColor");
 	shader.uniforms[OBJ_MAT] = glGetUniformLocation(shaderProgram, "material");
 	shader.uniforms[OBJ_OBLATE] = glGetUniformLocation(shaderProgram, "oblateness");
 	shader.uniforms[VIEW_POS] = glGetUniformLocation(shaderProgram, "viewPos");
+	shader.uniforms[OCCLUDERS] = glGetUniformLocation(shaderProgram, "occluders");
+	shader.uniforms[NUM_OCCLUDERS] = glGetUniformLocation(shaderProgram, "numOccluders");
 	shader.uniforms[TEX_BOOL] = glGetUniformLocation(shaderProgram, "usesTexture");
 	shader.uniforms[NORM_BOOL] = glGetUniformLocation(shaderProgram, "usesNormalMap");
 	shader.uniforms[TEX_MAP] = glGetUniformLocation(shaderProgram, "textureMap");

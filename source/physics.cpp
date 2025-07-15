@@ -25,7 +25,6 @@ double frameTime = 0.0;
 double elapsedTime = 0.0;
 double timeStep = 1e5;
 size_t maxTrailLength = 2500;
-std::mutex physicsMutex;
 
 void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -241,7 +240,8 @@ void ellipticalPath(size_t parent, size_t orbiter) {
 
 	bodies[orbiter]->trail->queue.clear();
 	double perimeter = ellipsePerimeter(semiMajorAxisLen, (float)eccentricity);
-	double thetaStep = std::min(pi * bodies[orbiter]->radius / perimeter, 0.005 * pi);
+	//double thetaStep = std::min(pi * bodies[orbiter]->radius / perimeter, 0.002 * pi);
+	double thetaStep = 0.002 * pi;
 
 	for (double theta = 0; theta <= 2 * pi; theta += thetaStep) {
 		// polar radius
@@ -253,6 +253,10 @@ void ellipticalPath(size_t parent, size_t orbiter) {
 }
 
 void updateTrails(std::vector<std::shared_ptr<GravityBody>> bodies) {
+	int num_threads = 4;
+	omp_set_num_threads(num_threads);
+
+	#pragma omp parallel 
 	for (size_t i = 0; i < bodies.size(); i++) {
 		std::shared_ptr<GravityBody> body = bodies[i];
 		Trail* trail = body->trail;
@@ -268,7 +272,7 @@ void updateTrails(std::vector<std::shared_ptr<GravityBody>> bodies) {
 			else {
 				trail->push(body->position);
 				while (trail->size() > maxTrailLength) {
-					//trail->pop();
+					trail->pop();
 				}
 			}
 		}
@@ -281,15 +285,9 @@ void physicsLoop() {
 	physicsLog1 = std::ofstream("log1.txt", std::ios::out);
 	physicsLog2 = std::ofstream("log2.txt", std::ios::out);
 	glm::dvec3 up = bodies[0]->rotQuat * glm::dvec3(0.0, 1.0, 0.0);
-	//glm::dvec3 coplanar = glm::normalize(bodies[3].position - bodies[0].position);
 	glm::dvec3 referenceDirection = glm::normalize(glm::dvec3(1.0, 0.0, 0.0)); // fixed vector
-	//glm::dvec3 coplanar = glm::normalize(bodies[1].position - bodies[0].position);
-	//glm::dvec3 cross = glm::cross(up, coplanar);
 	glm::dvec3 cross = glm::normalize(glm::cross(up, referenceDirection));
 	double totalTimeElapsed = 0.0;
-
-	int num_threads = 4;
-	omp_set_num_threads(num_threads);
 
 	double lastLoopTime = glfwGetTime();
 	while (running) {
@@ -301,26 +299,8 @@ void physicsLoop() {
 			if (hasPhysics) {
 				frameTime = deltaTime * timeStep;
 				totalTimeElapsed += deltaTime * timeStep;
-
-				{
-					std::unique_lock<std::mutex> lock(physicsMutex);
-					updateBodies(deltaTime, bodies);
-					lock.unlock();
-				}
-
-				//// log file test - entry
-				//double last = glm::dot(glm::normalize(bodies[3]->prevPosition - bodies[0]->prevPosition), cross);
-				//double next = glm::dot(glm::normalize(bodies[3]->position - bodies[0]->position), cross);
-				//if (last < 0 && next > 0) {
-				//	physicsLog << "E1\t" << std::setprecision(10) << totalTimeElapsed / 31558150 << std::endl;
-				//}
-
-				//last = glm::dot(glm::normalize(bodies[12]->prevPosition - bodies[0]->prevPosition), cross);
-				//next = glm::dot(glm::normalize(bodies[12]->position - bodies[0]->position), cross);
-				//if (last < 0 && next > 0) {
-				//	physicsLog << "E2\t" << std::setprecision(10) << totalTimeElapsed / 31556926 << std::endl;
-				//}
-				//timeLog << std::setprecision(10) << totalTimeElapsed / 31556926 << std::endl;
+				
+				updateBodies(deltaTime, bodies);
 
 				if (totalTimeElapsed / 7889231 > 1) {
 					physicsLog1 << std::setprecision(10) << glm::distance(bodies[1]->position, bodies[0]->position) << std::endl;

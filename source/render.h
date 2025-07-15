@@ -6,6 +6,7 @@
 void initWindow();
 void initCamera();
 void initQuad();
+void initShadowMap();
 void initPIP();
 void initShaders();
 void initTrails();

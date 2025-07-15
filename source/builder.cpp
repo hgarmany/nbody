@@ -221,7 +221,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRadius(9.6055f);
 	spin = 2 * pi / 297826;
 	setRotation(glm::dvec3(0.1362159 + nearthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
-	setSurface(Surface(ambMat, glm::vec3(0.1f, 0.5f, 1.0f)));
+	setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
 	bodies.push_back(get());
 
@@ -247,6 +247,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
 	bodies.push_back(get());
 
+	/*
 	// orbit tester
 	Orbit testOrbit(bodies[0], 4e4, 0.6f, 0.0f, 1.0f, 0.32f, 0.0f);
 	init(1e28, testOrbit, 0);
@@ -257,4 +258,5 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setSurface(Surface(diffuseMat));
 	addTrail(glm::vec3(0.0f, 1.0f, 0.0f));
 	bodies.push_back(get());
+	*/
 }

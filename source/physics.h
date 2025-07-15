@@ -17,8 +17,6 @@ extern std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
 
 const float MAX_PHYSICS_TIME = 1000.0f;
 
-extern std::mutex physicsMutex;
-
 glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter);
 
 void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies);
