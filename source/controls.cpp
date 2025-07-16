@@ -9,6 +9,7 @@ bool overheadLock = false;
 bool showWelcomeMenu = true;
 bool showLockIndexMenu = true;
 bool showSettingsMenu = false;
+bool doStarSprites = true;
 
 const float defaultFOV = glm::radians(45.0f);
 
@@ -23,7 +24,7 @@ double deltaTime;
 enum keyMapName : uint8_t {
 	MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
 	PITCH_UP, PITCH_DOWN, YAW_LEFT, YAW_RIGHT, ROLL_LEFT, ROLL_RIGHT, CYCLE_CAMERA_MODE,
-	T_MENU, T_PHYSICS, T_LOCK_PAGE_UP, T_LOCK_PAGE_DOWN, T_LOCK_OVERHEAD, T_TRAILS,
+	T_MENU, T_PHYSICS, T_LOCK_PAGE_UP, T_LOCK_PAGE_DOWN, T_LOCK_OVERHEAD, T_TRAILS, T_STAR_SPRITES,
 	INCREASE_TIME_STEP, DECREASE_TIME_STEP, SWAP_CAMERAS, SNAP_TO_TARGET,
 	TARGET_ROTATE_UP, TARGET_ROTATE_DOWN, TARGET_ROTATE_LEFT, TARGET_ROTATE_RIGHT,
 	QUIT
@@ -56,6 +57,7 @@ std::map<keyMapName, int> keyMap = {
 	{ T_LOCK_PAGE_DOWN, GLFW_KEY_LEFT_BRACKET },
 	{ T_LOCK_OVERHEAD, GLFW_KEY_L },
 	{ T_TRAILS, GLFW_KEY_T },
+	{ T_STAR_SPRITES, GLFW_KEY_Y },
 	{ INCREASE_TIME_STEP, GLFW_KEY_PERIOD },
 	{ DECREASE_TIME_STEP, GLFW_KEY_COMMA },
 	{ SWAP_CAMERAS, GLFW_KEY_SPACE },
@@ -74,6 +76,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 	{keyMap[T_LOCK_PAGE_DOWN], []() { camera.atIndex--; }},
 	{keyMap[T_LOCK_OVERHEAD], []() { overheadLock = !overheadLock; }},
 	{keyMap[T_TRAILS], []() { doTrails = !doTrails; }},
+	{keyMap[T_STAR_SPRITES], []() { doStarSprites = !doStarSprites; }},
 	{keyMap[INCREASE_TIME_STEP], []() { timeStep *= 1.1; }},
 	{keyMap[DECREASE_TIME_STEP], []() { timeStep *= 0.9; }},
 	// camera cycles between modes in order
@@ -178,12 +181,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 		// handling for body index selection
 		if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
-			if (camera.mode == LOCK_CAM) {
-				camera.eyeIndex = camera.atIndex = key - GLFW_KEY_0;
-			}
-			else if (camera.mode == GRAV_CAM) {
-				bodies[camera.eyeIndex]->trail->parentIndex = key - GLFW_KEY_0;
-				bodies[camera.eyeIndex]->parentIndex = key - GLFW_KEY_0;
+			size_t index = key - GLFW_KEY_0;
+			if (index < bodies.size() - 1) {
+				if (camera.mode == LOCK_CAM) {
+					camera.eyeIndex = camera.atIndex = index;
+				}
+				else if (camera.mode == GRAV_CAM) {
+					bodies[camera.eyeIndex]->trail->parentIndex = index;
+					bodies[camera.eyeIndex]->parentIndex = index;
+				}
 			}
 		}
 

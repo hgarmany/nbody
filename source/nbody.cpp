@@ -102,6 +102,7 @@ int main() {
 	initShadowMap();
 	initTrails();
 	initStarBuffer();
+	initImGui();
 
 	// entering work area: split program into physics and rendering threads
 	std::thread physicsThread(physicsLoop);

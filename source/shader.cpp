@@ -58,7 +58,7 @@ Shader initStandardShader() {
 		out vec3 Tangent;
 		out vec3 Bitangent;
 		out vec2 TexCoords;
-		out float logDepth;
+		out float viewDepth;
 
 		uniform mat4 model;
 		uniform mat4 view;
@@ -67,21 +67,16 @@ Shader initStandardShader() {
 
 		void main() {
 			FragPos = vec3(model * vec4(aPos.x, aPos.y * (1.0 - oblateness), aPos.z, 1.0));
-			vec4 ViewPos = view * vec4(FragPos, 1.0);
+			vec4 viewPos = view * vec4(FragPos, 1.0);
 			
 			Tangent = normalize(vec3(model * vec4(aTan, 0.0)));
 			Bitangent = normalize(vec3(model * vec4(aBitan, 0.0)));
 			Normal = normalize(vec3(model * vec4(aNormal, 0.0)));
 
 			TexCoords = aTex;
-			gl_Position = vec4(projection * ViewPos);
 			
-			if (ViewPos.z < 0) {
-				logDepth = log(1.0 - ViewPos.z) / log(1e9 + 1.0);
-			}
-			else {
-				logDepth = 0.0;
-			}
+			viewDepth = viewPos.z;
+			gl_Position = vec4(projection * viewPos);
 		}
 	)";
 
@@ -92,7 +87,7 @@ Shader initStandardShader() {
 		in vec3 Tangent;
 		in vec3 Bitangent;
 		in vec2 TexCoords;
-		in float logDepth;
+		in float viewDepth;
 
 		out vec4 FragColor;
 
@@ -109,10 +104,11 @@ Shader initStandardShader() {
 		uniform int usesTexture;
 		uniform int usesNormalMap;
 		
-		float PI = 3.141592653589793;
+		const float PI = 3.141592653589793;
+		const float EPSILON = 1e-6;
 
 		float eclipseFactor() {
-			float thetaLight = asin(lightRadius / length(lightPos - FragPos));
+			float thetaLight = abs(atan(lightRadius / length(lightPos - FragPos)));
 			float areaLight = PI * thetaLight * thetaLight;
 			float totalOcclusion = 0.0;
 
@@ -120,38 +116,24 @@ Shader initStandardShader() {
 				vec3 occluderPos = occluders[i].xyz;
 				float occluderRadius = occluders[i].w;
 
-				float thetaOccluder = asin(occluderRadius / length(occluderPos - FragPos));
-				float phi = acos(dot(normalize(lightPos - FragPos), normalize(occluderPos - FragPos)));
+				float thetaOccluder = abs(atan(occluderRadius / length(occluderPos - FragPos)));
+				float phi = acos(clamp(dot(normalize(lightPos - FragPos), normalize(occluderPos - FragPos)), 0.0, 1.0));
 
-				if (phi >= thetaLight + thetaOccluder)
+				float penumbraInner = abs(thetaLight - thetaOccluder);
+				float penumbraOuter = thetaLight + thetaOccluder;
+
+				if (phi <= penumbraInner)
+					return 0.0; // full occlusion
+				if (phi >= penumbraOuter)
 					continue; // no overlap
-
-				float A = 0.0;
-
-				if (phi <= abs(thetaLight - thetaOccluder)) {
-					A = PI * min(thetaLight, thetaOccluder) * min(thetaLight, thetaOccluder); // full occlusion
-				} else {
-					float r1 = thetaLight;
-					float r2 = thetaOccluder;
-					float d = phi;
-
-					float alpha = acos((d*d + r1*r1 - r2*r2) / (2.0 * d * r1));
-					float beta = acos((d*d + r2*r2 - r1*r1) / (2.0 * d * r2));
-					float segment = 0.5 * sqrt((-d + r1 + r2)*(d + r1 - r2)*(d - r1 + r2)*(d + r1 + r2));
-					A = r1*r1*alpha + r2*r2*beta - segment;
-				}
-
-				totalOcclusion += A;
+				totalOcclusion += smoothstep(penumbraOuter, penumbraInner, phi);
 			}
 
-			float occlusionFraction = clamp(totalOcclusion / areaLight, 0.0, 1.0);
-			return 1.0 - occlusionFraction; // used to modulate lighting
+			return 1.0 - totalOcclusion; // used to modulate lighting
 		}
 
 		void main() {
-			gl_FragDepth = logDepth;
-
-			vec4 texColor = texture(textureMap, TexCoords);
+			gl_FragDepth = log(0.9 - viewDepth) / log(1e9 + 0.9);
 
 			// Ambient
 			float amb = material.x;
@@ -182,10 +164,11 @@ Shader initStandardShader() {
 			// Final color
 			vec3 result = (clamp(amb + diff + spec, 0.0, 1.0) * lightColor + emission) * objectColor;
 			if (usesTexture == 1) {
-				FragColor = texColor * vec4(result, 1.0) * eclipseFactor();
+				vec4 texColor = texture(textureMap, TexCoords);
+				FragColor = texColor * vec4(result * eclipseFactor(), 1.0);
 			}
 			else {
-				FragColor = vec4(result, 1.0);
+				FragColor = vec4(result * eclipseFactor(), 1.0);
 			}
 		}
 	)";
@@ -268,28 +251,33 @@ Shader initTrailShader() {
 		layout (location = 1) in float alpha;
 
 		out float f_alpha;
+		out float viewDepth;
 		
 		uniform mat4 model;
 		uniform mat4 view;
 		uniform mat4 projection;
 
 		void main() {
-			gl_Position = projection * view * model * vec4(aPos, 1.0);
-			float depth = 2.0 * log(1.0 + gl_Position.w) / log(1e9 + 1.0) - 1.0;
-			gl_Position.z = depth * gl_Position.w;
+			vec4 viewPos = view * model * vec4(aPos, 1.0);
+			viewDepth = viewPos.z;
 			f_alpha = alpha;
+
+			gl_Position = projection * viewPos;
 		}
 	)";
 
 	const char* fragmentSource = R"(
 		#version 330 core
 		in float f_alpha;
+		in float viewDepth;
 
 		out vec4 fragColor;
 
 		uniform vec3 color;
 
 		void main() {
+			gl_FragDepth = log(0.9 - viewDepth) / log(1e9 + 0.9);
+
 			fragColor = vec4(color, f_alpha); // Fade out trail with alpha
 		}
 	)";

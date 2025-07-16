@@ -1,5 +1,4 @@
 #include "builder.h"
-#include "physics.h"
 
 void EntityBuilder::buildSky(size_t modelIndex) {
 	std::vector<std::string> faces = {
@@ -189,6 +188,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	glm::vec4 ambMat(1.0f, 0.0f, 0.0f, 0.0f);
 	Surface sun = Surface("../../assets/sol/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 	Surface world = Surface("../../assets/fiction/world.jpg", diffuseMat);
+	Surface earth = Surface("../../assets/sol/earth.jpg", diffuseMat);
 	world.setNormal("../../assets/fiction/world_normal.jpg");
 
 	float siderealDay = 31.7791f * 3600.0f;
@@ -221,7 +221,8 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRadius(9.6055f);
 	spin = 2 * pi / 297826;
 	setRotation(glm::dvec3(0.1362159 + nearthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
-	setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
+	//setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
+	setSurface(earth);
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
 	bodies.push_back(get());
 
@@ -236,6 +237,8 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
 	bodies.push_back(get());
 
+	TwoBodyBarycenter* bary1 = new TwoBodyBarycenter(1, 3);
+
 	// !moon
 	Orbit nmoonOrbit(bodies[2], 1.44966e2, 0.1337362f, 2.40028f, 0.55761f, 0.142635f, 1.66287f);
 	init(3.68863e24, nmoonOrbit, 2);
@@ -247,10 +250,11 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
 	bodies.push_back(get());
 
+	TwoBodyBarycenter* bary2 = new TwoBodyBarycenter(2, 4);
 	/*
 	// orbit tester
-	Orbit testOrbit(bodies[0], 4e4, 0.6f, 0.0f, 1.0f, 0.32f, 0.0f);
-	init(1e28, testOrbit, 0);
+	Orbit testOrbit(bodies[0], 4e3, 0.6f, 0.0f, 1.0f, 0.32f, 0.0f);
+	init(1e29, testOrbit, 0);
 	setModel(modelIndex);
 	setRadius(20.0f);
 	spin = 2 * pi / 297826;
@@ -258,5 +262,6 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setSurface(Surface(diffuseMat));
 	addTrail(glm::vec3(0.0f, 1.0f, 0.0f));
 	bodies.push_back(get());
+	TwoBodyBarycenter* barystar = new TwoBodyBarycenter(0, 5);
 	*/
 }

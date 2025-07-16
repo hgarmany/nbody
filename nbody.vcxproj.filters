@@ -51,6 +51,9 @@
     <ClInclude Include="source\entity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="source\barycenter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\model.cpp">

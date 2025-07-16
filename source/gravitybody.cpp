@@ -1,8 +1,11 @@
 ﻿#include "gravitybody.h"
 
+std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
+
 GravityBody::GravityBody(glm::float64 mass) {
 	parentIndex = -1;
 	trail = nullptr;
+	barycenter = nullptr;
 	this->mass = mass;
 	gravityType = POINT;
 	radius = j2 = 0.0;
@@ -13,6 +16,7 @@ GravityBody::GravityBody(glm::float64 mass) {
 GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 	this->parentIndex = parentIndex;
 	trail = nullptr;
+	barycenter = nullptr;
 	this->mass = mass;
 	gravityType = POINT;
 	radius = j2 = 0.0;

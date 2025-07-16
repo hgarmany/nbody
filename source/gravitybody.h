@@ -11,6 +11,9 @@ enum gravType : uint8_t {
 };
 
 class GravityBody;
+class Barycenter;
+
+extern std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
 
 typedef struct orbit {
 	std::shared_ptr<GravityBody> parent;
@@ -75,6 +78,7 @@ public:
 	glm::float64 mass, radius, j2;
 	float oblateness;
 	gravType gravityType;
+	Barycenter* barycenter;
 
 	GravityBody(glm::float64 mass = DBL_MIN);
 	GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex);

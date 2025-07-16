@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\barycenter.h" />
     <ClInclude Include="source\builder.h" />
     <ClInclude Include="source\camera.h" />
     <ClInclude Include="source\controls.h" />

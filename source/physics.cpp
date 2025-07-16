@@ -1,11 +1,11 @@
 ﻿#include "physics.h"
+#include "barycenter.h"
 #include <vector>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <omp.h>
 
-std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
 std::ofstream physicsLog1, physicsLog2;
 
 uint8_t targetRotation = 0;
@@ -217,15 +217,43 @@ void tracePath(size_t parent, size_t orbiter) {
 }
 
 void ellipticalPath(size_t parent, size_t orbiter) {
-	glm::float64 m0 = bodies[parent]->mass;
-	glm::float64 m1 = bodies[orbiter]->mass;
-	glm::dvec3 r0 = bodies[parent]->position;
-	glm::dvec3 r1 = bodies[orbiter]->position;
+	glm::float64 m0, m1;
+	glm::dvec3 r0, r1, velParent, velOrbiter;
+	/*
+	if (bodies[parent]->barycenter) {
+		Barycenter* bary = bodies[parent]->barycenter;
+		m0 = bary->mass();
+		r0 = bary->position();
+		velParent = bary->velocity();
+	}
+	else {
+		m0 = bodies[parent]->mass;
+		r0 = bodies[parent]->position;
+		velParent = bodies[parent]->velocity;
+	}
+	*/
+	m0 = bodies[parent]->mass;
+	r0 = bodies[parent]->position;
+	velParent = bodies[parent]->velocity;
+
+	if (bodies[orbiter]->barycenter) {
+		Barycenter* bary = bodies[orbiter]->barycenter;
+		m1 = bary->mass();
+		r1 = bary->position();
+		velOrbiter = bary->velocity();
+	}
+	else {
+		m1 = bodies[orbiter]->mass;
+		r1 = bodies[orbiter]->position;
+		velOrbiter = bodies[orbiter]->velocity;
+	}
+
+	glm::dvec3 velocity = velOrbiter - velParent;
+
 	glm::dvec3 centerOfMass = (m0 * r0 + m1 * r1) / (m0 + m1);
 	glm::float64 gravParam = G * (m0 + m1);
 
 	glm::dvec3 position = r1 - r0;
-	glm::dvec3 velocity = bodies[orbiter]->velocity - bodies[parent]->velocity;
 
 	glm::dvec3 orbitalMomentum = glm::cross(position, velocity);
 	glm::dvec3 h_hat = glm::normalize(orbitalMomentum);

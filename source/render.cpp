@@ -12,6 +12,7 @@ int screenSize = windowWidth;
 float pipSize = 0.35f;
 
 ImGuiStyle* style;
+ImVector<ImWchar> ranges;
 
 size_t cameraFutureTrailLength = 2500;
 GLsizei starCapacity = 20;
@@ -186,6 +187,35 @@ void initPIP() {
 	glBindRenderbuffer(GL_RENDERBUFFER, pipDepthBuffer);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, pipWidth, pipHeight);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, pipDepthBuffer);
+}
+
+void initImGui() {
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+
+	const char* fontPath = "../../assets/DejaVuSansMono.ttf";
+
+	ImFontGlyphRangesBuilder builder;
+	builder.AddRanges(io.Fonts->GetGlyphRangesDefault());                        // Add a string (here "Hello world" contains 7 unique characters)
+	builder.AddChar(0x2699);                               // Add a specific character
+	builder.BuildRanges(&ranges);                          // Build the final result (ordered ranges with all the unique characters submitted)
+
+	defaultFont = io.Fonts->AddFontFromFileTTF(fontPath, 16.0f, nullptr, ranges.Data);
+	largeFont = io.Fonts->AddFontFromFileTTF(fontPath, 32.0f, nullptr, ranges.Data);
+
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+	style = &ImGui::GetStyle();
+	style->GrabRounding = 5.0f;
+	style->FrameRounding = 5.0f;
+	style->WindowRounding = 5.0f;
+	style->Colors[ImGuiCol_Text] = ImVec4(0.00f, 1.00f, 1.00f, 1.00f);
+	style->Colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 }
 
 void initShaders() {
@@ -514,10 +544,10 @@ void render(Camera& camera) {
 				std::vector<glm::vec4> occluders;
 				size_t parentIndex = frameBodies[i]->parentIndex;
 				if (parentIndex != 0 && parentIndex != -1)
-					occluders.emplace_back(frameBodies[parentIndex]->position, frameBodies[parentIndex]->radius);
+					occluders.emplace_back(frameBodies[parentIndex]->position - bodyPos, frameBodies[parentIndex]->radius);
 				for (size_t j = 0; j < frameBodies.size(); j++) {
 					if (frameBodies[j]->parentIndex == i)
-						occluders.emplace_back(frameBodies[j]->position, frameBodies[j]->radius);
+						occluders.emplace_back(frameBodies[j]->position - bodyPos, frameBodies[j]->radius);
 				}
 
 				GLuint numOccluders = (GLuint)occluders.size();
@@ -527,6 +557,9 @@ void render(Camera& camera) {
 
 				glUniform4fv(shader.uniforms[OCCLUDERS], 8, glm::value_ptr(occluders[0]));
 				glUniform1i(shader.uniforms[NUM_OCCLUDERS], numOccluders);
+			}
+			else {
+				glUniform1i(shader.uniforms[NUM_OCCLUDERS], 0);
 			}
 			
 			setPV(shader, projection, relativeViewMat);
@@ -542,6 +575,7 @@ void render(Camera& camera) {
 		orderedEntities[distance] = frameEntities[i];
 	}
 
+	glDisable(GL_CULL_FACE);
 	for (auto it = orderedEntities.rbegin(); it != orderedEntities.rend(); it++) {
 		std::shared_ptr<Entity> entity = it->second;
 		glm::dvec3 bodyPos = entity->position + entity->root->position;
@@ -562,6 +596,7 @@ void render(Camera& camera) {
 		renderTrails(camera);
 }
 
+// incomplete
 void renderShadowMap() {
 	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
 
@@ -632,7 +667,8 @@ void renderPIP() {
 
 	updateProjectionMatrix(pipCam, window);
 	render(pipCam);
-	renderBillboards(pipCam, glm::ivec2(pipSize * windowWidth, pipSize * windowHeight));
+	if (doStarSprites)
+		renderBillboards(pipCam, glm::ivec2(pipSize * windowWidth, pipSize * windowHeight));
 
 	// return to screen buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -650,9 +686,7 @@ void renderPIP() {
 	drawQuad();  // Assume a quad is already defined for rendering
 }
 
-void drawGUI(ImGuiIO& io) {
-	//io.ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
-
+void drawGUI() {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 
@@ -832,41 +866,11 @@ void drawGUI(ImGuiIO& io) {
 	ImGui::UpdatePlatformWindows();
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 }
 
 void renderLoop() {
 	double lastFrameTime = glfwGetTime();
 	double currentTime = glfwGetTime();
-
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
-
-	const char* fontPath = "../../assets/DejaVuSansMono.ttf";
-
-	ImVector<ImWchar> ranges;
-	ImFontGlyphRangesBuilder builder;
-	builder.AddRanges(io.Fonts->GetGlyphRangesDefault());                        // Add a string (here "Hello world" contains 7 unique characters)
-	builder.AddChar(0x2699);                               // Add a specific character
-	builder.BuildRanges(&ranges);                          // Build the final result (ordered ranges with all the unique characters submitted)
-
-	defaultFont = io.Fonts->AddFontFromFileTTF(fontPath, 16.0f, nullptr, ranges.Data);
-	largeFont = io.Fonts->AddFontFromFileTTF(fontPath, 32.0f, nullptr, ranges.Data);\
-
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 330");
-	style = &ImGui::GetStyle();
-	style->GrabRounding = 5.0f;
-	style->FrameRounding = 5.0f;
-	style->WindowRounding = 5.0f;
-	style->Colors[ImGuiCol_Text] = ImVec4(0.00f, 1.00f, 1.00f, 1.00f);
-	style->Colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 
 	try {
 		while (!glfwWindowShouldClose(window)) {
@@ -911,11 +915,12 @@ void renderLoop() {
 
 				render(camera);
 				renderPIP();
-				renderBillboards(camera, glm::ivec2(windowWidth, windowHeight));
+				if (doStarSprites)
+					renderBillboards(camera, glm::ivec2(windowWidth, windowHeight));
 
 				lastFrameTime = currentTime;
 
-				drawGUI(io);
+				drawGUI();
 
 				glfwSwapBuffers(window);
 				glfwPollEvents();

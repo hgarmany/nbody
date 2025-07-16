@@ -8,6 +8,7 @@ void initCamera();
 void initQuad();
 void initShadowMap();
 void initPIP();
+void initImGui();
 void initShaders();
 void initTrails();
 void initStarBuffer();

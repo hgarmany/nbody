@@ -4,7 +4,7 @@
 #include <map>
 #include <GLFW/glfw3.h>
 
-extern bool overheadLock, showWelcomeMenu, showLockIndexMenu, showSettingsMenu;
+extern bool overheadLock, showWelcomeMenu, showLockIndexMenu, showSettingsMenu, doStarSprites;
 extern int windowWidth, windowHeight;
 extern double lastX, lastY, deltaTime;
 
