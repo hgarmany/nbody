@@ -1,5 +1,6 @@
 ﻿#include "render.h"
 #include "controls.h"
+#include "barycenter.h"
 #include <mutex>
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -414,12 +415,7 @@ void renderTrails(Camera& camera) {
 	trailVertices.clear();
 	trailAlphas.clear();
 
-	// set camera
-	glm::mat4 view = camera.viewMatrix();
-	setPV(shader, projection, view);
-
 	glUseProgram(trailShader.index);
-	setPV(trailShader, projection, view);
 
 	// compile trail buffers if empty
 	if (trailVertices.size() == 0) {
@@ -431,8 +427,8 @@ void renderTrails(Camera& camera) {
 				glm::dvec3 axisOfRotation(0.0, 1.0, 0.0);
 				axisOfRotation = body->rotQuat * axisOfRotation;
 
-				trailVertices.push_back(body->position + 2 * body->radius * axisOfRotation);
-				trailVertices.push_back(body->position - 2 * body->radius * axisOfRotation);
+				trailVertices.push_back(2 * body->radius * axisOfRotation);
+				trailVertices.push_back(-2 * body->radius * axisOfRotation);
 				trailAlphas.push_back(1.0f);
 				trailAlphas.push_back(1.0f);
 			}
@@ -442,6 +438,14 @@ void renderTrails(Camera& camera) {
 				trailVertices.insert(trailVertices.end(), body->trail->begin(), body->trail->end());
 				for (size_t j = body->trail->size(); j > 0; j--) {
 					trailAlphas.push_back(1.0f);
+				}
+
+				Barycenter* bary = body->barycenter;
+				if (bary) {
+					trailVertices.insert(trailVertices.end(), bary->primaryOrbit->begin(), bary->primaryOrbit->end());
+					for (size_t j = bary->primaryOrbit->size(); j > 0; j--) {
+						trailAlphas.push_back(1.0f);
+					}
 				}
 			}
 		}
@@ -476,8 +480,15 @@ void renderTrails(Camera& camera) {
 
 		glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
 
+		// set camera
+		Camera tempCam = camera;
+		tempCam.position -= body.position;
+		glm::mat4 view = tempCam.viewMatrix();
+		setPV(trailShader, projection, view);
+
 		// axis
 		if (testObjectVisibility(i, camera)) {
+
 			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
 			glDrawArrays(GL_LINE_STRIP, offset, 2);
 			offset += 2;
@@ -490,7 +501,13 @@ void renderTrails(Camera& camera) {
 			if (body.parentIndex != -1) {
 				glm::mat4 rotate = relativeRotationalMatrix(frameBodies, i, parentIndex, true);
 
-				modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[body.parentIndex]->position);
+				Barycenter* parentBary = frameBodies[body.parentIndex]->barycenter;
+
+				if (parentBary && body.mass > DBL_MIN)
+					modelMatrix = glm::translate(glm::dmat4(1.0), parentBary->position() - body.position);
+				else
+					modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[parentIndex]->position - body.position);
+
 				modelMatrix *= rotate;
 			}
 
@@ -498,6 +515,17 @@ void renderTrails(Camera& camera) {
 
 			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
 			offset += (GLint)body.trail->size();
+
+			// additional orbit for primary of a barycenter
+			Barycenter* bary = body.barycenter;
+			if (bary) {
+				modelMatrix = glm::translate(glm::dmat4(1.0), bary->position() - body.position);
+
+				glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+
+				glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)bary->primaryOrbit->size());
+				offset += (GLint)bary->primaryOrbit->size();
+			}
 		}
 	}
 
@@ -871,7 +899,7 @@ void drawGUI() {
 void renderLoop() {
 	double lastFrameTime = glfwGetTime();
 	double currentTime = glfwGetTime();
-
+	
 	try {
 		while (!glfwWindowShouldClose(window)) {
 			if (currentTime - lastFrameTime > MIN_FRAME_TIME) {

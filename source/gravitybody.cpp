@@ -83,7 +83,40 @@ glm::dvec3 GravityBody::getRotVelocity() {
 
 	return inverseInertialTensor * (glm::transpose(glm::mat3_cast(rotQuat)) * angularMomentum);
 }
+/*
+std::vector<MaterialLayer> GravityBody::makeLayers() {
+	// g / cm3
+	double coreDensity = 11.0f, mantleDensity = 4.0f, crustDensity = 3.0f;
 
+
+}
+
+void GravityBody::initTidalParams() {
+	std::vector<MaterialLayer> layers = makeLayers();
+
+	glm::float64 meanRadius = radius * (1 - oblateness * 0.5);
+
+	// volume-weighted effective shear modulus and viscosity
+	glm::float64 effShearMod = 0;
+	glm::float64 effViscosity = 0;
+	for (const auto& layer : layers) {
+		glm::float64 volFrac = (pow(layer.outerRadius, 3) - pow(layer.innerRadius, 3));
+		effShearMod += volFrac * layer.shearMod;
+		effViscosity += volFrac * layer.viscosity;
+	}
+
+	glm::float64 density = mass / ((4.0 / 3.0) * pi * pow(radius, 3));
+	glm::float64 surfaceGravity = G * mass / (radius * radius);
+	loveNumber = float(1.5 / (1.0 + (19.0 * effShearMod) / (2.0 * density * surfaceGravity * radius)));
+
+	glm::float64 distance = glm::distance(position, bodies[parentIndex]->position);
+	glm::float64 speed = glm::distance(velocity, bodies[parentIndex]->velocity);
+	glm::float64 semiMajorAxis = 1.0 / (2.0 / distance - speed * speed / (G * bodies[parentIndex]->mass));
+
+	double omega = 1 / sqrt(semiMajorAxis * semiMajorAxis * semiMajorAxis / (G * bodies[parentIndex]->mass)); // orbital velocity, rad/s
+	qualityFactor = float(effShearMod / (omega * effViscosity));
+}
+*/
 void GravityBody::initJ2() {
 	glm::dvec3 rotVelocity = getRotVelocity();
 	j2 = (2 * oblateness - ((radius * radius * radius * rotVelocity.y * rotVelocity.y) / (G * mass))) / 3.0;

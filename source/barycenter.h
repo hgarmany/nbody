@@ -6,9 +6,11 @@ class Barycenter {
 protected:
 	size_t primary;
 public:
+	Trail* primaryOrbit;
 	virtual glm::float64 mass() = 0;
 	virtual glm::dvec3 position() = 0;
 	virtual glm::dvec3 velocity() = 0;
+	virtual glm::float64 apparentMass(size_t observer) = 0;
 };
 
 class TwoBodyBarycenter : public Barycenter {
@@ -20,7 +22,7 @@ public:
 			primary = -1;
 			secondary = -1;
 		}
-		else if (bodies[a]->mass > bodies[b]->mass) {
+		else if (bodies[a]->mass >= bodies[b]->mass) {
 			primary = a;
 			secondary = b;
 
@@ -32,22 +34,38 @@ public:
 
 			bodies[b]->barycenter = this;
 		}
+
+		primaryOrbit = new Trail(bodies[primary]->trail->color, primary);
 	}
 
 	glm::float64 mass() {
-		return bodies[primary]->mass + bodies[secondary]->mass;
+		return frameBodies[primary]->mass + frameBodies[secondary]->mass;
 	}
 
 	glm::dvec3 position() {
-		return (bodies[primary]->mass * bodies[primary]->position + 
-			bodies[secondary]->mass * bodies[secondary]->position) / 
-			(bodies[primary]->mass + bodies[secondary]->mass);
+		return (frameBodies[primary]->mass * frameBodies[primary]->position +
+			frameBodies[secondary]->mass * frameBodies[secondary]->position) /
+			(frameBodies[primary]->mass + frameBodies[secondary]->mass);
 	}
 
 	glm::dvec3 velocity() {
-		return (bodies[primary]->mass * bodies[primary]->velocity +
-			bodies[secondary]->mass * bodies[secondary]->velocity) /
-			(bodies[primary]->mass + bodies[secondary]->mass);
+		return (frameBodies[primary]->mass * frameBodies[primary]->velocity +
+			frameBodies[secondary]->mass * frameBodies[secondary]->velocity) /
+			(frameBodies[primary]->mass + frameBodies[secondary]->mass);
+	}
+
+	glm::float64 apparentMass(size_t observer) {
+		glm::dvec3 com = (frameBodies[primary]->mass * frameBodies[primary]->position +
+			frameBodies[secondary]->mass * frameBodies[secondary]->position) /
+			(frameBodies[primary]->mass + frameBodies[secondary]->mass);
+		glm::float64 d1 = glm::distance(frameBodies[primary]->position, com);
+		glm::float64 d2 = glm::distance(frameBodies[secondary]->position, com);
+
+		if (observer == primary)
+			return frameBodies[secondary]->mass * (d1 * d1) / ((d1 + d2) * (d1 + d2));
+		if (observer == secondary)
+			return frameBodies[primary]->mass * (d2 * d2) / ((d1 + d2) * (d1 + d2));
+		return frameBodies[primary]->mass + frameBodies[secondary]->mass;
 	}
 };
 
@@ -60,6 +78,7 @@ public:
 		this->secondaries = secondaries;
 
 		bodies[primary]->barycenter = this;
+		primaryOrbit = new Trail(bodies[primary]->trail->color, primary);
 	}
 
 	ComplexBarycenter(std::vector<size_t> indices) {
@@ -76,6 +95,7 @@ public:
 		secondaries = indices;
 
 		bodies[primary]->barycenter = this;
+		primaryOrbit = new Trail(bodies[primary]->trail->color, primary);
 	}
 
 	glm::float64 mass() {

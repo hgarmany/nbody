@@ -70,19 +70,27 @@ public:
 	size_t size() { return queue.size(); }
 };
 
+struct MaterialLayer {
+	double shearMod;	// shear modulus in Pa
+	double viscosity;	// viscosity in Pa·s
+	double innerRadius, outerRadius;	// layer bounds as fractions of body radius
+};
+
 class GravityBody : public Entity {
 public:
 	glm::dvec3 momentOfInertia, angularMomentum, torque;
 	Trail* trail;
 	size_t parentIndex;
 	glm::float64 mass, radius, j2;
-	float oblateness;
+	float oblateness, loveNumber, qualityFactor;
 	gravType gravityType;
 	Barycenter* barycenter;
 
 	GravityBody(glm::float64 mass = DBL_MIN);
 	GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex);
 
+	//std::vector<MaterialLayer> makeLayers();
+	//void initTidalParams();
 	void initJ2();
 	void initI();
 

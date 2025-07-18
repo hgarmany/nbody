@@ -75,6 +75,8 @@ void buildObjects() {
 	bodies.push_back(builder.get());
 
 	builder.buildSky(cube);
+	
+	frameBodies = bodies;
 }
 
 int main() {
