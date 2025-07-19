@@ -8,8 +8,9 @@
 
 extern Camera camera, pipCam;
 extern std::atomic<bool> running;
-extern std::condition_variable physicsCV;
-extern bool hasPhysics, physicsUpdated, doTrails;
+extern std::condition_variable physicsDone, physicsStart;
+extern std::mutex physicsMutex;
+extern bool hasPhysics, doTrails;
 extern double elapsedTime, timeStep, frameTime;
 extern uint8_t targetRotation;
 

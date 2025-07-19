@@ -28,8 +28,6 @@ std::vector<float> trailAlphas;
 
 std::vector<std::shared_ptr<Entity>> frameEntities;
 
-std::mutex physicsMutex;
-
 void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
 	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
 	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
@@ -439,13 +437,13 @@ void renderTrails(Camera& camera) {
 				for (size_t j = body->trail->size(); j > 0; j--) {
 					trailAlphas.push_back(1.0f);
 				}
+			}
 
-				Barycenter* bary = body->barycenter;
-				if (bary) {
-					trailVertices.insert(trailVertices.end(), bary->primaryOrbit->begin(), bary->primaryOrbit->end());
-					for (size_t j = bary->primaryOrbit->size(); j > 0; j--) {
-						trailAlphas.push_back(1.0f);
-					}
+			Barycenter* bary = body->barycenter;
+			if (bary && bary->primaryOrbit) {
+				trailVertices.insert(trailVertices.end(), bary->primaryOrbit->begin(), bary->primaryOrbit->end());
+				for (size_t j = bary->primaryOrbit->size(); j > 0; j--) {
+					trailAlphas.push_back(1.0f);
 				}
 			}
 		}
@@ -503,7 +501,7 @@ void renderTrails(Camera& camera) {
 
 				Barycenter* parentBary = frameBodies[body.parentIndex]->barycenter;
 
-				if (parentBary && body.mass > DBL_MIN)
+				if (parentBary)
 					modelMatrix = glm::translate(glm::dmat4(1.0), parentBary->position() - body.position);
 				else
 					modelMatrix = glm::translate(glm::dmat4(1.0), frameBodies[parentIndex]->position - body.position);
@@ -515,17 +513,19 @@ void renderTrails(Camera& camera) {
 
 			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)body.trail->size());
 			offset += (GLint)body.trail->size();
+		}
 
-			// additional orbit for primary of a barycenter
-			Barycenter* bary = body.barycenter;
-			if (bary) {
-				modelMatrix = glm::translate(glm::dmat4(1.0), bary->position() - body.position);
+		// additional orbit for primary of a barycenter
+		Barycenter* bary = body.barycenter;
+		if (bary && bary->primaryOrbit) {
+			modelMatrix = glm::translate(glm::dmat4(1.0), bary->position() - body.position);
+			color = bary->primaryOrbit->color;
 
-				glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
+			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &color[0]);
+			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
 
-				glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)bary->primaryOrbit->size());
-				offset += (GLint)bary->primaryOrbit->size();
-			}
+			glDrawArrays(GL_LINE_STRIP, offset, (GLsizei)bary->primaryOrbit->size());
+			offset += (GLint)bary->primaryOrbit->size();
 		}
 	}
 
@@ -836,6 +836,7 @@ void drawGUI() {
 		ImGui::Text("Elapsed time: %.1f yrs", elapsedTime / 86400 / 365.25);
 		ImGui::Text("Time Step: %.3f s", frameTime);
 		ImGui::Text("Frame Time: %.3f ms", deltaTime * 1000);
+		ImGui::Text("%.3f s", elapsedTime);
 
 		ImGui::End();
 	}
@@ -904,11 +905,10 @@ void renderLoop() {
 		while (!glfwWindowShouldClose(window)) {
 			if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
 				// capture physics results when they are ready
-				{
+				if (hasPhysics) {
 					std::unique_lock<std::mutex> lock(physicsMutex);
 
-					physicsCV.wait(lock, [] { return physicsUpdated; });
-					physicsUpdated = false;
+					physicsDone.wait(lock);
 
 					if (!doTrails && trailVertices.size() > 0) {
 						for (std::shared_ptr<GravityBody> body : bodies) {

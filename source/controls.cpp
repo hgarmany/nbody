@@ -71,7 +71,10 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 		showWelcomeMenu = !showWelcomeMenu;
 		showLockIndexMenu = showWelcomeMenu;
 	}},
-	{keyMap[T_PHYSICS], []() { hasPhysics = !hasPhysics; }},
+	{keyMap[T_PHYSICS], []() {
+		hasPhysics = !hasPhysics;
+		physicsStart.notify_one();
+	}},
 	{keyMap[T_LOCK_PAGE_UP], []() { camera.atIndex++; }},
 	{keyMap[T_LOCK_PAGE_DOWN], []() { camera.atIndex--; }},
 	{keyMap[T_LOCK_OVERHEAD], []() { overheadLock = !overheadLock; }},
@@ -98,6 +101,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 			break;
 		}
 		camera.FOV = defaultFOV;
+		bodies[bodies.size() - 1]->parentIndex = -1;
 	}},
 	{keyMap[SWAP_CAMERAS], []() { std::swap(camera, pipCam); }},
 	{keyMap[SNAP_TO_TARGET], []() {

@@ -122,10 +122,10 @@ Shader initStandardShader() {
 				float penumbraInner = abs(thetaLight - thetaOccluder);
 				float penumbraOuter = thetaLight + thetaOccluder;
 
+				if (thetaOccluder < 1e-9 || phi >= penumbraOuter)
+					continue; // no overlap
 				if (phi <= penumbraInner)
 					return 0.0; // full occlusion
-				if (phi >= penumbraOuter)
-					continue; // no overlap
 				totalOcclusion += smoothstep(penumbraOuter, penumbraInner, phi);
 			}
 

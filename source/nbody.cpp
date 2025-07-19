@@ -70,6 +70,7 @@ void buildObjects() {
 
 	// camera
 	builder.init();
+	builder.setRadius(0.0f);
 	builder.setMotion(bodies[0]->position + glm::dvec3(0, 0, bodies[0]->radius * 5), bodies[0]->velocity * 1.1);
 	builder.addTrail(glm::vec3(1.0f, 1.0f, 0.0f));
 	bodies.push_back(builder.get());

@@ -115,6 +115,12 @@ public:
 		return nullptr;
 	}
 
+	void addToBodiesLists() {
+		std::shared_ptr<GravityBody> entity = get();
+		bodies.push_back(entity);
+		frameBodies.push_back(entity);
+	}
+
 	void buildSolarSystem(size_t modelIndex);
 	void buildAlienSystem(size_t modelIndex);
 };

@@ -46,7 +46,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setMotion(glm::dvec3(0.0), glm::dvec3(0.0));
 	setRotation(glm::dvec3(0.126, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(sun);
-	bodies.push_back(get());
+	addToBodiesLists();
 	
 	// mercury
 	Orbit mercuryOrbit(bodies[0], 5.790923e4, 0.20563593f, 1.351894f, 0.843531f, 0.1222599f, 2.207044f);
@@ -57,7 +57,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.0005934119 + mercuryOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(mercury);
 	addTrail(glm::vec3(1.0f, 0.0f, 1.0f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// venus
 	Orbit venusOrbit(bodies[0], 1.082095e5, 0.00677672f, 2.296896f, 3.176134f, 0.05924827f, -0.4618222f);
@@ -68,7 +68,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.04607669 + venusOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(venus);
 	addTrail(glm::vec3(1.0f, 1.0f, 0.0f));
-	bodies.push_back(get());
+	addToBodiesLists();
 	
 	// earth
 	Orbit earthOrbit(bodies[0], 1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, -0.043163f);
@@ -79,7 +79,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(earth);
 	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
-	bodies.push_back(get());
+	addToBodiesLists();
 	
 	// mars
 	Orbit marsOrbit(bodies[0], 2.27956e5, 0.09339410f, -0.4178952f, 0.8649771f, 0.03228321f, -0.5265543f);
@@ -90,7 +90,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.4396484 + marsOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(mars);
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// jupiter
 	Orbit jupiterOrbit(bodies[0], 7.783408e5, 0.04838624f, 0.2570605f, 1.753601f, 0.02276602f, -1.412069f);
@@ -101,7 +101,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.05462881 + jupiterOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(jupiter);
 	addTrail(glm::vec3(1.0f, 0.5f, 0.0f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// saturn
 	Orbit saturnOrbit(bodies[0], 1.432041e6, 0.05415060f, 1.613242f, 0.8716928f, 0.04336201f, -2.726251f);
@@ -112,7 +112,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.4665265 + saturnOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(saturn);
 	addTrail(glm::vec3(0.7f, 0.8f, 0.1f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// saturn rings
 	size_t square = Model::Square();
@@ -135,7 +135,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.02691996 + moonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(moon);
 	addTrail();
-	bodies.push_back(get());
+	addToBodiesLists();
 	bodies[bodies.size() - 1]->j2 = 2.034e-4; // non-standard j2
 	
 	// io
@@ -147,7 +147,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.0006981317 + ioOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(io);
 	addTrail(glm::vec3(1.0f, 0.8f, 0.2f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// europa
 	Orbit europaOrbit(bodies[5], 670.9, 0.0101f, 2.714196f, 3.078359f, 0.008203047f, -1.400138f);
@@ -158,7 +158,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.001745329 + europaOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(europa);
 	addTrail(glm::vec3(0.4f, 0.7f, 0.7f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// ganymede
 	Orbit ganymedeOrbit(bodies[5], 1070, 0.0015f, 3.295723f, 2.09162f, 0.003403392f, -3.271899f);
@@ -169,7 +169,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.005759587 + ganymedeOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(ganymede);
 	addTrail(glm::vec3(0.0f, 0.4f, 0.8f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// callisto
 	Orbit callistoOrbit(bodies[5], 1883, 0.007f, 5.863137f, 5.642039f, 0.004904375f, 2.720846f);
@@ -180,7 +180,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0 + callistoOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(callisto);
 	addTrail(glm::vec3(0.6f, 0.6f, 0.8f));
-	bodies.push_back(get());
+	addToBodiesLists();
 }
 
 void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
@@ -200,10 +200,9 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	double spin = 2 * pi / 86400 / 27;
 	setRotation(glm::dvec3(0.126, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(sun);
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// earth
-	//Orbit earthOrbit(bodies[0], 1.37019e5, 0.0673234f, 0.0f, 0.0f, 0.0f, 0.0f);
 	Orbit earthOrbit(bodies[0], 1.37019e5, 0.0373234f, 0.0f, 0.0f, 0.0f, 0.0f);
 	init(2.44536e25, earthOrbit, 0);
 	setModel(modelIndex);
@@ -212,7 +211,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.4917866593 + earthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(world);
 	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// !earth
 	Orbit nearthOrbit(bodies[0], 1.35810e5, 0.0115530f, 0.506823f, 1.0653f, 0.045623f, float(pi));
@@ -225,7 +224,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	//setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
 	setSurface(earth);
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// moon
 	Orbit moonOrbit(bodies[1], 5.00245e2, 0.0233735f, 0.36812f, 1.77315f, 0.145046f, 2.46619f);
@@ -234,11 +233,10 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRadius(2.72034f);
 	spin = 2 * pi / 1730651;
 	setRotation(glm::dvec3(0.0541602 + moonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
-	setSurface(Surface(diffuseMat, glm::vec3(0.35f, 0.35f, 0.4f)));
+	//setSurface(Surface(diffuseMat, glm::vec3(0.35f, 0.35f, 0.4f)));
+	setSurface(earth);
 	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
-	bodies.push_back(get());
-
-	TwoBodyBarycenter* bary1 = new TwoBodyBarycenter(1, 3);
+	addToBodiesLists();
 
 	// !moon
 	Orbit nmoonOrbit(bodies[2], 1.44966e2, 0.1337362f, 2.40028f, 0.55761f, 0.142635f, 1.66287f);
@@ -249,10 +247,8 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.1627101 + nmoonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	//setSurface(Surface(diffuseMat, glm::vec3(0.25f, 0.2f, 0.15f)));
 	setSurface(earth);
-	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
-	bodies.push_back(get());
-
-	TwoBodyBarycenter* bary2 = new TwoBodyBarycenter(2, 4);
+	addTrail(glm::vec3(0.8f, 0.5f, 0.4f));
+	addToBodiesLists();
 	/*
 	// orbit tester
 	Orbit testOrbit(bodies[0], 4e3, 0.6f, 0.0f, 1.0f, 0.32f, 0.0f);
@@ -263,8 +259,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRotation(glm::dvec3(0.5 + testOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(Surface(diffuseMat));
 	addTrail(glm::vec3(0.0f, 1.0f, 0.0f));
-	bodies.push_back(get());
-	TwoBodyBarycenter* barystar = new TwoBodyBarycenter(0, 5);
+	addToBodiesLists();
 	
 	/*
 	// body1

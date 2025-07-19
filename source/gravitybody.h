@@ -1,7 +1,7 @@
 #pragma once
 
 #include "entity.h"
-#include <deque>
+#include "trail.h"
 
 enum gravType : uint8_t {
 	POINT,
@@ -10,10 +10,19 @@ enum gravType : uint8_t {
 	RING
 };
 
-class GravityBody;
-class Barycenter;
+class Barycenter {
+protected:
+	size_t primary;
+public:
+	Trail* primaryOrbit;
+	virtual void add(size_t secondary) = 0;
+	virtual glm::float64 mass() = 0;
+	virtual glm::dvec3 position() = 0;
+	virtual glm::dvec3 velocity() = 0;
+	virtual glm::float64 apparentMass(size_t observer) = 0;
+};
 
-extern std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
+class GravityBody;
 
 typedef struct orbit {
 	std::shared_ptr<GravityBody> parent;
@@ -51,31 +60,6 @@ typedef struct orbit {
 	}
 } Orbit;
 
-class Trail {
-public:
-	glm::mat4 rotation;
-	glm::vec3 color;
-	std::deque<glm::dvec3> queue;
-	size_t parentIndex;
-
-	Trail(glm::vec3 color = glm::vec3(0.0f), size_t parentIndex = -1)
-		: color(color), parentIndex(parentIndex), rotation(glm::mat4(1.0f)) {}
-
-	glm::dvec3 front() { return queue.front(); }
-	glm::dvec3 back() { return queue.back(); }
-	std::deque<glm::dvec3>::const_iterator begin() const { return queue.begin(); }
-	std::deque<glm::dvec3>::const_iterator end() const { return queue.end(); }
-	void push(const glm::dvec3 point) { queue.push_back(point); }
-	void pop() { queue.pop_front(); }
-	size_t size() { return queue.size(); }
-};
-
-struct MaterialLayer {
-	double shearMod;	// shear modulus in Pa
-	double viscosity;	// viscosity in Pa·s
-	double innerRadius, outerRadius;	// layer bounds as fractions of body radius
-};
-
 class GravityBody : public Entity {
 public:
 	glm::dvec3 momentOfInertia, angularMomentum, torque;
@@ -96,8 +80,16 @@ public:
 
 	glm::dvec3 getRotVelocity();
 	void rotateRK4(double dt);
-	
+
 	void draw(Shader& shader, uint8_t mode);
 private:
 	glm::dquat rotateDeriv(const glm::dquat& orientation, const glm::dvec3& momentum);
+};
+
+extern std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
+
+struct MaterialLayer {
+	double shearMod;	// shear modulus in Pa
+	double viscosity;	// viscosity in Pa·s
+	double innerRadius, outerRadius;	// layer bounds as fractions of body radius
 };

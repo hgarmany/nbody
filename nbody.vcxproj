@@ -31,6 +31,7 @@
     <ClInclude Include="source\shader.h" />
     <ClInclude Include="source\stb_image.h" />
     <ClInclude Include="source\surface.h" />
+    <ClInclude Include="source\trail.h" />
     <ClInclude Include="source\util.h" />
   </ItemGroup>
   <ItemGroup>
@@ -40,6 +41,7 @@
     <ClCompile Include="lib\imgui-docking\imgui_draw.cpp" />
     <ClCompile Include="lib\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="lib\imgui-docking\imgui_widgets.cpp" />
+    <ClCompile Include="source\barycenter.cpp" />
     <ClCompile Include="source\builder.cpp" />
     <ClCompile Include="source\controls.cpp" />
     <ClCompile Include="source\entity.cpp" />

@@ -1,4 +1,5 @@
 ﻿#include "gravitybody.h"
+#include "barycenter.h"
 
 std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
 
@@ -23,18 +24,35 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 	oblateness = 0.0f;
 	momentOfInertia = angularMomentum = torque = glm::dvec3(0.0);
 
+	glm::dvec3 parentPos, parentVel;
+	glm::float64 parentMass;
+
+	Barycenter* parentBary = bodies[parentIndex]->barycenter;
+	if (parentBary) {
+		parentPos = parentBary->position();
+		parentVel = parentBary->velocity();
+		parentMass = parentBary->mass();
+	}
+	else {
+		parentPos = bodies[parentIndex]->position;
+		parentVel = bodies[parentIndex]->velocity;
+		parentMass = bodies[parentIndex]->mass;
+	}
+
 	// equations sourced from René Schwarz "Keplerian Orbit Elements -> Cartesian State Vectors"
 	float eccentricAnomaly = rootSolver<float>(orbit.func, orbit.derivFunc, 0.0f);
 	float trueAnomaly = 2 * atan2f(
 		sqrtf(1.0f + orbit.eccentricity) * sinf(eccentricAnomaly * 0.5f),
 		sqrtf(1.0f - orbit.eccentricity) * cosf(eccentricAnomaly * 0.5f));
-	double gravParameter = G * (mass + orbit.parent->mass);
+	double gravParameter = G * (mass + parentMass);
 	double distance = orbit.semiMajorAxis * (1.0 - (double)(orbit.eccentricity * cosf(eccentricAnomaly)));
 
 	// motion relative to the orbital frame
 	glm::dvec2 velInFrame = sqrt(gravParameter * orbit.semiMajorAxis) / distance *
 		glm::dvec2(-sinf(eccentricAnomaly), sqrtf(1 - orbit.eccentricity * orbit.eccentricity) * cosf(eccentricAnomaly));
 	glm::dvec2 positionInFrame = distance * glm::dvec2(cosf(trueAnomaly), sinf(trueAnomaly));
+
+	//glm::dvec3 com = (parentMass * parentPos + mass * ) / (parentMass + mass);
 
 	// motion rotated out to world space
 	float sinX = sinf(orbit.inclination);
@@ -63,14 +81,20 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 		0.0f, 0.0f, 0.0f, 1.0f
 	);
 
-	glm::dvec3 shared_dV = glm::dvec3((rotate * glm::dvec4(-velInFrame.x, 0.0f, velInFrame.y, 0.0f))) * orbit.parent->mass / (mass + orbit.parent->mass);
+	glm::dvec3 shared_dV = glm::dvec3((rotate * glm::dvec4(-velInFrame.x, 0.0f, velInFrame.y, 0.0f))) * 
+		parentMass / (mass + parentMass);
 
-	velocity = orbit.parent->velocity + shared_dV;
-	orbit.parent->velocity -= shared_dV * mass / orbit.parent->mass;
+	velocity = parentVel + shared_dV;
+	orbit.parent->velocity -= shared_dV * mass / parentMass;
 
 	//velocity = glm::dvec3((rotate * glm::dvec4(-velInFrame.x, 0.0f, velInFrame.y, 0.0f))) + orbit.parent->velocity;
-	position = glm::dvec3((rotate * glm::dvec4(-positionInFrame.x, 0.0f, positionInFrame.y, 0.0f))) + orbit.parent->position;
+	position = glm::dvec3((rotate * glm::dvec4(-positionInFrame.x, 0.0f, positionInFrame.y, 0.0f))) + parentPos;
 	prevPosition = position;
+
+	if (bodies[parentIndex]->barycenter)
+		bodies[parentIndex]->barycenter->add(bodies.size());
+	else
+		bodies[parentIndex]->barycenter = new ComplexBarycenter(parentIndex, bodies.size());
 }
 
 // get rotation velocities in body space
