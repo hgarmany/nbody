@@ -20,5 +20,6 @@ glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter);
 
 void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies);
 void updateTrails(std::vector<std::shared_ptr<GravityBody>>& bodies);
-glm::dmat4 relativeRotationalMatrix(std::vector<std::shared_ptr<GravityBody>>& list, size_t subjectIndex, size_t referenceIndex, bool detranslate = false);
+glm::dmat4 relativeRotationalMatrix(std::vector<std::shared_ptr<GravityBody>>& list, 
+	const std::shared_ptr<GravityBody>& subject, const std::shared_ptr<GravityBody>& reference, bool detranslate = false);
 void physicsLoop();

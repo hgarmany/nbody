@@ -2,7 +2,7 @@
 #include "render.h"
 #include "controls.h"
 
-void static MessageCallback(GLenum source,
+static void MessageCallback(GLenum source,
 	GLenum type,
 	GLuint id,
 	GLenum severity,
@@ -16,7 +16,7 @@ void static MessageCallback(GLenum source,
 			type, severity, message);
 }
 
-void buildObjects() {
+static void buildObjects() {
 	// initialize models
 	size_t cube = Model::Cube();
 	size_t sphere = Model::Icosphere(5);
@@ -78,6 +78,7 @@ void buildObjects() {
 	builder.buildSky(cube);
 	
 	frameBodies = bodies;
+	frameEntities = entities;
 }
 
 int main() {
@@ -113,6 +114,7 @@ int main() {
 
 	// exiting work area: close threads and clean up data
 	running = false;
+	physicsStart.notify_one();
 	physicsThread.join();
 
 	cleanup();

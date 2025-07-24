@@ -2,7 +2,7 @@
 #include <iostream>
 
 // Function to compile and link shaders
-GLuint compileShader(const char* vertSource, const char* fragSource) {
+static GLuint compileShader(const char* vertSource, const char* fragSource) {
 	GLint success;
 
 	GLuint vertShader = glCreateShader(GL_VERTEX_SHADER);

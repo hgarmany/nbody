@@ -20,6 +20,8 @@ public:
 	virtual glm::dvec3 position() = 0;
 	virtual glm::dvec3 velocity() = 0;
 	virtual glm::float64 apparentMass(size_t observer) = 0;
+	virtual void positionOffset(glm::dvec3 offset) = 0;
+	virtual void velocityOffset(glm::dvec3 offset) = 0;
 };
 
 class GravityBody;
@@ -66,7 +68,7 @@ public:
 	Trail* trail;
 	size_t parentIndex;
 	glm::float64 mass, radius, j2;
-	float oblateness, loveNumber, qualityFactor;
+	float oblateness;//, loveNumber, qualityFactor;
 	gravType gravityType;
 	Barycenter* barycenter;
 

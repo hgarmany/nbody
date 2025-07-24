@@ -85,7 +85,8 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 	// camera cycles between modes in order
 	{keyMap[CYCLE_CAMERA_MODE], []() {
 		switch (camera.mode) {
-		case LOCK_CAM:
+		case LOCK_PLANET_CAM:
+		case LOCK_BARY_CAM:
 			camera.mode = FREE_CAM;
 			break;
 		case FREE_CAM:
@@ -97,7 +98,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 			camera.eyeIndex = bodies.size() - 1;
 			break;
 		case GRAV_CAM:
-			camera.mode = LOCK_CAM;
+			camera.mode = LOCK_PLANET_CAM;
 			break;
 		}
 		camera.FOV = defaultFOV;
@@ -117,7 +118,7 @@ void setXY(GLFWwindow* window) {
 
 // update the camera orientation based on mouse input
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-	if (cursorDisabled && (camera.atIndex == camera.eyeIndex || camera.mode != LOCK_CAM)) {
+	if (cursorDisabled && (camera.atIndex == camera.eyeIndex || camera.mode != LOCK_PLANET_CAM && camera.mode != LOCK_BARY_CAM)) {
 		float xOffset = (float)(lastX - xpos);
 		float yOffset = (float)(lastY - ypos);
 
@@ -154,7 +155,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	lastY = ypos;
 }
 
-void adjustTargetRotation(int key, int action) {
+static void adjustTargetRotation(int key, int action) {
 	if (action == GLFW_PRESS) {
 		if (key == keyMap[TARGET_ROTATE_UP])
 			targetRotation |= 0x01;
@@ -187,8 +188,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
 			size_t index = key - GLFW_KEY_0;
 			if (index < bodies.size() - 1) {
-				if (camera.mode == LOCK_CAM) {
-					camera.eyeIndex = camera.atIndex = index;
+				if (camera.mode == LOCK_PLANET_CAM || camera.mode == LOCK_BARY_CAM) {
+					if (index == camera.eyeIndex && index == camera.atIndex)
+						camera.mode = camera.mode == LOCK_PLANET_CAM ? LOCK_BARY_CAM : LOCK_PLANET_CAM;
+					else
+						camera.eyeIndex = camera.atIndex = index;
 				}
 				else if (camera.mode == GRAV_CAM) {
 					bodies[camera.eyeIndex]->trail->parentIndex = index;
@@ -256,7 +260,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 		camera.FOV = yoffset > 0 ? 0.9f * camera.FOV : fmin(1.1f * camera.FOV, pi_f);
-	else if (camera.mode == LOCK_CAM)
+	else if (camera.mode == LOCK_PLANET_CAM || camera.mode == LOCK_BARY_CAM)
 		camera.lockDistanceFactor *= yoffset > 0 ? 0.9f : 1.1f;
 	else
 		cameraSpeed *= yoffset > 0 ? 0.8f : 1.2f;

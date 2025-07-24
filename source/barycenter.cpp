@@ -60,6 +60,16 @@ glm::float64 TwoBodyBarycenter::apparentMass(size_t observer) {
 	return frameBodies[primary]->mass + frameBodies[secondary]->mass;
 }
 
+void TwoBodyBarycenter::positionOffset(glm::dvec3 offset) {
+	bodies[primary]->position -= offset;
+	bodies[secondary]->position -= offset;
+}
+
+void TwoBodyBarycenter::velocityOffset(glm::dvec3 offset) {
+	bodies[primary]->velocity -= offset;
+	bodies[secondary]->velocity -= offset;
+}
+
 ComplexBarycenter::ComplexBarycenter(size_t primary, size_t secondary) {
 	this->primary = primary;
 	this->secondaries.push_back(secondary);
@@ -156,4 +166,16 @@ glm::float64 ComplexBarycenter::apparentMass(size_t observer) {
 	glm::float64 comDistance = glm::distance(frameBodies[observer]->position, com);
 
 	return glm::length(netAcceleration) * comDistance * comDistance;
+}
+
+void ComplexBarycenter::positionOffset(glm::dvec3 offset) {
+	bodies[primary]->position -= offset;
+	for (size_t secondary : secondaries)
+		bodies[secondary]->position -= offset;
+}
+
+void ComplexBarycenter::velocityOffset(glm::dvec3 offset) {
+	bodies[primary]->velocity -= offset;
+	for (size_t secondary : secondaries)
+		bodies[secondary]->velocity -= offset;
 }

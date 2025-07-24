@@ -64,7 +64,7 @@ void GravityBodyBuilder::buildSolarSystem(size_t modelIndex) {
 	init(4.867e24, venusOrbit, 0);
 	setModel(modelIndex);
 	setRadius(6.0518f);
-	spin = 2 * pi / 86400 / 243;
+	spin = -2 * pi / 86400 / 243;
 	setRotation(glm::dvec3(0.04607669 + venusOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(venus);
 	addTrail(glm::vec3(1.0f, 1.0f, 0.0f));
@@ -218,7 +218,6 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	init(1.66284e25, nearthOrbit, 0);
 	setModel(modelIndex);
 	setRadius(9.6055f);
-	//spin = 2 * pi / 297787.7;
 	spin = 2 * pi / 297787.7;
 	setRotation(glm::dvec3(0.1362159 + nearthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	//setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
@@ -267,7 +266,7 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setModel(modelIndex);
 	setRadius(500.0f);
 	setSurface(Surface(diffuseMat));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// body2
 	Orbit orbit1(bodies[0], 1e4, 0.2f, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -276,18 +275,15 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRadius(500.0f);
 	setSurface(Surface(diffuseMat));
 	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
-	bodies.push_back(get());
-
-	TwoBodyBarycenter* barystar = new TwoBodyBarycenter(0, 1);
-
+	addToBodiesLists();
 
 	// body1
 	init(2e30f);
 	setModel(modelIndex);
 	setRadius(500.0f);
-	setMotion(glm::dvec3(1e7, 0, 0));
+	setMotion(glm::dvec3(1e5, 0, 0));
 	setSurface(Surface(diffuseMat));
-	bodies.push_back(get());
+	addToBodiesLists();
 
 	// body2
 	Orbit orbit2(bodies[2], 1e4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -296,8 +292,6 @@ void GravityBodyBuilder::buildAlienSystem(size_t modelIndex) {
 	setRadius(500.0f);
 	setSurface(Surface(diffuseMat));
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
-	bodies.push_back(get());
-
-	TwoBodyBarycenter* barystar2 = new TwoBodyBarycenter(2, 3);
+	addToBodiesLists();
 	*/
 }

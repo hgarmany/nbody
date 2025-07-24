@@ -16,6 +16,8 @@ public:
 	glm::dvec3 position();
 	glm::dvec3 velocity();
 	glm::float64 apparentMass(size_t observer);
+	void positionOffset(glm::dvec3 offset);
+	void velocityOffset(glm::dvec3 offset);
 };
 
 class ComplexBarycenter : public Barycenter {
@@ -35,4 +37,6 @@ public:
 	glm::dvec3 position();
 	glm::dvec3 velocity();
 	glm::float64 apparentMass(size_t observer);
+	void positionOffset(glm::dvec3 offset);
+	void velocityOffset(glm::dvec3 offset);
 };

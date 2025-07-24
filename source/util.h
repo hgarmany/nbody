@@ -18,7 +18,8 @@ enum render_mode : uint8_t {
 
 enum camera_mode : uint8_t {
 	FREE_CAM,
-	LOCK_CAM,
+	LOCK_PLANET_CAM,
+	LOCK_BARY_CAM,
 	GRAV_CAM
 };
 
