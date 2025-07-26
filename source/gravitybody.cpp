@@ -14,7 +14,7 @@ GravityBody::GravityBody(glm::float64 mass) {
 	momentOfInertia = angularMomentum = torque = glm::dvec3(0.0);
 }
 
-GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
+GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex, bool addToBary) {
 	this->parentIndex = parentIndex;
 	trail = nullptr;
 	barycenter = nullptr;
@@ -29,9 +29,9 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 
 	Barycenter* parentBary = bodies[parentIndex]->barycenter;
 	if (parentBary) {
-		parentPos = parentBary->position();
-		parentVel = parentBary->velocity();
-		parentMass = parentBary->mass();
+		parentPos = parentBary->position(bodies);
+		parentVel = parentBary->velocity(bodies);
+		parentMass = parentBary->mass(bodies);
 	}
 	else {
 		parentPos = bodies[parentIndex]->position;
@@ -86,7 +86,7 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 	velocity = orbitalVelocity - avgVel + parentVel;
 
 	if (parentBary)
-		parentBary->velocityOffset(-avgVel);
+		parentBary->velocityOffset(bodies, -avgVel);
 	else
 		bodies[parentIndex]->velocity -= avgVel;
 
@@ -95,12 +95,14 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex) {
 	prevPosition = position;
 
 	if (parentBary) {
-		parentBary->positionOffset(orbitalPosition * -(mass / parentMass));
-		parentBary->add(bodies.size());
+		parentBary->positionOffset(bodies, orbitalPosition * -(mass / parentMass));
+		if (addToBary)
+			parentBary->add(bodies.size());
 	}
 	else {
 		bodies[parentIndex]->position += orbitalPosition * -(mass / parentMass);
-		bodies[parentIndex]->barycenter = new ComplexBarycenter(parentIndex, bodies.size());
+		if (addToBary)
+			bodies[parentIndex]->barycenter = new ComplexBarycenter(parentIndex, bodies.size());
 	}
 }
 

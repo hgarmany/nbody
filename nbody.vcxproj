@@ -19,20 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="source\barycenter.h" />
-    <ClInclude Include="source\builder.h" />
-    <ClInclude Include="source\camera.h" />
-    <ClInclude Include="source\controls.h" />
-    <ClInclude Include="source\entity.h" />
-    <ClInclude Include="source\gravitybody.h" />
-    <ClInclude Include="source\model.h" />
-    <ClInclude Include="source\physics.h" />
-    <ClInclude Include="source\render.h" />
-    <ClInclude Include="source\shader.h" />
-    <ClInclude Include="source\stb_image.h" />
-    <ClInclude Include="source\surface.h" />
-    <ClInclude Include="source\trail.h" />
-    <ClInclude Include="source\util.h" />
+    <ClInclude Include="source\*.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lib\imgui-docking\backends\imgui_impl_glfw.cpp" />
@@ -41,18 +28,7 @@
     <ClCompile Include="lib\imgui-docking\imgui_draw.cpp" />
     <ClCompile Include="lib\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="lib\imgui-docking\imgui_widgets.cpp" />
-    <ClCompile Include="source\barycenter.cpp" />
-    <ClCompile Include="source\builder.cpp" />
-    <ClCompile Include="source\controls.cpp" />
-    <ClCompile Include="source\entity.cpp" />
-    <ClCompile Include="source\gravitybody.cpp" />
-    <ClCompile Include="source\model.cpp" />
-    <ClCompile Include="source\nbody.cpp" />
-    <ClCompile Include="source\physics.cpp" />
-    <ClCompile Include="source\render.cpp" />
-    <ClCompile Include="source\shader.cpp" />
-    <ClCompile Include="source\surface.cpp" />
-    <ClCompile Include="source\util.cpp" />
+    <ClCompile Include="source\*.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

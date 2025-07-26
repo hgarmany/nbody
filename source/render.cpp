@@ -28,13 +28,13 @@ std::vector<float> trailAlphas;
 
 std::vector<std::shared_ptr<Entity>> frameEntities;
 
-void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
+static void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
 	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
 	glUniformMatrix4fv(shader.V, 1, GL_FALSE, &V[0][0]);
 }
 
 // update projection matrix based on window size
-void updateProjectionMatrix(Camera& camera, GLFWwindow* window) {
+static void updateProjectionMatrix(Camera& camera, GLFWwindow* window) {
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
 
@@ -250,7 +250,7 @@ void initStarBuffer() {
 }
 
 // grab star positions based on bodies in the system
-GLsizei updateStarPositions(Camera& camera) {
+static GLsizei updateStarPositions(Camera& camera) {
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
 
 	std::vector<glm::vec3> positions;
@@ -264,7 +264,7 @@ GLsizei updateStarPositions(Camera& camera) {
 
 	// reallocate buffer if the system requires more stars than it can hold
 	if (size > starCapacity) {
-		glBufferData(GL_ARRAY_BUFFER, 2 * size * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(2) * size * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
 		starCapacity = 2 * size;
 	}
 
@@ -348,7 +348,7 @@ static void updateLockCam(Camera& eye) {
 			}
 			Barycenter* bary = body->barycenter;
 			if (eye.mode == LOCK_BARY_CAM && bary)
-				eye.position = bary->position() - eye.lockDistanceFactor * body->radius * eye.direction;
+				eye.position = bary->position(frameBodies) - eye.lockDistanceFactor * body->radius * eye.direction;
 			else
 				eye.position = body->position - eye.lockDistanceFactor * body->radius * eye.direction;
 		}
@@ -400,7 +400,6 @@ static void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 
 	// update camera
 	glm::mat4 view = glm::mat4(glm::mat3(camera.viewMatrix()));
-	updateProjectionMatrix(camera, window);
 
 	setPV(spriteShader, projection, view);
 	glUniform2iv(spriteShader.uniforms[WINDOW_SIZE], 1, &windowSize[0]);
@@ -415,7 +414,7 @@ static void renderBillboards(Camera& camera, glm::ivec2 windowSize) {
 	glUniform1i(spriteShader.uniforms[TEX_MAP], 0);
 
 	// send texture metadata
-	glm::ivec2 dims;
+	glm::ivec2 dims(0,0);
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &dims.x);
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &dims.y);
 	glUniform2iv(spriteShader.uniforms[TEX_SIZE], 1, &dims[0]);
@@ -510,7 +509,7 @@ static void renderTrails(Camera& camera) {
 
 				modelMatrix = glm::translate(glm::dmat4(1.0), 
 					parentBary ? 
-					parentBary->position() - body->position : 
+					parentBary->position(frameBodies) - body->position :
 					frameBodies[parentIndex]->position - body->position);
 
 				modelMatrix *= rotate;
@@ -525,7 +524,7 @@ static void renderTrails(Camera& camera) {
 		// additional orbit for primary of a barycenter
 		Barycenter* bary = body->barycenter;
 		if (bary && bary->primaryOrbit) {
-			modelMatrix = glm::translate(glm::dmat4(1.0), bary->position() - body->position);
+			modelMatrix = glm::translate(glm::dmat4(1.0), bary->position(frameBodies) - body->position);
 
 			glUniform3fv(trailShader.uniforms[OBJ_COLOR], 1, &(bary->primaryOrbit->color)[0]);
 			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
@@ -556,6 +555,9 @@ static void render(Camera& camera) {
 	Entity::skybox->draw(skyboxShader, MODE_CUBEMAP);
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
+
+	if (doTrails)
+		renderTrails(camera);
 
 	// Activate the shader program
 	glUseProgram(shader.index);
@@ -613,10 +615,23 @@ static void render(Camera& camera) {
 	glDisable(GL_CULL_FACE);
 	for (auto it = orderedEntities.rbegin(); it != orderedEntities.rend(); ++it) {
 		std::shared_ptr<Entity> entity = it->second;
-		glm::dvec3 bodyPos = entity->root ? entity->position : entity->position + entity->root->position;
+		glm::dvec3 bodyPos = entity->root ? entity->position + entity->root->position : entity->position;
 
 		glm::mat4 relativeView = camera.viewMatrix(camera.position - bodyPos);
 		glUniform3fv(shader.uniforms[LIGHT_POS], 1, &(lightPos - glm::vec3(bodyPos))[0]);
+
+		// get possible eclipsing bodies
+		if (entity->root) {
+			std::vector<glm::vec4> occluders;
+			occluders.emplace_back(-entity->position, ((GravityBody*)entity->root.get())->radius);
+
+			while (occluders.size() < 8)
+				occluders.emplace_back(0.0f);
+
+			glUniform4fv(shader.uniforms[OCCLUDERS], 8, glm::value_ptr(occluders[0]));
+			glUniform1i(shader.uniforms[NUM_OCCLUDERS], 1);
+		}
+
 		setPV(shader, projection, relativeView);
 
 		glm::dmat4 rootMatrix = glm::dmat4(1.0);
@@ -625,9 +640,6 @@ static void render(Camera& camera) {
 
 		entity->draw(shader, MODE_TEX, rootMatrix);
 	}
-
-	if (doTrails)
-		renderTrails(camera);
 }
 
 // incomplete
@@ -905,8 +917,8 @@ static void drawGUI() {
 }
 
 void renderLoop() {
-	double lastFrameTime = glfwGetTime();
-	double currentTime = glfwGetTime();
+	Clock::time_point lastFrameTime = Clock::now();
+	Clock::time_point currentTime = Clock::now();
 
 	try {
 		while (!glfwWindowShouldClose(window)) {
@@ -916,7 +928,8 @@ void renderLoop() {
 				continue;
 			}
 
-			if (currentTime - lastFrameTime > MIN_FRAME_TIME) {
+			deltaTime = std::chrono::duration<double>(currentTime - lastFrameTime).count();
+			if (deltaTime > MIN_FRAME_TIME) {
 				if (hasPhysics) {
 					// capture physics results when they are ready
 					std::unique_lock<std::mutex> lock(physicsMutex);
@@ -951,14 +964,14 @@ void renderLoop() {
 						updateTrails(frameBodies);
 				}
 
-				deltaTime = currentTime - lastFrameTime;
 				updateCamera(camera);
-				updateCamera(pipCam);
-
+				updateProjectionMatrix(camera, window);
 				render(camera);
-				renderPIP();
 				if (doStarSprites)
 					renderBillboards(camera, glm::ivec2(windowWidth, windowHeight));
+
+				updateCamera(pipCam);
+				renderPIP();
 
 				lastFrameTime = currentTime;
 
@@ -968,7 +981,7 @@ void renderLoop() {
 				glfwPollEvents();
 			}
 
-			currentTime = glfwGetTime();
+			currentTime = Clock::now();
 		}
 	}
 	catch (std::exception e) {

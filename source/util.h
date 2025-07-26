@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <glm.hpp>
+#include <iomanip>
+#include <omp.h>
 
 const double pi = 3.141592653589793;
 const float pi_f = 3.141592653589793f;
@@ -23,16 +25,25 @@ enum camera_mode : uint8_t {
 	GRAV_CAM
 };
 
-enum astronomical_data : uint8_t {
-	SEMI_MAJOR_AXIS,
-	ECCENTRICITY,
-	ARGUMENT_PERIAPSIS,
-	ASCENDING_NODE_LONGITUDE,
-	INCLINATION,
-	MEAN_ANOMALY,
-	MASS,
-	RADIUS
+enum astronomical_data : uint16_t {
+	DATA_NONE = 0x0000,
+	SEMI_MAJOR_AXIS = 0x0001,
+	ECCENTRICITY = 0x0002,
+	PERIOD = 0x0004,
+	ARGUMENT_PERIAPSIS = 0x0008,
+	ASCENDING_NODE_LONGITUDE = 0x0010,
+	INCLINATION = 0x0020,
+	MEAN_ANOMALY = 0x0040,
+	MASS = 0x0080,
+	RADIUS = 0x0100,
+	POSITION = 0x0200,
+	VELOCITY = 0x0400,
+	ACCELERATION = 0x0800,
+	TORQUE = 0x1000
 };
+
+static constexpr uint16_t ORBIT_PROPERTIES = 
+	SEMI_MAJOR_AXIS | ECCENTRICITY | PERIOD | ARGUMENT_PERIAPSIS | ASCENDING_NODE_LONGITUDE | INCLINATION | MEAN_ANOMALY;
 
 inline void printMatrix(const glm::dmat4& A) {
 	printf("%.2e\t%.2e\t%.2e\t%.2e\n"

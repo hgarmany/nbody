@@ -189,6 +189,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			size_t index = key - GLFW_KEY_0;
 			if (index < bodies.size() - 1) {
 				if (camera.mode == LOCK_PLANET_CAM || camera.mode == LOCK_BARY_CAM) {
+					camera.FOV = defaultFOV;
 					if (index == camera.eyeIndex && index == camera.atIndex)
 						camera.mode = camera.mode == LOCK_PLANET_CAM ? LOCK_BARY_CAM : LOCK_PLANET_CAM;
 					else

@@ -10,24 +10,24 @@ enum gravType : uint8_t {
 	RING
 };
 
+class GravityBody;
+using context = std::vector<std::shared_ptr<GravityBody>>;
+
 class Barycenter {
 protected:
 	size_t primary;
 public:
 	Trail* primaryOrbit;
 	virtual void add(size_t secondary) = 0;
-	virtual glm::float64 mass() = 0;
-	virtual glm::dvec3 position() = 0;
-	virtual glm::dvec3 velocity() = 0;
-	virtual glm::float64 apparentMass(size_t observer) = 0;
-	virtual void positionOffset(glm::dvec3 offset) = 0;
-	virtual void velocityOffset(glm::dvec3 offset) = 0;
+	virtual glm::float64 mass(context& context) = 0;
+	virtual glm::dvec3 position(context& context) = 0;
+	virtual glm::dvec3 velocity(context& context) = 0;
+	virtual glm::float64 apparentMass(context& context, size_t observer) = 0;
+	virtual void positionOffset(context& context, glm::dvec3 offset) = 0;
+	virtual void velocityOffset(context& context, glm::dvec3 offset) = 0;
 };
 
-class GravityBody;
-
 typedef struct orbit {
-	std::shared_ptr<GravityBody> parent;
 	double semiMajorAxis;
 	float eccentricity;
 	float argPeriapsis;
@@ -44,7 +44,6 @@ typedef struct orbit {
 	};
 
 	orbit(
-		std::shared_ptr<GravityBody> parent,
 		double semiMajorAxis,
 		float eccentricity,
 		float argPeriapsis,
@@ -52,7 +51,6 @@ typedef struct orbit {
 		float inclination,
 		float meanAnomaly
 	) {
-		this->parent = parent;
 		this->semiMajorAxis = semiMajorAxis;
 		this->eccentricity = eccentricity;
 		this->argPeriapsis = argPeriapsis;
@@ -73,7 +71,7 @@ public:
 	Barycenter* barycenter;
 
 	GravityBody(glm::float64 mass = DBL_MIN);
-	GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex);
+	GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex, bool addToBary = true);
 
 	//std::vector<MaterialLayer> makeLayers();
 	//void initTidalParams();
@@ -88,7 +86,7 @@ private:
 	glm::dquat rotateDeriv(const glm::dquat& orientation, const glm::dvec3& momentum);
 };
 
-extern std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
+extern context bodies, frameBodies;
 
 struct MaterialLayer {
 	double shearMod;	// shear modulus in Pa

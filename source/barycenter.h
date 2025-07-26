@@ -12,12 +12,12 @@ public:
 		this->secondary = secondary;
 	}
 
-	glm::float64 mass();
-	glm::dvec3 position();
-	glm::dvec3 velocity();
-	glm::float64 apparentMass(size_t observer);
-	void positionOffset(glm::dvec3 offset);
-	void velocityOffset(glm::dvec3 offset);
+	glm::float64 mass(context& context);
+	glm::dvec3 position(context& context);
+	glm::dvec3 velocity(context& context);
+	glm::float64 apparentMass(context& context, size_t observer);
+	void positionOffset(context& context, glm::dvec3 offset);
+	void velocityOffset(context& context, glm::dvec3 offset);
 };
 
 class ComplexBarycenter : public Barycenter {
@@ -33,10 +33,10 @@ public:
 			secondaries.push_back(secondary);
 	}
 
-	glm::float64 mass();
-	glm::dvec3 position();
-	glm::dvec3 velocity();
-	glm::float64 apparentMass(size_t observer);
-	void positionOffset(glm::dvec3 offset);
-	void velocityOffset(glm::dvec3 offset);
+	glm::float64 mass(context& context);
+	glm::dvec3 position(context& context);
+	glm::dvec3 velocity(context& context);
+	glm::float64 apparentMass(context& context, size_t observer);
+	void positionOffset(context& context, glm::dvec3 offset);
+	void velocityOffset(context& context, glm::dvec3 offset);
 };

@@ -83,8 +83,8 @@ public:
 		entity = std::make_shared<GravityBody>(mass);
 	}
 
-	void init(double mass, Orbit orbit, size_t parentIndex) {
-		entity = std::make_shared<GravityBody>(mass, orbit, parentIndex);
+	void init(double mass, Orbit orbit, size_t parentIndex, bool addToBary = true) {
+		entity = std::make_shared<GravityBody>(mass, orbit, parentIndex, addToBary);
 	}
 
 	void setRadius(float radius, float oblateness = 0.0f) {
@@ -124,3 +124,5 @@ public:
 	void buildSolarSystem(size_t modelIndex);
 	void buildAlienSystem(size_t modelIndex);
 };
+
+void buildObjects();

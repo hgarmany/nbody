@@ -2,9 +2,11 @@
 
 #include <condition_variable>
 #include <thread>
-#include <vector>
+#include <chrono>
 #include "camera.h"
 #include "gravitybody.h"
+
+using Clock = std::chrono::high_resolution_clock;
 
 extern Camera camera, pipCam;
 extern std::atomic<bool> running;
@@ -22,4 +24,5 @@ void updateBodies(glm::float64 deltaTime, std::vector<GravityBody>& bodies);
 void updateTrails(std::vector<std::shared_ptr<GravityBody>>& bodies);
 glm::dmat4 relativeRotationalMatrix(std::vector<std::shared_ptr<GravityBody>>& list, 
 	const std::shared_ptr<GravityBody>& subject, const std::shared_ptr<GravityBody>& reference, bool detranslate = false);
+void initLoggers();
 void physicsLoop();

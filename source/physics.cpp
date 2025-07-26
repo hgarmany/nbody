@@ -1,10 +1,8 @@
 ﻿#include "physics.h"
 #include "barycenter.h"
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <iomanip>
-#include <omp.h>
+#include "logger.h"
+
+std::vector<std::unique_ptr<Logger>> loggers;
 
 uint8_t targetRotation = 0;
 
@@ -25,6 +23,8 @@ double frameTime = 0.0;
 double elapsedTime = 0.0;
 double timeStep = 1e5;
 size_t maxTrailLength = 2500;
+
+glm::float64 lastTheta;
 
 static void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -56,6 +56,50 @@ static void mergeNearBodies() {
 			}
 		}
 	}
+}
+
+static bool absoluteOrbitalAngle(size_t index) {
+	bool result = false;
+	glm::dvec3 r0, r1, velParent, velOrbiter;
+	glm::float64 parentMass;
+
+	if (bodies[bodies[index]->parentIndex]->barycenter) {
+		// replace parent object parameters with those of its barycenter
+		// i.e. a planet with a massive moon where we wish to see the moon's orbit relative to the COM
+		Barycenter* bary = bodies[bodies[index]->parentIndex]->barycenter;
+		r0 = bary->position(bodies);
+		velParent = bary->velocity(bodies);
+		parentMass = bary->apparentMass(bodies, index);
+	}
+	else {
+		r0 = bodies[bodies[index]->parentIndex]->position;
+		velParent = bodies[bodies[index]->parentIndex]->velocity;
+		parentMass = bodies[bodies[index]->parentIndex]->mass;
+	}
+
+	if (bodies[index]->barycenter) {
+		// replace orbiter object parameters with those of its barycenter
+		// i.e. a planet with a massive moon that we wish to track as a single object orbiting a star
+		Barycenter* bary = bodies[index]->barycenter;
+		r1 = bary->position(bodies);
+		velOrbiter = bary->velocity(bodies);
+	}
+	else {
+		r1 = bodies[index]->position;
+		velOrbiter = bodies[index]->velocity;
+	}
+
+	glm::dvec3 thDir = glm::normalize(r1 - r0); // direction of position relative to orbital focus
+	glm::dvec3 N = glm::normalize(glm::cross(thDir, velOrbiter - velParent));
+	glm::dvec3 thZeroDir = glm::normalize(glm::dvec3(1, 0, 0) - N * N.x);
+	glm::float64 theta = atan2(glm::dot(N, glm::cross(thZeroDir, thDir)), glm::dot(thZeroDir, thDir));
+	
+	if (theta >= 0 && lastTheta < 0)
+		result = true;
+	
+	lastTheta = theta;
+
+	return result;
 }
 
 glm::dmat4 relativeRotationalMatrix(
@@ -185,7 +229,7 @@ static void tracePath(size_t parent, size_t orbiter) {
 	glm::dvec3 parentPos;
 	Barycenter* bary = frameBodies[parent]->barycenter;
 	if (bary)
-		parentPos = bary->position();
+		parentPos = bary->position(frameBodies);
 	else
 		parentPos = frameBodies[parent]->position;
 	glm::dvec3 orbiterPos = frameBodies[orbiter]->position;
@@ -241,16 +285,6 @@ static void drawEllipse(Trail* trail, const glm::dvec3& position, const glm::dve
 
 	glm::float64 semiMajorAxis = 1.0 / (2.0 / distance - speed * speed / gravParam);
 
-	/*if (orbiter == 3) {
-		glm::dvec3 N = glm::normalize(glm::cross(position, velocity));
-		glm::dvec3 thZeroDir = glm::normalize(glm::dvec3(1, 0, 0) - N * N.x);
-		glm::dvec3 thDir = glm::normalize(position);
-		glm::float64 theta = atan2(glm::dot(N, glm::cross(thZeroDir, thDir)), glm::dot(thZeroDir, thDir));
-		if (theta >= 0 && lastTheta < 0)
-			printf("orbit\n");
-		lastTheta = theta;
-	}*/
-
 	trail->queue.clear();
 	double perimeter = ellipsePerimeter(semiMajorAxis, (float)eccentricity);
 	double thetaStep = 0.002 * pi;
@@ -285,10 +319,10 @@ static void drawEllipse(Trail* trail, const glm::dvec3& position, const glm::dve
 
 static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, Barycenter* parent, size_t orbiter) {
 	// for drawing the path of a barycenter's primary around that barycenter
-	glm::dvec3 position = bodies[orbiter]->position - parent->position();
-	glm::dvec3 velocity = bodies[orbiter]->velocity - parent->velocity();
+	glm::dvec3 position = bodies[orbiter]->position - parent->position(frameBodies);
+	glm::dvec3 velocity = bodies[orbiter]->velocity - parent->velocity(frameBodies);
 
-	drawEllipse(parent->primaryOrbit, position, velocity, parent->apparentMass(orbiter));
+	drawEllipse(parent->primaryOrbit, position, velocity, parent->apparentMass(frameBodies, orbiter));
 }
 
 static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, size_t parent, size_t orbiter) {
@@ -299,9 +333,9 @@ static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, si
 		// replace parent object parameters with those of its barycenter
 		// i.e. a planet with a massive moon where we wish to see the moon's orbit relative to the COM
 		Barycenter* bary = bodies[parent]->barycenter;
-		r0 = bary->position();
-		velParent = bary->velocity();
-		parentMass = bary->apparentMass(orbiter);
+		r0 = bary->position(frameBodies);
+		velParent = bary->velocity(frameBodies);
+		parentMass = bary->apparentMass(frameBodies, orbiter);
 	}
 	else {
 		r0 = bodies[parent]->position;
@@ -313,8 +347,8 @@ static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, si
 		// replace orbiter object parameters with those of its barycenter
 		// i.e. a planet with a massive moon that we wish to track as a single object orbiting a star
 		Barycenter* bary = bodies[orbiter]->barycenter;
-		r1 = bary->position();
-		velOrbiter = bary->velocity();
+		r1 = bary->position(frameBodies);
+		velOrbiter = bary->velocity(frameBodies);
 	}
 	else {
 		r1 = bodies[orbiter]->position;
@@ -359,13 +393,22 @@ void updateTrails(std::vector<std::shared_ptr<GravityBody>>& bodies) {
 	}
 }
 
-void physicsLoop() {
-	double totalTimeElapsed = 0.0;
+void initLoggers() {
+	std::unique_ptr<Logger> logEarth = std::make_unique<Logger>(
+		"test.csv", 1, SEMI_MAJOR_AXIS | ECCENTRICITY);
+	logEarth->addCondition(absoluteOrbitalAngle);
+	loggers.push_back(std::move(logEarth));
+}
 
-	double lastLoopTime = glfwGetTime();
+void physicsLoop() {
+	glm::float64 totalTimeElapsed = 0.0;
+
+	Clock::time_point lastLoopTime = Clock::now();
+
 	while (running) {
-		double currentTime = glfwGetTime();
-		glm::float64 deltaTime = currentTime - lastLoopTime;
+		Clock::time_point currentTime = Clock::now();
+		glm::float64 deltaTime = 
+			std::chrono::duration<double>(currentTime - lastLoopTime).count();
 		lastLoopTime = currentTime;
 
 		if (deltaTime * timeStep < MAX_PHYSICS_TIME) {
@@ -374,6 +417,10 @@ void physicsLoop() {
 				totalTimeElapsed += deltaTime * timeStep;
 				
 				updateBodies(deltaTime, bodies);
+
+				// write astronomical data to file
+				for (std::unique_ptr<Logger>& logger : loggers)
+					logger->logIfNeeded(totalTimeElapsed / (31.7791f * 3600.0f));
 
 				// data is ready for renderer to access
 				physicsDone.notify_one();
