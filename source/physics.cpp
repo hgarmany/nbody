@@ -7,10 +7,7 @@ std::vector<std::unique_ptr<Logger>> loggers;
 uint8_t targetRotation = 0;
 
 Camera camera;
-Camera pipCam(
-	glm::dvec3(0, 1e6, 0),
-	glm::dvec3(0, -1, 0),
-	glm::dvec3(1, 0, 0));
+Camera pipCam;
 
 std::atomic<bool> running(true);
 std::condition_variable physicsDone, physicsStart;
@@ -24,7 +21,7 @@ double elapsedTime = 0.0;
 double timeStep = 1e5;
 size_t maxTrailLength = 2500;
 
-glm::float64 lastTheta;
+std::unordered_map<size_t, double> lastTheta;
 
 static void mergeNearBodies() {
 	for (int i = 0; i < bodies.size(); i++) {
@@ -61,7 +58,7 @@ static void mergeNearBodies() {
 static bool absoluteOrbitalAngle(size_t index) {
 	bool result = false;
 	glm::dvec3 r0, r1, velParent, velOrbiter;
-	glm::float64 parentMass;
+	double parentMass;
 
 	if (bodies[bodies[index]->parentIndex]->barycenter) {
 		// replace parent object parameters with those of its barycenter
@@ -92,19 +89,21 @@ static bool absoluteOrbitalAngle(size_t index) {
 	glm::dvec3 thDir = glm::normalize(r1 - r0); // direction of position relative to orbital focus
 	glm::dvec3 N = glm::normalize(glm::cross(thDir, velOrbiter - velParent));
 	glm::dvec3 thZeroDir = glm::normalize(glm::dvec3(1, 0, 0) - N * N.x);
-	glm::float64 theta = atan2(glm::dot(N, glm::cross(thZeroDir, thDir)), glm::dot(thZeroDir, thDir));
+	double theta = atan2(glm::dot(N, glm::cross(thZeroDir, thDir)), glm::dot(thZeroDir, thDir));
 	
-	if (theta >= 0 && lastTheta < 0)
+	if (theta >= 0 && lastTheta[index] < 0)
 		result = true;
 	
-	lastTheta = theta;
+	lastTheta[index] = theta;
 
 	return result;
 }
 
 glm::dmat4 relativeRotationalMatrix(
-	std::vector<std::shared_ptr<GravityBody>>& list, 
-	const std::shared_ptr<GravityBody>& subject, const std::shared_ptr<GravityBody>& reference, bool detranslate)
+	context& list, 
+	const std::shared_ptr<GravityBody>& subject, 
+	const std::shared_ptr<GravityBody>& reference, 
+	bool detranslate)
 {
 	// develops a rotational matrix to transform subject coordinates to a reference frame 
 	// in which the reference body and its parent both lie along the x axis
@@ -145,14 +144,14 @@ static glm::vec3 eccentricityVector(size_t parent, size_t orbiter) {
 }
 
 static double semiMajorAxis(size_t parent, size_t orbiter) {
-	glm::float64 distance = glm::distance(bodies[orbiter]->position, bodies[parent]->position);
-	glm::float64 speed = glm::distance(bodies[orbiter]->velocity, bodies[parent]->velocity);
+	double distance = glm::distance(bodies[orbiter]->position, bodies[parent]->position);
+	double speed = glm::distance(bodies[orbiter]->velocity, bodies[parent]->velocity);
 	return 1.0 / (2.0 / distance - speed * speed / (G * bodies[parent]->mass));
 }
 
-static void gravitationalForce(std::shared_ptr<GravityBody> a, std::shared_ptr<GravityBody> b) {
+static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<GravityBody>& b) {
 	glm::dvec3 displacement = b->position - a->position;
-	glm::float64 distance = glm::length(displacement);
+	double distance = glm::length(displacement);
 	glm::dvec3 direction = glm::normalize(displacement);
 	glm::dvec3 fieldLine = (G * direction) / (distance * distance);
 	glm::dvec3 accelerationA = b->mass * fieldLine;
@@ -160,15 +159,14 @@ static void gravitationalForce(std::shared_ptr<GravityBody> a, std::shared_ptr<G
 	if (b->gravityType == OBLATE_SPHERE) {
 		// oblate perturbations on a by b, using MacCullagh's formula
 		glm::dvec3 axisOfRotation = b->rotQuat * glm::dvec3(0.0, 1.0, 0.0);
-		double cosTheta = glm::dot(direction, axisOfRotation);
+		double cosTheta = glm::dot(-direction, axisOfRotation);
 		double sinTheta = sqrt(1 - cosTheta * cosTheta);
 		double radiusOverDistance = b->radius / distance;
 		accelerationA *= 1 - 3.0 * b->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
 
 		// torque
-		double torqueMagnitude = 3.0 * G * a->mass * b->mass * b->j2 * radiusOverDistance * radiusOverDistance / distance * sinTheta * cosTheta;
-
-		b->torque += torqueMagnitude * glm::normalize(glm::cross(direction, axisOfRotation));
+		b->nextTorque += 3.0 * G * a->mass * b->mass * b->j2 * radiusOverDistance * radiusOverDistance / distance
+			* cosTheta * glm::cross(-direction, axisOfRotation);
 	}
 
 	glm::dvec3 accelerationB = -a->mass * fieldLine;
@@ -182,30 +180,32 @@ static void gravitationalForce(std::shared_ptr<GravityBody> a, std::shared_ptr<G
 		accelerationB *= 1 - 3.0 * a->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
 
 		// torque
-		double torqueMagnitude = 3.0 * G * a->mass * b->mass * a->j2 * radiusOverDistance * radiusOverDistance / distance * abs(sinTheta * cosTheta);
-
-		a->torque += torqueMagnitude * glm::normalize(glm::cross(axisOfRotation, direction));
+		a->nextTorque += 3.0 * G * a->mass * b->mass * a->j2 * radiusOverDistance * radiusOverDistance / distance
+			* cosTheta * glm::cross(direction, axisOfRotation);
 	}
 
 	a->acceleration += accelerationA;
 	b->acceleration += accelerationB;
 }
 
-void updateBodies(glm::float64 deltaTime, std::vector<std::shared_ptr<GravityBody>>& bodies) {
-	glm::float64 fullDt = timeStep * deltaTime;
-	glm::float64 halfDt = fullDt * 0.5;
+static void updateBodies(context& bodies, double deltaTime) {
+	double fullDt = timeStep * deltaTime;
+	double halfDt = fullDt * 0.5;
 
 	// Update velocities and positions by half-step, clear accelerations
+	#pragma omp parallel for
 	for (std::shared_ptr<GravityBody>& body : bodies) {
 		body->velocity += body->acceleration * halfDt;
-		body->angularMomentum += body->torque * halfDt;
 
 		body->prevPosition = body->position;
 		body->position += body->velocity * fullDt;
-		
+
+		body->torque = body->nextTorque;
+		body->angularMomentum += body->torque * halfDt;
+
 		body->rotateRK4(fullDt);
 		
-		body->acceleration = body->torque = glm::dvec3(0.0);
+		body->acceleration = body->nextTorque = glm::dvec3(0.0);
 	}
 
 	// Compute forces between particles
@@ -215,6 +215,7 @@ void updateBodies(glm::float64 deltaTime, std::vector<std::shared_ptr<GravityBod
 	}
 
 	// Update velocities to full-step using the new accelerations
+	#pragma omp parallel for
 	for (std::shared_ptr<GravityBody>& body : bodies) {
 		body->velocity += body->acceleration * halfDt;
 		body->angularMomentum += body->torque * halfDt;
@@ -270,20 +271,20 @@ static void tracePath(size_t parent, size_t orbiter) {
 }
 
 // draw an orbit around a given mass where the orbiter has a given position and velocity relative to it
-static void drawEllipse(Trail* trail, const glm::dvec3& position, const glm::dvec3& velocity, glm::float64 parentMass) {
-	glm::float64 distance = glm::length(position);
-	glm::float64 speed = glm::length(velocity);
+static void drawEllipse(Trail* trail, const glm::dvec3& position, const glm::dvec3& velocity, double parentMass) {
+	double distance = glm::length(position);
+	double speed = glm::length(velocity);
 
-	glm::float64 gravParam = G * parentMass;
+	double gravParam = G * parentMass;
 
 	glm::dvec3 orbitalMomentum = glm::cross(position, velocity);
 	glm::dvec3 h_hat = glm::normalize(orbitalMomentum);
 	glm::dvec3 eccVector = glm::cross(velocity, orbitalMomentum) / gravParam - position / distance;
 
-	glm::float64 eccentricity = glm::length(eccVector);
+	double eccentricity = glm::length(eccVector);
 	glm::dvec3 e_hat = glm::normalize(eccVector);
 
-	glm::float64 semiMajorAxis = 1.0 / (2.0 / distance - speed * speed / gravParam);
+	double semiMajorAxis = 1.0 / (2.0 / distance - speed * speed / gravParam);
 
 	trail->queue.clear();
 	double perimeter = ellipsePerimeter(semiMajorAxis, (float)eccentricity);
@@ -297,6 +298,10 @@ static void drawEllipse(Trail* trail, const glm::dvec3& position, const glm::dve
 		thetaMin = -thetaMax * 0.99;
 	}
 
+	glm::dvec3 thDir = glm::normalize(position); // direction of position relative to orbital focus
+	glm::dvec3 N = glm::normalize(glm::cross(thDir, velocity));
+	double bodyTheta = atan2(glm::dot(N, glm::cross(e_hat, thDir)), glm::dot(e_hat, thDir));
+
 	// a new trail is drawn by stepping through the path of the conic for thetaMin <= th= < thetaMax
 	for (double theta = thetaMin; theta < thetaMax; theta += thetaStep) {
 		// polar radius
@@ -304,7 +309,12 @@ static void drawEllipse(Trail* trail, const glm::dvec3& position, const glm::dve
 		glm::dvec3 trailPoint = e_hat * (r * cos(theta)) + glm::cross(h_hat, e_hat) * (r * sin(theta));
 		trail->push(trailPoint);
 
-		thetaStep = 0.002 * pi;
+		// fix orbital path to location of orbiter
+		if (bodyTheta > theta && bodyTheta < theta + thetaStep) {
+			r = semiMajorAxis * (1 - eccentricity * eccentricity) / (1 + eccentricity * cos(bodyTheta));
+			trailPoint = e_hat * (r * cos(bodyTheta)) + glm::cross(h_hat, e_hat) * (r * sin(bodyTheta));
+			trail->push(trailPoint);
+		}
 	}
 
 	if (eccentricity < 1.0) {
@@ -317,7 +327,7 @@ static void drawEllipse(Trail* trail, const glm::dvec3& position, const glm::dve
 	}
 }
 
-static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, Barycenter* parent, size_t orbiter) {
+static void ellipticalPath(context& bodies, Barycenter* parent, size_t orbiter) {
 	// for drawing the path of a barycenter's primary around that barycenter
 	glm::dvec3 position = bodies[orbiter]->position - parent->position(frameBodies);
 	glm::dvec3 velocity = bodies[orbiter]->velocity - parent->velocity(frameBodies);
@@ -325,9 +335,9 @@ static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, Ba
 	drawEllipse(parent->primaryOrbit, position, velocity, parent->apparentMass(frameBodies, orbiter));
 }
 
-static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, size_t parent, size_t orbiter) {
+static void ellipticalPath(context& bodies, size_t parent, size_t orbiter) {
 	glm::dvec3 r0, r1, velParent, velOrbiter;
-	glm::float64 parentMass;
+	double parentMass;
 
 	if (bodies[parent]->barycenter) {
 		// replace parent object parameters with those of its barycenter
@@ -361,11 +371,8 @@ static void ellipticalPath(std::vector<std::shared_ptr<GravityBody>>& bodies, si
 	drawEllipse(bodies[orbiter]->trail, position, velocity, parentMass);
 }
 
-void updateTrails(std::vector<std::shared_ptr<GravityBody>>& bodies) {
-	int num_threads = 4;
-	omp_set_num_threads(num_threads);
-
-	#pragma omp parallel 
+void updateTrails(context& bodies) {
+	#pragma omp parallel for
 	for (size_t i = 0; i < bodies.size(); i++) {
 		std::shared_ptr<GravityBody> body = bodies[i];
 		Trail* trail = body->trail;
@@ -395,28 +402,28 @@ void updateTrails(std::vector<std::shared_ptr<GravityBody>>& bodies) {
 
 void initLoggers() {
 	std::unique_ptr<Logger> logEarth = std::make_unique<Logger>(
-		"test.csv", 1, SEMI_MAJOR_AXIS | ECCENTRICITY);
+		"test.csv", 12, SEMI_MAJOR_AXIS | ECCENTRICITY | TORQUE);
 	logEarth->addCondition(absoluteOrbitalAngle);
 	loggers.push_back(std::move(logEarth));
 }
 
 void physicsLoop() {
-	glm::float64 totalTimeElapsed = 0.0;
+	double totalTimeElapsed = 0.0;
 
 	Clock::time_point lastLoopTime = Clock::now();
 
 	while (running) {
 		Clock::time_point currentTime = Clock::now();
-		glm::float64 deltaTime = 
+		double deltaTime =
 			std::chrono::duration<double>(currentTime - lastLoopTime).count();
 		lastLoopTime = currentTime;
 
-		if (deltaTime * timeStep < MAX_PHYSICS_TIME) {
+		frameTime = deltaTime * timeStep;
+		if (frameTime < MAX_PHYSICS_TIME) {
 			if (hasPhysics) {
-				frameTime = deltaTime * timeStep;
-				totalTimeElapsed += deltaTime * timeStep;
+				totalTimeElapsed += frameTime;
 				
-				updateBodies(deltaTime, bodies);
+				updateBodies(bodies, deltaTime);
 
 				// write astronomical data to file
 				for (std::unique_ptr<Logger>& logger : loggers)

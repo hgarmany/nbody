@@ -121,8 +121,9 @@ public:
 		frameBodies.push_back(entity);
 	}
 
-	void buildSolarSystem(size_t modelIndex);
-	void buildAlienSystem(size_t modelIndex);
+	void buildSolarSystem();
+	void buildAlienSystem();
+	void buildTestSystem();
 };
 
 void buildObjects();

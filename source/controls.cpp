@@ -71,12 +71,7 @@ std::unordered_map<int, std::function<void()>> keyActions = {
 		showWelcomeMenu = !showWelcomeMenu;
 		showLockIndexMenu = showWelcomeMenu;
 	}},
-	{keyMap[T_PHYSICS], []() {
-		hasPhysics = !hasPhysics;
-		physicsStart.notify_one();
-	}},
-	{keyMap[T_LOCK_PAGE_UP], []() { camera.atIndex++; }},
-	{keyMap[T_LOCK_PAGE_DOWN], []() { camera.atIndex--; }},
+	{keyMap[T_PHYSICS], []() { hasPhysics = !hasPhysics; }},
 	{keyMap[T_LOCK_OVERHEAD], []() { overheadLock = !overheadLock; }},
 	{keyMap[T_TRAILS], []() { doTrails = !doTrails; }},
 	{keyMap[T_STAR_SPRITES], []() { doStarSprites = !doStarSprites; }},
@@ -200,6 +195,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					bodies[camera.eyeIndex]->parentIndex = index;
 				}
 			}
+		}
+
+		if (key == keyMap[T_LOCK_PAGE_UP]) {
+			camera.atIndex++;
+			if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+				camera.eyeIndex++;
+		}
+		if (key == keyMap[T_LOCK_PAGE_DOWN]) {
+			camera.atIndex--;
+			if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+				camera.eyeIndex--;
 		}
 
 		if (key == GLFW_KEY_Z)

@@ -1,9 +1,9 @@
 ﻿#include "gravitybody.h"
 #include "barycenter.h"
 
-std::vector<std::shared_ptr<GravityBody>> bodies, frameBodies;
+context bodies, frameBodies;
 
-GravityBody::GravityBody(glm::float64 mass) {
+GravityBody::GravityBody(double mass) {
 	parentIndex = -1;
 	trail = nullptr;
 	barycenter = nullptr;
@@ -11,10 +11,10 @@ GravityBody::GravityBody(glm::float64 mass) {
 	gravityType = POINT;
 	radius = j2 = 0.0;
 	oblateness = 0.0f;
-	momentOfInertia = angularMomentum = torque = glm::dvec3(0.0);
+	momentOfInertia = angularMomentum = torque = nextTorque = glm::dvec3(0.0);
 }
 
-GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex, bool addToBary) {
+GravityBody::GravityBody(double mass, Orbit orbit, size_t parentIndex, bool addToBary) {
 	this->parentIndex = parentIndex;
 	trail = nullptr;
 	barycenter = nullptr;
@@ -22,10 +22,10 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex, boo
 	gravityType = POINT;
 	radius = j2 = 0.0;
 	oblateness = 0.0f;
-	momentOfInertia = angularMomentum = torque = glm::dvec3(0.0);
+	momentOfInertia = angularMomentum = torque = nextTorque = glm::dvec3(0.0);
 
 	glm::dvec3 parentPos, parentVel;
-	glm::float64 parentMass;
+	double parentMass;
 
 	Barycenter* parentBary = bodies[parentIndex]->barycenter;
 	if (parentBary) {
@@ -39,13 +39,15 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex, boo
 		parentMass = bodies[parentIndex]->mass;
 	}
 
+	double massRatio = mass / parentMass;
+
 	// equations sourced from René Schwarz "Keplerian Orbit Elements -> Cartesian State Vectors"
 	float eccentricAnomaly = rootSolver<float>(orbit.func, orbit.derivFunc, 0.0f);
 	float trueAnomaly = 2 * atan2f(
 		sqrtf(1.0f + orbit.eccentricity) * sinf(eccentricAnomaly * 0.5f),
 		sqrtf(1.0f - orbit.eccentricity) * cosf(eccentricAnomaly * 0.5f));
 	double distance = orbit.semiMajorAxis * (1.0 - (double)(orbit.eccentricity * cosf(eccentricAnomaly)));
-	double parentOffset = distance * mass / parentMass;
+	double parentOffset = distance * massRatio;
 	double apparentMass = parentMass * distance * distance / ((distance + parentOffset) * (distance + parentOffset));
 	double gravParameter = G * apparentMass;
 
@@ -82,25 +84,25 @@ GravityBody::GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex, boo
 	);
 
 	glm::dvec3 orbitalVelocity = rotate * glm::dvec4(-velInFrame.x, 0.0f, velInFrame.y, 0.0f);
-	glm::dvec3 avgVel = orbitalVelocity * mass / (mass + parentMass);
-	velocity = orbitalVelocity - avgVel + parentVel;
+
+	velocity = orbitalVelocity + parentVel;
 
 	if (parentBary)
-		parentBary->velocityOffset(bodies, -avgVel);
+		parentBary->velocityOffset(bodies, -orbitalVelocity * massRatio);
 	else
-		bodies[parentIndex]->velocity -= avgVel;
+		bodies[parentIndex]->velocity -= orbitalVelocity * massRatio;
 
 	glm::dvec3 orbitalPosition = rotate * glm::dvec4(-positionInFrame.x, 0.0f, positionInFrame.y, 0.0f);
-	position = orbitalPosition * (mass / parentMass + 1) + parentPos;
+	position = orbitalPosition + parentPos;
 	prevPosition = position;
 
 	if (parentBary) {
-		parentBary->positionOffset(bodies, orbitalPosition * -(mass / parentMass));
+		parentBary->positionOffset(bodies, -orbitalPosition * massRatio);
 		if (addToBary)
 			parentBary->add(bodies.size());
 	}
 	else {
-		bodies[parentIndex]->position += orbitalPosition * -(mass / parentMass);
+		bodies[parentIndex]->position -= orbitalPosition * massRatio;
 		if (addToBary)
 			bodies[parentIndex]->barycenter = new ComplexBarycenter(parentIndex, bodies.size());
 	}
@@ -158,15 +160,15 @@ void GravityBody::initJ2() {
 
 void GravityBody::initI() {
 	if (gravityType == OBLATE_SPHERE) {
-		glm::float64 polarRadius = radius * (1 - oblateness);
-		glm::float64 equatorialMoment = 0.2 * mass * (radius * radius + polarRadius * polarRadius);
-		glm::float64 polarMoment = 0.4 * mass * radius * radius;
+		double polarRadius = radius * (1 - oblateness);
+		double equatorialMoment = 0.2 * mass * (radius * radius + polarRadius * polarRadius);
+		double polarMoment = 0.4 * mass * radius * radius;
 		momentOfInertia = glm::dvec3(equatorialMoment, polarMoment, equatorialMoment);
 	}
 	else if (gravityType == CUBOID) {
-		glm::float64 xSq = scale.x * scale.x;
-		glm::float64 ySq = scale.y * scale.y;
-		glm::float64 zSq = scale.z * scale.z;
+		double xSq = scale.x * scale.x;
+		double ySq = scale.y * scale.y;
+		double zSq = scale.z * scale.z;
 		momentOfInertia = (mass / 12) * glm::dvec3(ySq + zSq, xSq + zSq, xSq + ySq);
 	}
 	else {
@@ -196,7 +198,6 @@ void GravityBody::rotateRK4(double dt) {
 
 	glm::dquat rotationChange = (k1 + k2 * 2.0 + k3 * 2.0 + k4) * (dt / 6.0);
 	rotQuat = glm::normalize(rotQuat + rotationChange);
-	angularMomentum += torque * dt;
 }
 
 void GravityBody::draw(Shader& shader, uint8_t mode) {

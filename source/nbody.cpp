@@ -43,7 +43,7 @@ static void initSeries() {
 	initStarBuffer();
 	initImGui();
 
-	initLoggers();
+	//initLoggers();
 }
 
 int main() {

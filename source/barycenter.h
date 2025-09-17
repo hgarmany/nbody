@@ -12,10 +12,10 @@ public:
 		this->secondary = secondary;
 	}
 
-	glm::float64 mass(context& context);
+	double mass(context& context);
 	glm::dvec3 position(context& context);
 	glm::dvec3 velocity(context& context);
-	glm::float64 apparentMass(context& context, size_t observer);
+	double apparentMass(context& context, size_t observer);
 	void positionOffset(context& context, glm::dvec3 offset);
 	void velocityOffset(context& context, glm::dvec3 offset);
 };
@@ -33,10 +33,10 @@ public:
 			secondaries.push_back(secondary);
 	}
 
-	glm::float64 mass(context& context);
+	double mass(context& context);
 	glm::dvec3 position(context& context);
 	glm::dvec3 velocity(context& context);
-	glm::float64 apparentMass(context& context, size_t observer);
+	double apparentMass(context& context, size_t observer);
 	void positionOffset(context& context, glm::dvec3 offset);
 	void velocityOffset(context& context, glm::dvec3 offset);
 };

@@ -30,7 +30,7 @@ TwoBodyBarycenter::TwoBodyBarycenter(size_t a, size_t b) {
 	primaryOrbit = new Trail(newColor, primary);
 }
 
-glm::float64 TwoBodyBarycenter::mass(context& context) {
+double TwoBodyBarycenter::mass(context& context) {
 	return context[primary]->mass + context[secondary]->mass;
 }
 
@@ -46,12 +46,12 @@ glm::dvec3 TwoBodyBarycenter::velocity(context& context) {
 		(context[primary]->mass + context[secondary]->mass);
 }
 
-glm::float64 TwoBodyBarycenter::apparentMass(context& context, size_t observer) {
+double TwoBodyBarycenter::apparentMass(context& context, size_t observer) {
 	glm::dvec3 com = (context[primary]->mass * context[primary]->position +
 		context[secondary]->mass * context[secondary]->position) /
 		(context[primary]->mass + context[secondary]->mass);
-	glm::float64 d1 = glm::distance(context[primary]->position, com);
-	glm::float64 d2 = glm::distance(context[secondary]->position, com);
+	double d1 = glm::distance(context[primary]->position, com);
+	double d2 = glm::distance(context[secondary]->position, com);
 
 	if (observer == primary)
 		return context[secondary]->mass * (d1 * d1) / ((d1 + d2) * (d1 + d2));
@@ -103,7 +103,7 @@ ComplexBarycenter::ComplexBarycenter(size_t primary, std::vector<size_t> seconda
 }
 
 ComplexBarycenter::ComplexBarycenter(std::vector<size_t> indices) {
-	glm::float64 highestMass = 0.0;
+	double highestMass = 0.0;
 	size_t highestMassIndex = -1;
 	for (size_t i : indices) {
 		if (bodies[i]->mass > highestMass) {
@@ -119,15 +119,15 @@ ComplexBarycenter::ComplexBarycenter(std::vector<size_t> indices) {
 	primaryOrbit = new Trail(bodies[primary]->trail->color, primary);
 }
 
-glm::float64 ComplexBarycenter::mass(context& context) {
-	glm::float64 mass = context[primary]->mass;
+double ComplexBarycenter::mass(context& context) {
+	double mass = context[primary]->mass;
 	for (size_t secondary : secondaries)
 		mass += context[secondary]->mass;
 	return mass;
 }
 
 glm::dvec3 ComplexBarycenter::position(context& context) {
-	glm::float64 mass = context[primary]->mass;
+	double mass = context[primary]->mass;
 	glm::dvec3 massWeightedPos = context[primary]->mass * context[primary]->position;
 	for (size_t secondary : secondaries) {
 		mass += context[secondary]->mass;
@@ -137,7 +137,7 @@ glm::dvec3 ComplexBarycenter::position(context& context) {
 }
 
 glm::dvec3 ComplexBarycenter::velocity(context& context) {
-	glm::float64 mass = context[primary]->mass;
+	double mass = context[primary]->mass;
 	glm::dvec3 massWeightedVel = context[primary]->mass * context[primary]->velocity;
 	for (size_t secondary : secondaries) {
 		mass += context[secondary]->mass;
@@ -146,24 +146,24 @@ glm::dvec3 ComplexBarycenter::velocity(context& context) {
 	return massWeightedVel / mass;
 }
 
-glm::float64 ComplexBarycenter::apparentMass(context& context, size_t observer) {
+double ComplexBarycenter::apparentMass(context& context, size_t observer) {
 	glm::dvec3 netAcceleration(0.0);
 
 	if (observer != primary) {
 		glm::dvec3 r = context[primary]->position - context[observer]->position;
-		glm::float64 d = glm::length(r);
+		double d = glm::length(r);
 		netAcceleration += context[primary]->mass * glm::normalize(r) / (d * d);
 	}
 	for (size_t secondary : secondaries) {
 		if (observer != secondary) {
 			glm::dvec3 r = context[secondary]->position - context[observer]->position;
-			glm::float64 d = glm::length(r);
+			double d = glm::length(r);
 			netAcceleration += context[secondary]->mass * glm::normalize(r) / (d * d);
 		}
 	}
 
 	glm::dvec3 com = position(context);
-	glm::float64 comDistance = glm::distance(context[observer]->position, com);
+	double comDistance = glm::distance(context[observer]->position, com);
 
 	return glm::length(netAcceleration) * comDistance * comDistance;
 }

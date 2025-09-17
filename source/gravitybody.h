@@ -19,10 +19,10 @@ protected:
 public:
 	Trail* primaryOrbit;
 	virtual void add(size_t secondary) = 0;
-	virtual glm::float64 mass(context& context) = 0;
+	virtual double mass(context& context) = 0;
 	virtual glm::dvec3 position(context& context) = 0;
 	virtual glm::dvec3 velocity(context& context) = 0;
-	virtual glm::float64 apparentMass(context& context, size_t observer) = 0;
+	virtual double apparentMass(context& context, size_t observer) = 0;
 	virtual void positionOffset(context& context, glm::dvec3 offset) = 0;
 	virtual void velocityOffset(context& context, glm::dvec3 offset) = 0;
 };
@@ -62,16 +62,16 @@ typedef struct orbit {
 
 class GravityBody : public Entity {
 public:
-	glm::dvec3 momentOfInertia, angularMomentum, torque;
+	glm::dvec3 momentOfInertia, angularMomentum, torque, nextTorque;
 	Trail* trail;
 	size_t parentIndex;
-	glm::float64 mass, radius, j2;
+	double mass, radius, j2;
 	float oblateness;//, loveNumber, qualityFactor;
 	gravType gravityType;
 	Barycenter* barycenter;
 
-	GravityBody(glm::float64 mass = DBL_MIN);
-	GravityBody(glm::float64 mass, Orbit orbit, size_t parentIndex, bool addToBary = true);
+	GravityBody(double mass = DBL_MIN);
+	GravityBody(double mass, Orbit orbit, size_t parentIndex, bool addToBary = true);
 
 	//std::vector<MaterialLayer> makeLayers();
 	//void initTidalParams();

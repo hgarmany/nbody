@@ -109,6 +109,14 @@ void initCamera() {
 	camera.mode = LOCK_PLANET_CAM;
 	camera.atIndex = camera.eyeIndex = 0;
 
+	pipCam = Camera(
+		glm::dvec3(0, 1e6, 0),
+		glm::dvec3(0, -1, 0),
+		glm::dvec3(1, 0, 0));
+	pipCam.mode = LOCK_BARY_CAM;
+	pipCam.lockDistanceFactor = 5000;
+	pipCam.atIndex = pipCam.eyeIndex = 0;
+
 	// obtain initial perspective information from relationship between window and screen
 	GLFWmonitor* screen = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(screen);
@@ -442,6 +450,16 @@ static void renderTrails(Camera& camera) {
 			trailVertices.push_back(-2 * body->radius * axisOfRotation);
 			trailAlphas.push_back(1.0f);
 			trailAlphas.push_back(1.0f);
+
+			trailVertices.push_back(glm::dvec3(0.0));
+			trailVertices.push_back(2.0 * body->radius * glm::normalize(body->torque));
+			trailAlphas.push_back(1.0f);
+			trailAlphas.push_back(1.0f);
+
+			trailVertices.push_back(glm::dvec3(0.0));
+			trailVertices.push_back(2.0 * body->radius * glm::normalize(body->angularMomentum));
+			trailAlphas.push_back(1.0f);
+			trailAlphas.push_back(1.0f);
 		}
 
 		if (body->trail) {
@@ -494,8 +512,8 @@ static void renderTrails(Camera& camera) {
 		// axis
 		if (testObjectVisibility(body, camera)) {
 			glUniformMatrix4fv(trailShader.M, 1, GL_FALSE, &modelMatrix[0][0]);
-			glDrawArrays(GL_LINE_STRIP, offset, 2);
-			offset += 2;
+			glDrawArrays(GL_LINE_STRIP, offset, 6);
+			offset += 6;
 		}
 
 		if (body->trail) {
@@ -657,11 +675,11 @@ static void renderShadowMap() {
 	glUniform3fv(shader.uniforms[LIGHT_COLOR], 1, &lightColor[0]);
 	glUniform1f(shader.uniforms[LIGHT_RADIUS], GLfloat(frameBodies[0]->radius));
 
-	glm::float64 near = FLT_MAX;
-	glm::float64 far = FLT_MIN;
+	double near = FLT_MAX;
+	double far = FLT_MIN;
 	for (const std::shared_ptr<GravityBody>& body : frameBodies) {
 		if (testObjectVisibility(body, camera)) {
-			glm::float64 distance = glm::distance(frameBodies[0]->position, body->position);
+			double distance = glm::distance(frameBodies[0]->position, body->position);
 			if (distance - body->radius < near)
 				near = distance - body->radius;
 			if (distance + body->radius > far)
@@ -676,7 +694,7 @@ static void renderShadowMap() {
 	Camera lightCam = Camera(lightPos, glm::dvec3(1, 0, 0), glm::dvec3(0, 1, 0));
 	glm::mat4 view = camera.viewMatrix();
 
-	glm::float64 fovy = 0, aspect = 0;
+	double fovy = 0, aspect = 0;
 	glm::mat4 infiniteView = glm::mat4(glm::mat3(view));
 	glm::mat4 narrowThrustum = glm::perspective(fovy, aspect, near, far);
 
@@ -916,6 +934,40 @@ static void drawGUI() {
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+static void updateRenderContext() {
+	physicsStart.notify_one(); // if the physics thread is waiting, signal to go
+
+	// capture physics results when they are ready
+	std::unique_lock<std::mutex> lock(physicsMutex);
+	physicsDone.wait(lock);
+	lock.unlock();
+
+	// transfer entities from physics thread to rendering buffers
+	frameBodies.clear();
+	frameEntities.clear();
+	for (const std::shared_ptr<GravityBody>& body : bodies) {
+		frameBodies.push_back(std::make_shared<GravityBody>(*body));
+		for (const std::shared_ptr<Entity>& entity : entities) {
+			if (entity->root == body) {
+				frameEntities.push_back(std::make_shared<Entity>(*entity));
+				frameEntities[frameEntities.size() - 1]->root = frameBodies[frameBodies.size() - 1];
+			}
+		}
+	}
+
+	if (!doTrails && trailVertices.size() > 0) {
+		for (const std::shared_ptr<GravityBody>& body : bodies) {
+			if (body->trail)
+				body->trail->queue.clear();
+		}
+		trailVertices = std::vector<glm::vec3>();
+		trailAlphas = std::vector<float>();
+	}
+
+	if (doTrails)
+		updateTrails(frameBodies);
+}
+
 void renderLoop() {
 	Clock::time_point lastFrameTime = Clock::now();
 	Clock::time_point currentTime = Clock::now();
@@ -930,39 +982,9 @@ void renderLoop() {
 
 			deltaTime = std::chrono::duration<double>(currentTime - lastFrameTime).count();
 			if (deltaTime > MIN_FRAME_TIME) {
-				if (hasPhysics) {
-					// capture physics results when they are ready
-					std::unique_lock<std::mutex> lock(physicsMutex);
-
-					physicsDone.wait(lock);
-
-					if (!doTrails && trailVertices.size() > 0) {
-						for (const std::shared_ptr<GravityBody>& body : bodies) {
-							if (body->trail)
-								body->trail->queue.clear();
-						}
-						trailVertices = std::vector<glm::vec3>();
-						trailAlphas = std::vector<float>();
-					}
-
-					// transfer entities from physics thread to rendering buffers
-					frameBodies.clear();
-					frameEntities.clear();
-					for (const std::shared_ptr<GravityBody>& body : bodies) {
-						frameBodies.push_back(std::make_shared<GravityBody>(*body));
-						for (const std::shared_ptr<Entity>& entity : entities) {
-							if (entity->root == body) {
-								frameEntities.push_back(std::make_shared<Entity>(*entity));
-								frameEntities[frameEntities.size() - 1]->root = frameBodies[frameBodies.size() - 1];
-							}
-						}
-					}
-
-					lock.unlock();
-
-					if (doTrails)
-						updateTrails(frameBodies);
-				}
+				// copy latest physics data to render context
+				if (hasPhysics)
+					updateRenderContext();
 
 				updateCamera(camera);
 				updateProjectionMatrix(camera, window);
