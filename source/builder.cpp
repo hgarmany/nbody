@@ -211,9 +211,10 @@ void GravityBodyBuilder::buildAlienSystem() {
 
 	// molten
 	Orbit moltenOrbit(3.714981e4, 0.066073f, 1.7349201f, 0.2557102f, 0.105305f, -2.510953f);
-	init(8.02884e23, moltenOrbit, 0);
+	//init(8.02884e23, moltenOrbit, 0);
+	init(2.56991e24, moltenOrbit, 0); // mass correction for composition
 	setModel(sphere);
-	setRadius(5.9003f, 8.42883e-5f);
+	setRadius(4.9003f, 8.42883e-5f);
 	spin = 2 * pi / (54.27202 * siderealDay);
 	setRotation(glm::dvec3(0.2596828 + moltenOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
 	Surface mercury = Surface("../../assets/sol/mercury.jpg", diffuseMat);
@@ -224,7 +225,8 @@ void GravityBodyBuilder::buildAlienSystem() {
 
 	// hothouse
 	Orbit hothouseOrbit(9.327584e4, 0.00760225f, 1.633482f, -1.12883f, 0.0161294f, 2.5892111f);
-	init(7.6757e24, hothouseOrbit, 0);
+	//init(7.6757e24, hothouseOrbit, 0);
+	init(7.44757e24, hothouseOrbit, 0); // mass correction for composition
 	setModel(sphere);
 	setRadius(7.1637f, 3.16904e-4f);
 	spin = 2 * pi / 419863;
@@ -236,7 +238,8 @@ void GravityBodyBuilder::buildAlienSystem() {
 
 	// earth
 	Orbit earthOrbit(1.37019e5, 0.0373234f, 0.0f, 0.0f, 0.0f, 0.0f);
-	init(2.44536e25, earthOrbit, 0);
+	//init(2.44536e25, earthOrbit, 0);
+	init(3.42217e25, earthOrbit, 0); // mass correction for composition
 	setModel(sphere);
 	setRadius(11.3453f, 3.363984e-3f);
 	spin = 2 * pi / siderealDay;
@@ -247,7 +250,8 @@ void GravityBodyBuilder::buildAlienSystem() {
 
 	// !earth
 	Orbit nearthOrbit(1.35810e5, 0.0115530f, 0.506823f, 1.0653f, 0.045623f, float(pi));
-	init(1.66284e25, nearthOrbit, 0);
+	//init(1.66284e25, nearthOrbit, 0);
+	init(2.16284e25, nearthOrbit, 0); // mass correction for composition
 	setModel(sphere);
 	setRadius(9.6055f, 1.38554e-3f);
 	spin = 2 * pi / 394416.71;
@@ -259,7 +263,8 @@ void GravityBodyBuilder::buildAlienSystem() {
 
 	// hycean
 	Orbit hyceanOrbit(6.86212e5, 0.0372854f, -1.061138f, 0.6300549f, 0.04870922f, -0.9925301f);
-	init(3.66629e25, hyceanOrbit, 0);
+	//init(3.66629e25, hyceanOrbit, 0);
+	init(4.06921e25, hyceanOrbit, 0); // mass correction for composition
 	setModel(sphere);
 	setRadius(21.8128f, 0.0736628f);
 	spin = -2 * pi / 49207.39;
@@ -269,7 +274,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	addTrail(glm::vec3(0.3f, 0.7f, 0.8f));
 	addToBodiesLists();
 
-	// ice giant 1
+	// ice-gas giant 1
 	Orbit iceGiant1Orbit(9.64622e5, 0.0243471f, 2.792516f, 1.10546f, 0.0221453f, -2.251881f);
 	init(2.97812e26, iceGiant1Orbit, 0);
 	setModel(sphere);
@@ -329,7 +334,8 @@ void GravityBodyBuilder::buildAlienSystem() {
 	addToBodiesLists();
 
 	// moon
-	Orbit moonOrbit(5.00245e2, 0.0233735f, 0.36812f, 1.77315f, 0.145046f, 2.46619f);
+	//Orbit moonOrbit(5.00245e2, 0.0233735f, 0.36812f, 1.77315f, 0.145046f, 2.46619f);
+	Orbit moonOrbit(5.57513643e2, 0.0233735f, 0.36812f, 1.77315f, 0.145046f, 2.46619f);
 	init(2.69171e23, moonOrbit, 3);
 	setModel(sphere);
 	setRadius(2.72034f, 1.6033e-3f);
