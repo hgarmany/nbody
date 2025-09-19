@@ -31,7 +31,7 @@ public:
 		glm::dvec3 orientation,
 		glm::dvec3 rotVelocity = glm::dvec3(0.0f)
 	) {
-		entity->rotQuat = glm::dquat(orientation);
+		entity->rotQuat = entity->rotQuat * glm::dquat(orientation);
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
 			body->initI();
 			body->angularMomentum = body->rotQuat * (body->momentOfInertia * rotVelocity);

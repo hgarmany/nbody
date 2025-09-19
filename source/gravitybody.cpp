@@ -83,6 +83,8 @@ GravityBody::GravityBody(double mass, Orbit orbit, size_t parentIndex, bool addT
 		0.0f, 0.0f, 0.0f, 1.0f
 	);
 
+	rotQuat = glm::dquat(rotate);
+
 	glm::dvec3 orbitalVelocity = rotate * glm::dvec4(-velInFrame.x, 0.0f, velInFrame.y, 0.0f);
 
 	velocity = orbitalVelocity + parentVel;

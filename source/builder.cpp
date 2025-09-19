@@ -55,7 +55,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(2.4397f, 9e-4f);
 	spin = 2 * pi / 86400 / 58.6;
-	setRotation(glm::dvec3(0.0005934119 + mercuryOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.0005934119, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(mercury);
 	addTrail(glm::vec3(1.0f, 0.0f, 1.0f));
 	addToBodiesLists();
@@ -66,7 +66,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(6.0518f);
 	spin = -2 * pi / 86400 / 243;
-	setRotation(glm::dvec3(0.04607669 + venusOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.04607669, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(venus);
 	addTrail(glm::vec3(1.0f, 1.0f, 0.0f));
 	addToBodiesLists();
@@ -77,7 +77,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(6.378137f, 3.35e-3f);
 	spin = 2 * pi / 86400;
-	setRotation(glm::dvec3(0.40910518 + earthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.40910518, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(earth);
 	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
 	addToBodiesLists();
@@ -88,7 +88,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(3.3895f, 6.48e-3f);
 	spin = 2 * pi / 86400 / 1.029;
-	setRotation(glm::dvec3(0.4396484 + marsOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.4396484, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(mars);
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
 	addToBodiesLists();
@@ -99,7 +99,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(69.911f, 0.06487f);
 	spin = 2 * pi / 86400 / 0.415;
-	setRotation(glm::dvec3(0.05462881 + jupiterOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.05462881, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(jupiter);
 	addTrail(glm::vec3(1.0f, 0.5f, 0.0f));
 	addToBodiesLists();
@@ -110,7 +110,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(60.268f, 0.09796f);
 	spin = 2 * pi / 86400 / 0.444;
-	setRotation(glm::dvec3(0.4665265 + saturnOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.4665265, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(saturn);
 	addTrail(glm::vec3(0.7f, 0.8f, 0.1f));
 	addToBodiesLists();
@@ -133,7 +133,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(1.7381f, 1.24e-3f);
 	spin = 2 * pi / 86400 / 27.321661;
-	setRotation(glm::dvec3(0.02691996 + moonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.02691996, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(moon);
 	addTrail();
 	addToBodiesLists();
@@ -145,7 +145,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(1.8215f);
 	spin = 2 * pi / 86400 / 1.769;
-	setRotation(glm::dvec3(0.0006981317 + ioOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.0006981317, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(io);
 	addTrail(glm::vec3(1.0f, 0.8f, 0.2f));
 	addToBodiesLists();
@@ -156,7 +156,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(1.5608f);
 	spin = 2 * pi / 86400 / 3.551;
-	setRotation(glm::dvec3(0.001745329 + europaOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.001745329, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(europa);
 	addTrail(glm::vec3(0.4f, 0.7f, 0.7f));
 	addToBodiesLists();
@@ -167,7 +167,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(2.634f);
 	spin = 2 * pi / 86400 / 7.155;
-	setRotation(glm::dvec3(0.005759587 + ganymedeOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.005759587, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(ganymede);
 	addTrail(glm::vec3(0.0f, 0.4f, 0.8f));
 	addToBodiesLists();
@@ -178,7 +178,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(2.410f);
 	spin = 2 * pi / 86400 / 16.689;
-	setRotation(glm::dvec3(0 + callistoOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(callisto);
 	addTrail(glm::vec3(0.6f, 0.6f, 0.8f));
 	addToBodiesLists();
@@ -216,7 +216,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(4.9003f, 8.42883e-5f);
 	spin = 2 * pi / (54.27202 * siderealDay);
-	setRotation(glm::dvec3(0.2596828 + moltenOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.2596828, 0, 0), glm::dvec3(0, spin, 0));
 	Surface mercury = Surface("../../assets/sol/mercury.jpg", diffuseMat);
 	//setSurface(Surface(diffuseMat, glm::vec3(0.5f, 0.35f, 0.4f)));
 	setSurface(mercury);
@@ -230,7 +230,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(7.1637f, 3.16904e-4f);
 	spin = 2 * pi / 419863;
-	setRotation(glm::dvec3(0.3759614 + hothouseOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.3759614, 0, 0), glm::dvec3(0, spin, 0));
 	test.color = glm::vec3(0.8f, 0.75f, 0.3f);
 	setSurface(test);
 	addTrail(glm::vec3(0.8f, 0.5f, 0.5f));
@@ -243,7 +243,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(11.3453f, 3.363984e-3f);
 	spin = 2 * pi / siderealDay;
-	setRotation(glm::dvec3(0.4917866593 + earthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.4917866593, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(world);
 	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
 	addToBodiesLists();
@@ -255,7 +255,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(9.6055f, 1.38554e-3f);
 	spin = 2 * pi / 394416.71;
-	setRotation(glm::dvec3(0.1362159 + nearthOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.1362159, 0, 0), glm::dvec3(0, spin, 0));
 	//setSurface(Surface(diffuseMat, glm::vec3(0.1f, 0.5f, 1.0f)));
 	setSurface(earth);
 	addTrail(glm::vec3(0.2f, 1.0f, 0.2f));
@@ -268,7 +268,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(21.8128f, 0.0736628f);
 	spin = -2 * pi / 49207.39;
-	setRotation(glm::dvec3(0.1861882 + hyceanOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.1861882, 0, 0), glm::dvec3(0, spin, 0));
 	test.color = glm::vec3(0.7f, 0.78f, 0.87f);
 	setSurface(test);
 	addTrail(glm::vec3(0.3f, 0.7f, 0.8f));
@@ -280,7 +280,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(38.702f, 0.130259f);
 	spin = 2 * pi / 29478.8;
-	setRotation(glm::dvec3(0 + iceGiant1Orbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(giant_1);
 	addTrail(glm::vec3(0.7f, 0.6f, 0.2f));
 	addToBodiesLists();
@@ -291,7 +291,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(29.473f, 0.0572661f);
 	spin = 2 * pi / 45602.0;
-	setRotation(glm::dvec3(0 + iceGiant2Orbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0, 0, 0), glm::dvec3(0, spin, 0));
 	test.color = glm::vec3(0.2f, 0.44f, 0.88f);
 	setSurface(test);
 	addTrail(glm::vec3(0.2f, 0.4f, 0.9f));
@@ -304,7 +304,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(68.8499f, 1.000255e-4f);
 	spin = 2 * pi / 202176;
-	setRotation(glm::dvec3(-0.0509361 + dwarfCompanionOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(-0.0509361, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(brown_dwarf);
 	addTrail(glm::vec3(0.4f, 0.0f, 0.3f));
 	addToBodiesLists();
@@ -315,7 +315,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(1.916f, 5.36052e-4f);
 	spin = 2 * pi / 2812426;
-	setRotation(glm::dvec3(0.00199362 + bdPlanetOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.00199362, 0, 0), glm::dvec3(0, spin, 0));
 	test.color = glm::vec3(0.22f, 0.14f, 0.21f);
 	setSurface(test);
 	addTrail(glm::vec3(1.0f, 1.0f, 1.0f));
@@ -327,7 +327,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(1.916f);
 	spin = 0;
-	setRotation(glm::dvec3(0.00751066 + bdPlanet2Orbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.00751066, 0, 0), glm::dvec3(0, spin, 0));
 	test.color = glm::vec3(0.4f, 0.35f, 0.45f);
 	setSurface(test);
 	addTrail(glm::vec3(1.0f, 1.0f, 1.0f));
@@ -340,7 +340,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(2.72034f, 1.6033e-3f);
 	spin = 2 * pi / 1730651;
-	setRotation(glm::dvec3(0.0541602 + moonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.0541602, 0, 0), glm::dvec3(0, spin, 0));
 	//setSurface(Surface(diffuseMat, glm::vec3(0.35f, 0.35f, 0.4f)));
 	setSurface(earth);
 	addTrail(glm::vec3(0.5f, 0.5f, 0.5f));
@@ -353,7 +353,7 @@ void GravityBodyBuilder::buildAlienSystem() {
 	setModel(sphere);
 	setRadius(6.01158f, 5.29033e-4f);
 	spin = 2 * pi / 390000;
-	setRotation(glm::dvec3(0.1627101 + nmoonOrbit.inclination, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.1627101, 0, 0), glm::dvec3(0, spin, 0));
 	//setSurface(Surface(diffuseMat, glm::vec3(0.25f, 0.2f, 0.15f)));
 	setSurface(earth);
 	addTrail(glm::vec3(0.8f, 0.5f, 0.4f));
@@ -362,27 +362,36 @@ void GravityBodyBuilder::buildAlienSystem() {
 
 void GravityBodyBuilder::buildTestSystem() {
 	size_t sphere = Model::Icosphere(4);
-
+	glm::vec4 diffuseMat(0.0f, 1.0f, 0.0f, 0.0f);
 	glm::vec4 ambMat(1.0f, 0.0f, 0.0f, 0.0f);
+	Surface testSun = Surface("../../assets/grid.jpg", ambMat);
 
-	init(2e25f);
+	init(1e30f);
 	setModel(sphere);
-	setRadius(50.0f);
-	setSurface(Surface(ambMat));
+	setRadius(500.0f, 0.1f);
+	double spin = 2 * pi / 86400 / 20;
+	setRotation(glm::dvec3(0.3, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(testSun);
 	addToBodiesLists();
 
-	Orbit testOrbit(1e2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	init(1e25f, testOrbit, 0);
+	Orbit testOrbit1(1e5, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	init(1e29, testOrbit1, 0);
 	setModel(sphere);
-	setRadius(50.0f);
-	setSurface(Surface(ambMat));
+	setRadius(100.0f, 0.01f);
+	spin = 2 * pi / 86400 / 50;
+	setRotation(glm::dvec3(0.6, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(Surface("../../assets/grid.jpg", diffuseMat, glm::vec3(0.0f, 0.0f, 1.0f)));
 	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
 	addToBodiesLists();
 
-	init(1e1f);
+	Orbit testOrbit2(1e3, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	init(1e27, testOrbit2, 1);
 	setModel(sphere);
-	setRadius(10.0f);
-	setSurface(Surface(ambMat));
+	setRadius(20.0f, 0.06f);
+	spin = 2 * pi / 86400 / 20;
+	setRotation(glm::dvec3(0.2, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(Surface("../../assets/grid.jpg", diffuseMat, glm::vec3(1.0f, 0.0f, 0.0f)));
+	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
 	addToBodiesLists();
 }
 
@@ -412,8 +421,8 @@ void buildObjects() {
 	GravityBodyBuilder builder;
 
 	//builder.buildSolarSystem();
-	builder.buildAlienSystem();
-	//builder.buildTestSystem();
+	//builder.buildAlienSystem();
+	builder.buildTestSystem();
 
 	/*
 	// cross section of ring structure

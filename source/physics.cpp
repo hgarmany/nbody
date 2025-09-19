@@ -158,11 +158,11 @@ static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<
 
 	if (b->gravityType == OBLATE_SPHERE) {
 		// oblate perturbations on a by b, using MacCullagh's formula
-		glm::dvec3 axisOfRotation = b->rotQuat * glm::dvec3(0.0, 1.0, 0.0);
+		glm::dvec3 axisOfRotation = glm::normalize(b->rotQuat * glm::dvec3(0.0, 1.0, 0.0));
 		double cosTheta = glm::dot(-direction, axisOfRotation);
-		double sinTheta = sqrt(1 - cosTheta * cosTheta);
+		double sin2Theta = 1 - cosTheta * cosTheta;
 		double radiusOverDistance = b->radius / distance;
-		accelerationA *= 1 - 3.0 * b->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
+		accelerationA *= 1 - 3.0 * b->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sin2Theta - 1.0);
 
 		// torque
 		b->nextTorque += 3.0 * G * a->mass * b->mass * b->j2 * radiusOverDistance * radiusOverDistance / distance
@@ -173,11 +173,11 @@ static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<
 
 	if (a->gravityType == OBLATE_SPHERE) {
 		// oblate perturbations on b by a, using MacCullagh's formula
-		glm::dvec3 axisOfRotation = a->rotQuat * glm::dvec3(0.0, 1.0, 0.0);
+		glm::dvec3 axisOfRotation = glm::normalize(a->rotQuat * glm::dvec3(0.0, 1.0, 0.0));
 		double cosTheta = glm::dot(direction, axisOfRotation);
-		double sinTheta = sqrt(1 - cosTheta * cosTheta);
+		double sin2Theta = 1 - cosTheta * cosTheta;
 		double radiusOverDistance = a->radius / distance;
-		accelerationB *= 1 - 3.0 * a->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sinTheta * sinTheta - 1.0);
+		accelerationB *= 1 - 3.0 * a->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sin2Theta - 1.0);
 
 		// torque
 		a->nextTorque += 3.0 * G * a->mass * b->mass * a->j2 * radiusOverDistance * radiusOverDistance / distance
