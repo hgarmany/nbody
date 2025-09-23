@@ -62,7 +62,8 @@ typedef struct orbit {
 
 class GravityBody : public Entity {
 public:
-	glm::dvec3 momentOfInertia, angularMomentum, torque, nextTorque;
+	glm::dvec3 momentOfInertia; // principle axes of momentum, body frame
+	glm::dvec3 angularMomentum, torque, nextTorque; // in world frame
 	Trail* trail;
 	size_t parentIndex;
 	double mass, radius, j2;

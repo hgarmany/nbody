@@ -181,11 +181,11 @@ void GravityBody::initI() {
 glm::dquat GravityBody::rotateDeriv(const glm::dquat& orientation, const glm::dvec3& momentum) {
 	glm::dmat3 rotMatrix = glm::mat3_cast(orientation);
 
-	glm::dvec3 momentumWorld = glm::transpose(rotMatrix) * momentum; // angular momentum in world frame
+	glm::dvec3 momentumBody = glm::transpose(rotMatrix) * momentum; // angular momentum in body frame
 	glm::dvec3 velocityBody = {
-		momentumWorld.x / momentOfInertia.x,
-		momentumWorld.y / momentOfInertia.y,
-		momentumWorld.z / momentOfInertia.z
+		momentumBody.x / momentOfInertia.x,
+		momentumBody.y / momentOfInertia.y,
+		momentumBody.z / momentOfInertia.z
 	}; // angular velocity in body frame
 	glm::dvec3 velocityWorld = rotMatrix * velocityBody; // angular velocity in world frame
 
@@ -199,7 +199,8 @@ void GravityBody::rotateRK4(double dt) {
 	glm::dquat k4 = rotateDeriv(glm::normalize(rotQuat + k3 * dt), angularMomentum + torque * dt);
 
 	glm::dquat rotationChange = (k1 + k2 * 2.0 + k3 * 2.0 + k4) * (dt / 6.0);
-	rotQuat = glm::normalize(rotQuat + rotationChange);
+	rotQuat = glm::normalize(rotQuat + rotationChange); // new orientation quat
+	angularMomentum += torque * dt;
 }
 
 void GravityBody::draw(Shader& shader, uint8_t mode) {

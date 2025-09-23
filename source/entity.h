@@ -12,8 +12,8 @@ public:
 	static std::shared_ptr<Entity> skybox;
 
 	glm::dmat4 modelMatrix;
-	glm::dquat rotQuat; // quaternion representation of orientation
-	glm::dvec3 position, prevPosition, velocity, acceleration;
+	glm::dquat rotQuat; // quaternion representation of orientation, rotates body to world frame
+	glm::dvec3 position, prevPosition, velocity, acceleration; // linear motion characteristics, world frame
 	glm::dvec3 scale;
 	size_t modelIndex;
 	std::shared_ptr<Entity> root;

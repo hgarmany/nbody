@@ -203,8 +203,6 @@ static void updateBodies(context& bodies, double deltaTime) {
 		body->prevPosition = body->position;
 		body->position += body->velocity * fullDt;
 
-		body->angularMomentum += body->torque * halfDt;
-
 		body->rotateRK4(fullDt);
 		
 		body->acceleration = body->nextTorque = glm::dvec3(0.0);
@@ -221,7 +219,6 @@ static void updateBodies(context& bodies, double deltaTime) {
 	for (std::shared_ptr<GravityBody>& body : bodies) {
 		body->torque = body->nextTorque;
 		body->velocity += body->acceleration * halfDt;
-		body->angularMomentum += body->torque * halfDt;
 	}
 
 	elapsedTime += fullDt;
