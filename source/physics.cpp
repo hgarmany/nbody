@@ -152,6 +152,9 @@ static double semiMajorAxis(size_t parent, size_t orbiter) {
 static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<GravityBody>& b) {
 	glm::dvec3 displacement = b->position - a->position;
 	double distance = glm::length(displacement);
+	double distanceSq = distance * distance;
+	double distanceCu = distance * distanceSq;
+
 	glm::dvec3 direction = glm::normalize(displacement);
 	glm::dvec3 fieldLine = (G * direction) / (distance * distance);
 	glm::dvec3 accelerationA = b->mass * fieldLine;
@@ -161,11 +164,11 @@ static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<
 		glm::dvec3 axisOfRotation = glm::normalize(b->rotQuat * glm::dvec3(0.0, 1.0, 0.0));
 		double cosTheta = glm::dot(-direction, axisOfRotation);
 		double sin2Theta = 1 - cosTheta * cosTheta;
-		double radiusOverDistance = b->radius / distance;
-		accelerationA *= 1 - 3.0 * b->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sin2Theta - 1.0);
+		double radiusSq = b->radius * b->radius;
+		accelerationA *= 1 - 3.0 * b->j2 * radiusSq / distanceSq * (3.0 * sin2Theta - 1.0);
 
 		// torque
-		b->nextTorque += 3.0 * G * a->mass * b->mass * b->j2 * radiusOverDistance * radiusOverDistance / distance
+		b->nextTorque += 3.0 * G * a->mass * b->mass * b->j2 * radiusSq / distanceCu
 			* cosTheta * glm::cross(-direction, axisOfRotation);
 	}
 
@@ -176,11 +179,11 @@ static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<
 		glm::dvec3 axisOfRotation = glm::normalize(a->rotQuat * glm::dvec3(0.0, 1.0, 0.0));
 		double cosTheta = glm::dot(direction, axisOfRotation);
 		double sin2Theta = 1 - cosTheta * cosTheta;
-		double radiusOverDistance = a->radius / distance;
-		accelerationB *= 1 - 3.0 * a->j2 * radiusOverDistance * radiusOverDistance * (3.0 * sin2Theta - 1.0);
+		double radiusSq = a->radius * a->radius;
+		accelerationB *= 1 - 3.0 * a->j2 * radiusSq / distanceSq * (3.0 * sin2Theta - 1.0);
 
 		// torque
-		a->nextTorque += 3.0 * G * a->mass * b->mass * a->j2 * radiusOverDistance * radiusOverDistance / distance
+		a->nextTorque += 3.0 * G * a->mass * b->mass * a->j2 * radiusSq / distanceCu
 			* cosTheta * glm::cross(direction, axisOfRotation);
 	}
 
@@ -200,7 +203,6 @@ static void updateBodies(context& bodies, double deltaTime) {
 		body->prevPosition = body->position;
 		body->position += body->velocity * fullDt;
 
-		body->torque = body->nextTorque;
 		body->angularMomentum += body->torque * halfDt;
 
 		body->rotateRK4(fullDt);
@@ -217,6 +219,7 @@ static void updateBodies(context& bodies, double deltaTime) {
 	// Update velocities to full-step using the new accelerations
 	#pragma omp parallel for
 	for (std::shared_ptr<GravityBody>& body : bodies) {
+		body->torque = body->nextTorque;
 		body->velocity += body->acceleration * halfDt;
 		body->angularMomentum += body->torque * halfDt;
 	}

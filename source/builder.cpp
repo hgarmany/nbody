@@ -1,5 +1,5 @@
 #include "builder.h"
-
+#include <iostream>
 void EntityBuilder::buildSky(size_t modelIndex) {
 	std::vector<std::string> faces = {
 		"../../assets/sky/right.jpg",
@@ -133,7 +133,7 @@ void GravityBodyBuilder::buildSolarSystem() {
 	setModel(sphere);
 	setRadius(1.7381f, 1.24e-3f);
 	spin = 2 * pi / 86400 / 27.321661;
-	setRotation(glm::dvec3(0.02691996, 0, 0), glm::dvec3(0, spin, 0));
+	setRotation(glm::dvec3(0.1167276, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(moon);
 	addTrail();
 	addToBodiesLists();
@@ -347,7 +347,6 @@ void GravityBodyBuilder::buildAlienSystem() {
 	addToBodiesLists();
 
 	// !moon
-	//Orbit nmoonOrbit(1.44966e2, 0.1337362f, 2.40028f, 0.55761f, 0.142635f, 1.66287f);
 	Orbit nmoonOrbit(1.44966e2, 0.0013374f, 2.40028f, 0.55761f, 0.142635f, 1.66287f);
 	init(3.68863e24, nmoonOrbit, 4);
 	setModel(sphere);
@@ -361,38 +360,47 @@ void GravityBodyBuilder::buildAlienSystem() {
 }
 
 void GravityBodyBuilder::buildTestSystem() {
-	size_t sphere = Model::Icosphere(4);
+	size_t sphere = Model::Icosphere(5);
 	glm::vec4 diffuseMat(0.0f, 1.0f, 0.0f, 0.0f);
-	glm::vec4 ambMat(1.0f, 0.0f, 0.0f, 0.0f);
-	Surface testSun = Surface("../../assets/grid.jpg", ambMat);
+	glm::vec4 darkMoonMat(0.5f, 0.0f, 0.0f, 0.0f);
+	Surface sun = Surface("../../assets/sol/sun.jpg", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	Surface earth = Surface("../../assets/sol/earth.jpg", diffuseMat);
+	earth.setNormal("../../assets/sol/earth_normal.jpg");
+	Surface moon = Surface("../../assets/sol/moon.jpg", darkMoonMat);
+	moon.setNormal("../../assets/sol/moon_normal.jpg");
 
-	init(1e30f);
+	// sun
+	init(1.9891e30f);
 	setModel(sphere);
-	setRadius(500.0f, 0.1f);
-	double spin = 2 * pi / 86400 / 20;
-	setRotation(glm::dvec3(0.3, 0, 0), glm::dvec3(0, spin, 0));
-	setSurface(testSun);
+	setRadius(695.7f, 5e-5f);
+	double spin = 2 * pi / 86400 / 27;
+	setMotion(glm::dvec3(0.0), glm::dvec3(0.0));
+	setRotation(glm::dvec3(0.126, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(sun);
 	addToBodiesLists();
 
-	Orbit testOrbit1(1e5, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	init(1e29, testOrbit1, 0);
+	// earth
+	Orbit earthOrbit(1.495983e5, 0.01671123f, 1.796601f, 0.0f, -2.672099e-7f, -0.043163f);
+	init(5.9722e24, earthOrbit, 0);
 	setModel(sphere);
-	setRadius(100.0f, 0.01f);
-	spin = 2 * pi / 86400 / 50;
-	setRotation(glm::dvec3(0.6, 0, 0), glm::dvec3(0, spin, 0));
-	setSurface(Surface("../../assets/grid.jpg", diffuseMat, glm::vec3(0.0f, 0.0f, 1.0f)));
-	addTrail(glm::vec3(1.0f, 0.0f, 0.0f));
-	addToBodiesLists();
-
-	Orbit testOrbit2(1e3, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	init(1e27, testOrbit2, 1);
-	setModel(sphere);
-	setRadius(20.0f, 0.06f);
-	spin = 2 * pi / 86400 / 20;
-	setRotation(glm::dvec3(0.2, 0, 0), glm::dvec3(0, spin, 0));
-	setSurface(Surface("../../assets/grid.jpg", diffuseMat, glm::vec3(1.0f, 0.0f, 0.0f)));
+	setRadius(6.378137f, 3.35e-3f);
+	spin = 2 * pi / 86400;
+	setRotation(glm::dvec3(0.40910518, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(earth);
 	addTrail(glm::vec3(0.0f, 0.0f, 1.0f));
 	addToBodiesLists();
+
+	// moon
+	Orbit moonOrbit(384.399, 0.0549f, pi / 2, 0.0f, 0.08979719f, -pi / 2);
+	init(7.346e22, moonOrbit, 1);
+	setModel(sphere);
+	setRadius(1.7381f, 1.24e-3f);
+	spin = 2 * pi / 86400 / 27.321661;
+	setRotation(glm::dvec3(0.1167276, 0, 0), glm::dvec3(0, spin, 0));
+	setSurface(moon);
+	addTrail(glm::vec3(0.8f, 0.0f, 0.0f));
+	addToBodiesLists();
+	bodies[bodies.size() - 1]->j2 = 2.034e-4; // non-standard j2
 }
 
 // adjust motion of all bodies in the world to achieve net zero motion relative to the world space

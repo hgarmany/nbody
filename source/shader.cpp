@@ -162,13 +162,13 @@ Shader initStandardShader() {
 			float emission = material.w;
 
 			// Final color
-			vec3 result = (clamp(amb + diff + spec, 0.0, 1.0) * lightColor + emission) * objectColor;
+			vec3 result = (clamp(amb + (diff + spec) * eclipseFactor(), 0.0, 1.0) * lightColor + emission) * objectColor;
 			if (usesTexture == 1) {
 				vec4 texColor = texture(textureMap, TexCoords);
-				FragColor = texColor * vec4(result * eclipseFactor(), 1.0);
+				FragColor = texColor * vec4(result, 1.0);
 			}
 			else {
-				FragColor = vec4(result * eclipseFactor(), 1.0);
+				FragColor = vec4(result, 1.0);
 			}
 		}
 	)";
