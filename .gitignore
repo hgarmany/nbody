@@ -1,5 +1,6 @@
 /.vs
-/lib
+/lib/glew*
 /nbody
 /x64
 *.ini
+/glfw
