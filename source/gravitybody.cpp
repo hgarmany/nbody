@@ -1,5 +1,6 @@
 ﻿#include "gravitybody.h"
 #include "barycenter.h"
+#include <stdexcept>
 
 context bodies, frameBodies;
 
@@ -11,6 +12,7 @@ GravityBody::GravityBody(double mass) {
 	gravityType = POINT;
 	radius = j2 = 0.0;
 	oblateness = 0.0f;
+	hasCustomAxisymmetricData = false;
 	momentOfInertia = angularMomentum = torque = nextTorque = glm::dvec3(0.0);
 }
 
@@ -22,6 +24,7 @@ GravityBody::GravityBody(double mass, Orbit orbit, size_t parentIndex, bool addT
 	gravityType = POINT;
 	radius = j2 = 0.0;
 	oblateness = 0.0f;
+	hasCustomAxisymmetricData = false;
 	momentOfInertia = angularMomentum = torque = nextTorque = glm::dvec3(0.0);
 
 	glm::dvec3 parentPos, parentVel;
@@ -156,11 +159,15 @@ void GravityBody::initTidalParams() {
 }
 */
 void GravityBody::initJ2() {
-	glm::dvec3 rotVelocity = getRotVelocity();
-	j2 = (2 * oblateness - ((radius * radius * radius * rotVelocity.y * rotVelocity.y) / (G * mass))) / 3.0;
+	if (hasCustomAxisymmetricData)
+		return;
+	j2 = (momentOfInertia.y - momentOfInertia.x) / (mass * radius * radius);
 }
 
 void GravityBody::initI() {
+	if (hasCustomAxisymmetricData)
+		return;
+
 	if (gravityType == OBLATE_SPHERE) {
 		double polarRadius = radius * (1 - oblateness);
 		double equatorialMoment = 0.2 * mass * (radius * radius + polarRadius * polarRadius);
@@ -201,6 +208,37 @@ void GravityBody::rotateRK4(double dt) {
 	glm::dquat rotationChange = (k1 + k2 * 2.0 + k3 * 2.0 + k4) * (dt / 6.0);
 	rotQuat = glm::normalize(rotQuat + rotationChange); // new orientation quat
 	angularMomentum += torque * dt;
+}
+
+/*
+ * Write over oblate sphere information with custom physical properties
+ * Object retains its visual flatness but behaves according to new mass distribution
+ * 
+ * @param j2
+ * @param normalizedPolarMoment
+ * @param referenceRadius chosen radius for J2 and norm. polar moment data (usually mean radius)
+ */
+void GravityBody::setCustomAxisymmetricData(double j2, double normalizedPolarMoment, double referenceRadius) {
+	if (gravityType != OBLATE_SPHERE || mass <= 0.0 || radius <= 0.0 || referenceRadius <= 0.0)
+		throw std::invalid_argument("Custom axisymmetric data requires positive mass, polar moment, and reference/body radii on an oblate body");
+
+	const double referenceScale = (referenceRadius / radius) * (referenceRadius / radius);
+	j2 *= referenceScale;
+	normalizedPolarMoment *= referenceScale;
+
+	if (momentOfInertia == glm::dvec3(0.0))
+		initI();
+	const glm::dvec3 angularVelocity = getRotVelocity();
+	const double mr2 = mass * radius * radius;
+	const double polarMoment = normalizedPolarMoment * mr2;
+	const double equatorialMoment = polarMoment - j2 * mr2;
+	if (polarMoment <= 0.0 || equatorialMoment <= 0.0)
+		throw std::invalid_argument("Custom J2 and polar moment imply a non-positive equatorial moment");
+
+	hasCustomAxisymmetricData = true;
+	this->j2 = j2;
+	momentOfInertia = glm::dvec3(equatorialMoment, polarMoment, equatorialMoment);
+	angularMomentum = rotQuat * (momentOfInertia * angularVelocity);
 }
 
 void GravityBody::draw(Shader& shader, uint8_t mode) {

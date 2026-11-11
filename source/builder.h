@@ -98,6 +98,11 @@ public:
 		}
 	}
 
+	void setCustomAxisymmetricData(double j2, double normalizedPolarMoment, double referenceRadius) {
+		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity))
+			body->setCustomAxisymmetricData(j2, normalizedPolarMoment, referenceRadius);
+	}
+
 	void addTrail(glm::vec3 color = glm::vec3(1.0f), size_t parentIndex = -1) {
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
 			if (parentIndex == -1)
@@ -109,6 +114,10 @@ public:
 
 	std::shared_ptr<GravityBody> get() {
 		if (auto body = std::dynamic_pointer_cast<GravityBody>(entity)) {
+			if (body->momentOfInertia == glm::dvec3(0.0))
+				body->initI();
+			if (body->gravityType == OBLATE_SPHERE && body->j2 == 0.0)
+				body->initJ2();
 			body->updateMatrix();
 			return body;
 		}

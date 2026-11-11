@@ -154,33 +154,39 @@ static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<
 	double distance = glm::length(displacement);
 	double distanceSq = distance * distance;
 	double distanceCu = distance * distanceSq;
+	double distance4P = distanceSq * distanceSq;
 
 	glm::dvec3 direction = glm::normalize(displacement);
 	glm::dvec3 fieldLine = (G * direction) / (distance * distance);
 	glm::dvec3 accelerationA = b->mass * fieldLine;
+	glm::dvec3 accelerationB = -a->mass * fieldLine;
 
 	if (b->gravityType == OBLATE_SPHERE) {
 		// oblate perturbations on a by b, using MacCullagh's formula
 		glm::dvec3 axisOfRotation = glm::normalize(b->rotQuat * glm::dvec3(0.0, 1.0, 0.0));
 		double cosTheta = glm::dot(-direction, axisOfRotation);
-		double sin2Theta = 1 - cosTheta * cosTheta;
 		double radiusSq = b->radius * b->radius;
-		accelerationA *= 1 - 3.0 * b->j2 * radiusSq / distanceSq * (3.0 * sin2Theta - 1.0);
+
+		glm::dvec3 adjustment = G * b->mass * 1.5 * b->j2 * radiusSq / distance4P *
+			((5 * cosTheta * cosTheta - 1) * -direction - 2 * cosTheta * axisOfRotation);
+		accelerationA += adjustment;
+		accelerationB += (-a->mass / b->mass) * adjustment;
 
 		// torque
 		b->nextTorque += 3.0 * G * a->mass * b->mass * b->j2 * radiusSq / distanceCu
 			* cosTheta * glm::cross(-direction, axisOfRotation);
 	}
 
-	glm::dvec3 accelerationB = -a->mass * fieldLine;
-
 	if (a->gravityType == OBLATE_SPHERE) {
 		// oblate perturbations on b by a, using MacCullagh's formula
 		glm::dvec3 axisOfRotation = glm::normalize(a->rotQuat * glm::dvec3(0.0, 1.0, 0.0));
 		double cosTheta = glm::dot(direction, axisOfRotation);
-		double sin2Theta = 1 - cosTheta * cosTheta;
 		double radiusSq = a->radius * a->radius;
-		accelerationB *= 1 - 3.0 * a->j2 * radiusSq / distanceSq * (3.0 * sin2Theta - 1.0);
+
+		glm::dvec3 adjustment = G * a->mass * 1.5 * a->j2 * radiusSq / distance4P *
+			((5 * cosTheta * cosTheta - 1) * direction - 2 * cosTheta * axisOfRotation);
+		accelerationA += (-b->mass / a->mass) * adjustment;
+		accelerationB += adjustment;
 
 		// torque
 		a->nextTorque += 3.0 * G * a->mass * b->mass * a->j2 * radiusSq / distanceCu

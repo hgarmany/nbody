@@ -66,8 +66,8 @@ public:
 	glm::dvec3 angularMomentum, torque, nextTorque; // in world frame
 	Trail* trail;
 	size_t parentIndex;
-	double mass, radius, j2;
-	float oblateness;//, loveNumber, qualityFactor;
+	double mass, radius, j2; // mass in kg, equatorial radius in Mm, j2 coeff.
+	float oblateness;//, loveNumber, qualityFactor
 	gravType gravityType;
 	Barycenter* barycenter;
 
@@ -78,12 +78,14 @@ public:
 	//void initTidalParams();
 	void initJ2();
 	void initI();
+	void setCustomAxisymmetricData(double j2, double normalizedPolarMoment, double referenceRadius);
 
 	glm::dvec3 getRotVelocity();
 	void rotateRK4(double dt);
 
 	void draw(Shader& shader, uint8_t mode);
 private:
+	bool hasCustomAxisymmetricData;
 	glm::dquat rotateDeriv(const glm::dquat& orientation, const glm::dvec3& momentum);
 };
 

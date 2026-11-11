@@ -132,12 +132,12 @@ void GravityBodyBuilder::buildSolarSystem() {
 	init(7.346e22, moonOrbit, 3);
 	setModel(sphere);
 	setRadius(1.7381f, 1.24e-3f);
+	setCustomAxisymmetricData(2.033e-4, 0.3929, 1.7374);
 	spin = 2 * pi / 86400 / 27.321661;
 	setRotation(glm::dvec3(0.1167276, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(moon);
 	addTrail();
 	addToBodiesLists();
-	bodies[bodies.size() - 1]->j2 = 2.034e-4; // non-standard j2
 	
 	// io
 	Orbit ioOrbit(421.7, 0.0041f, 1.705798f, 5.462549f, 8.726646e-4f, -5.305661f);
@@ -395,12 +395,12 @@ void GravityBodyBuilder::buildTestSystem() {
 	init(7.346e22, moonOrbit, 1);
 	setModel(sphere);
 	setRadius(1.7381f, 1.24e-3f);
+	setCustomAxisymmetricData(2.033e-4, 0.3929, 1.7374);
 	spin = 2 * pi / 86400 / 27.321661;
 	setRotation(glm::dvec3(0.1167276, 0, 0), glm::dvec3(0, spin, 0));
 	setSurface(moon);
 	addTrail(glm::vec3(0.8f, 0.0f, 0.0f));
 	addToBodiesLists();
-	bodies[bodies.size() - 1]->j2 = 2.034e-4; // non-standard j2
 }
 
 // adjust motion of all bodies in the world to achieve net zero motion relative to the world space
