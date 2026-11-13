@@ -131,7 +131,7 @@ glm::dmat4 relativeRotationalMatrix(
 glm::dvec3 orbitalVelocity(size_t parent, size_t orbiter) {
 	glm::dvec3 gravitation = bodies[parent]->position - bodies[orbiter]->position;
 	double distance = glm::length(gravitation);
-	double magnitude = sqrt(G * bodies[parent]->mass / distance);
+	double magnitude = sqrt(G * (bodies[parent]->mass + bodies[orbiter]->mass) / distance);
 	return magnitude * glm::normalize(glm::cross(glm::dvec3(0, 1, 0), gravitation));
 }
 
@@ -140,13 +140,13 @@ static glm::vec3 eccentricityVector(size_t parent, size_t orbiter) {
 	glm::dvec3 velocity = bodies[orbiter]->velocity - bodies[parent]->velocity;
 
 	glm::dvec3 orbitalMomentum = glm::cross(position, velocity);
-	return glm::cross(velocity, orbitalMomentum) / (G * bodies[parent]->mass) - position / glm::length(position);
+	return glm::cross(velocity, orbitalMomentum) / (G * (bodies[parent]->mass + bodies[orbiter]->mass)) - position / glm::length(position);
 }
 
 static double semiMajorAxis(size_t parent, size_t orbiter) {
 	double distance = glm::distance(bodies[orbiter]->position, bodies[parent]->position);
 	double speed = glm::distance(bodies[orbiter]->velocity, bodies[parent]->velocity);
-	return 1.0 / (2.0 / distance - speed * speed / (G * bodies[parent]->mass));
+	return 1.0 / (2.0 / distance - speed * speed / (G * (bodies[parent]->mass + bodies[orbiter]->mass)));
 }
 
 static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<GravityBody>& b) {
@@ -157,7 +157,7 @@ static void gravitationalForce(std::shared_ptr<GravityBody>& a, std::shared_ptr<
 	double distance4P = distanceSq * distanceSq;
 
 	glm::dvec3 direction = glm::normalize(displacement);
-	glm::dvec3 fieldLine = (G * direction) / (distance * distance);
+	glm::dvec3 fieldLine = (G * direction) / distanceSq;
 	glm::dvec3 accelerationA = b->mass * fieldLine;
 	glm::dvec3 accelerationB = -a->mass * fieldLine;
 
@@ -356,7 +356,7 @@ static void ellipticalPath(context& bodies, size_t parent, size_t orbiter) {
 	else {
 		r0 = bodies[parent]->position;
 		velParent = bodies[parent]->velocity;
-		parentMass = bodies[parent]->mass;
+		parentMass = bodies[parent]->mass + bodies[orbiter]->mass;
 	}
 
 	if (bodies[orbiter]->barycenter) {

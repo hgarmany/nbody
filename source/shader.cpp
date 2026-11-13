@@ -356,7 +356,7 @@ Shader initSpriteShader() {
 			gl_Position = projection * view * vec4(instancePos, 1.0);
 
 			TexCoord = aTexCoord;
-    
+	
 			// scale the sprite based on window and texture dimensions
 			vec2 ndcOffset = vec2(aPos.x * texSize.x / windowSize.x, aPos.y * texSize.y / windowSize.y);
 

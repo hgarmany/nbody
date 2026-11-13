@@ -27,19 +27,20 @@ GravityBody::GravityBody(double mass, Orbit orbit, size_t parentIndex, bool addT
 	hasCustomAxisymmetricData = false;
 	momentOfInertia = angularMomentum = torque = nextTorque = glm::dvec3(0.0);
 
+	const std::shared_ptr<GravityBody>& parent = bodies[parentIndex];
 	glm::dvec3 parentPos, parentVel;
 	double parentMass;
 
-	Barycenter* parentBary = bodies[parentIndex]->barycenter;
+	Barycenter* parentBary = parent->barycenter;
 	if (parentBary) {
 		parentPos = parentBary->position(bodies);
 		parentVel = parentBary->velocity(bodies);
 		parentMass = parentBary->mass(bodies);
 	}
 	else {
-		parentPos = bodies[parentIndex]->position;
-		parentVel = bodies[parentIndex]->velocity;
-		parentMass = bodies[parentIndex]->mass;
+		parentPos = parent->position;
+		parentVel = parent->velocity;
+		parentMass = parent->mass;
 	}
 
 	double massRatio = mass / parentMass;
@@ -95,7 +96,7 @@ GravityBody::GravityBody(double mass, Orbit orbit, size_t parentIndex, bool addT
 	if (parentBary)
 		parentBary->velocityOffset(bodies, -orbitalVelocity * massRatio);
 	else
-		bodies[parentIndex]->velocity -= orbitalVelocity * massRatio;
+		parent->velocity -= orbitalVelocity * massRatio;
 
 	glm::dvec3 orbitalPosition = rotate * glm::dvec4(-positionInFrame.x, 0.0f, positionInFrame.y, 0.0f);
 	position = orbitalPosition + parentPos;
@@ -107,9 +108,9 @@ GravityBody::GravityBody(double mass, Orbit orbit, size_t parentIndex, bool addT
 			parentBary->add(bodies.size());
 	}
 	else {
-		bodies[parentIndex]->position -= orbitalPosition * massRatio;
+		parent->position -= orbitalPosition * massRatio;
 		if (addToBary)
-			bodies[parentIndex]->barycenter = new ComplexBarycenter(parentIndex, bodies.size());
+			parent->barycenter = new ComplexBarycenter(parentIndex, bodies.size());
 	}
 }
 
