@@ -1,7 +1,7 @@
 #pragma once
 
 #include "shader.h"
-#include "physics.h"
+#include "../physics/physics.h"
 
 void initWindow();
 void initCamera();

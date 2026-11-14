@@ -3,7 +3,7 @@
 #include <condition_variable>
 #include <thread>
 #include <chrono>
-#include "camera.h"
+#include "../ui/camera.h"
 #include "gravitybody.h"
 
 using Clock = std::chrono::high_resolution_clock;

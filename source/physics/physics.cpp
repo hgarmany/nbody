@@ -1,6 +1,6 @@
 ﻿#include "physics.h"
 #include "barycenter.h"
-#include "logger.h"
+#include "../logger.h"
 
 std::vector<std::unique_ptr<Logger>> loggers;
 

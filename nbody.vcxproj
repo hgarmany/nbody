@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="source\*.h" />
+    <ClInclude Include="source\**\*.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lib\imgui-docking\backends\imgui_impl_glfw.cpp" />
@@ -28,7 +28,7 @@
     <ClCompile Include="lib\imgui-docking\imgui_draw.cpp" />
     <ClCompile Include="lib\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="lib\imgui-docking\imgui_widgets.cpp" />
-    <ClCompile Include="source\*.cpp" />
+    <ClCompile Include="source\**\*.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="glfw.vcxproj">
@@ -36,6 +36,7 @@
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <ReplaceWildcardsInProjectItems>true</ReplaceWildcardsInProjectItems>
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{2e329311-8fb4-449f-88ea-6dda92de9090}</ProjectGuid>

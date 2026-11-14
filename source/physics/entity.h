@@ -1,8 +1,8 @@
 #pragma once
 
-#include "model.h"
-#include "shader.h"
-#include "surface.h"
+#include "../ui/model.h"
+#include "../ui/shader.h"
+#include "../ui/surface.h"
 #include <gtc/matrix_transform.hpp>
 #include <gtc/quaternion.hpp>
 #include <memory>

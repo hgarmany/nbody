@@ -1,7 +1,7 @@
 #pragma once
 
 #include "entity.h"
-#include "trail.h"
+#include "../ui/trail.h"
 
 enum gravType : uint8_t {
 	POINT,

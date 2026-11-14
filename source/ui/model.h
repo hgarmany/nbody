@@ -4,7 +4,7 @@
 #include <string>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include "util.h"
+#include "../util.h"
 
 class Model {
 public:

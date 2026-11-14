@@ -1,6 +1,6 @@
 #include "builder.h"
-#include "render.h"
-#include "controls.h"
+#include "ui/render.h"
+#include "ui/controls.h"
 
 static void MessageCallback(GLenum source,
 	GLenum type,

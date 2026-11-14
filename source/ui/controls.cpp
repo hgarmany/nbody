@@ -1,5 +1,5 @@
 #include "controls.h"
-#include "physics.h"
+#include "../physics/physics.h"
 #include <glm.hpp>
 #include <gtc/quaternion.hpp>
 
@@ -8,7 +8,7 @@ bool cursorDisabled = true;
 bool overheadLock = false;
 bool showWelcomeMenu = true;
 bool showLockIndexMenu = true;
-bool showSettingsMenu = false;
+uint8_t toolbarState = STATE_DEFAULT;
 bool doStarSprites = true;
 
 const float defaultFOV = glm::radians(45.0f);

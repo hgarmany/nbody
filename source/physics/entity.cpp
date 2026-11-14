@@ -3,6 +3,7 @@
 std::shared_ptr<Entity> Entity::skybox;
 
 std::vector<std::shared_ptr<Entity>> entities;
+std::vector<std::shared_ptr<Entity>> frameEntities;
 
 glm::dmat4 Entity::updateMatrix(bool doScale) {
 	modelMatrix = glm::dmat4(1.0f);

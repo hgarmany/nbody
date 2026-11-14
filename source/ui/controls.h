@@ -4,7 +4,14 @@
 #include <map>
 #include <GLFW/glfw3.h>
 
-extern bool overheadLock, showWelcomeMenu, showLockIndexMenu, showSettingsMenu, doStarSprites;
+enum toolbar_state : uint8_t {
+	STATE_DEFAULT,
+	STATE_SANDBOX,
+	STATE_PHYSICS
+};
+
+extern bool overheadLock, showWelcomeMenu, showLockIndexMenu, doStarSprites;
+extern uint8_t toolbarState;
 extern int windowWidth, windowHeight;
 extern double lastX, lastY, deltaTime;
 

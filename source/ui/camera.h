@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include <gtc/quaternion.hpp>
-#include "entity.h"
+#include "../physics/entity.h"
 
 static const float SENSITIVITY = 0.002f; // control on mouse sensitivity
 

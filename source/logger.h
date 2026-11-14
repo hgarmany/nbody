@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gravitybody.h"
+#include "physics/gravitybody.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>

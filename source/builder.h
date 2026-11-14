@@ -1,7 +1,7 @@
 #pragma once
 
-#include "gravitybody.h"
-#include "barycenter.h"
+#include "physics/gravitybody.h"
+#include "physics/barycenter.h"
 
 class EntityBuilder {
 protected:

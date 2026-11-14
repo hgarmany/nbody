@@ -1,6 +1,8 @@
 ﻿#include "render.h"
 #include "controls.h"
-#include "barycenter.h"
+#include "toolbar.h"
+#include "../physics/barycenter.h"
+#include "../util.h"
 #include <mutex>
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -25,8 +27,6 @@ Shader shader, skyboxShader, trailShader, frameShader, spriteShader;
 
 std::vector<glm::vec3> trailVertices;
 std::vector<float> trailAlphas;
-
-std::vector<std::shared_ptr<Entity>> frameEntities;
 
 static void setPV(Shader& shader, glm::mat4& P, glm::mat4& V) {
 	glUniformMatrix4fv(shader.P, 1, GL_FALSE, &P[0][0]);
@@ -90,7 +90,7 @@ void initWindow() {
 }
 
 // Set this function as a callback to update projection matrix during window resizing
-void static window_size_callback(GLFWwindow* window, int width, int height) {
+void window_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);  // Set the OpenGL viewport to match the new window size
 	windowWidth = width;
 	windowHeight = height;
@@ -348,9 +348,16 @@ static void updateLockCam(Camera& eye) {
 	if (eye.atIndex != -1) {
 		std::shared_ptr<GravityBody> body = frameBodies[eye.atIndex];
 		if (eye.eyeIndex == -1 || eye.eyeIndex == eye.atIndex) {
-			if (body->parentIndex != -1 && overheadLock) {
-				eye.right = glm::normalize(body->position - frameBodies[body->parentIndex]->position);
-				eye.up = glm::normalize(body->velocity - frameBodies[body->parentIndex]->velocity);
+			if (body->parentIndex < frameBodies.size() && overheadLock) {
+				const std::shared_ptr<GravityBody>& parent = frameBodies[body->parentIndex];
+				Barycenter* bodyBary = body->barycenter;
+				Barycenter* parentBary = parent->barycenter;
+				const glm::dvec3 bodyPosition = bodyBary ? bodyBary->position(frameBodies) : body->position;
+				const glm::dvec3 bodyVelocity = bodyBary ? bodyBary->velocity(frameBodies) : body->velocity;
+				const glm::dvec3 parentPosition = parentBary ? parentBary->position(frameBodies) : parent->position;
+				const glm::dvec3 parentVelocity = parentBary ? parentBary->velocity(frameBodies) : parent->velocity;
+				eye.right = glm::normalize(bodyPosition - parentPosition);
+				eye.up = glm::normalize(bodyVelocity - parentVelocity);
 				eye.direction = glm::cross(eye.up, eye.right);
 				eye.right = glm::cross(eye.direction, eye.up);
 			}
@@ -756,7 +763,6 @@ static void drawGUI() {
 
 	ImGui::NewFrame();
 
-	float padding = 10.0f;
 	ImVec2 w1Size, w1Pos;
 	ImVec2 w2Size, w2Pos;
 
@@ -878,53 +884,18 @@ static void drawGUI() {
 		ImGui::End();
 	}
 
-	// settings controller
-	if (showSettingsMenu) {
-		ImGui::Begin("Settings", &showSettingsMenu,
-			ImGuiWindowFlags_NoResize |
-			ImGuiWindowFlags_NoMove |
-			ImGuiWindowFlags_AlwaysAutoResize);
-
-		float timeStepLog = (float)log10(timeStep);
-
-		ImGui::Checkbox("Physics", &hasPhysics);
-		ImGui::Text("Time Step (Logarithmic)");
-		ImGui::SliderFloat("##timestep", &timeStepLog, 0, 10);
-		ImGui::Checkbox("Trails", &doTrails);
-
-		ImGui::SetWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x - padding, padding), ImGuiCond_Always);
-
-		ImGui::End();
-
-		timeStep = pow(10.0, (double)timeStepLog);
-	}
-	else {
-		ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 50 - padding, padding), ImGuiCond_Always);
-
-		ImGui::PushFont(largeFont);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-
-		// Create a window without a title or background, to act as a button container
-		ImGui::Begin("Settings Button", nullptr,
-			ImGuiWindowFlags_NoTitleBar |
-			ImGuiWindowFlags_NoResize |
-			ImGuiWindowFlags_NoMove |
-			ImGuiWindowFlags_NoDecoration);
-
-		const char* settingsIcon = "\xE2\x9A\x99";  // UTF-8 encoding for ⚙
-
-		if (ImGui::Button(settingsIcon, ImVec2(50, 50))) {
-			showSettingsMenu = true;
-		}
-
-		ImGui::SetWindowSize(ImVec2(50, 50));
-
-		ImGui::End();
-
-		ImGui::PopFont();
-		ImGui::PopStyleVar();
-		ImGui::PopStyleColor();
+	switch (toolbarState) {
+		case STATE_DEFAULT:
+			drawToolbar(&toolbarState, largeFont);
+			break;
+		case STATE_SANDBOX:
+			drawSandboxDialog(&toolbarState);
+			break;
+		case STATE_PHYSICS:
+			drawPhysicsDialog(&toolbarState);
+			break;
+		default:
+			break;
 	}
 
 	// render dialogs
